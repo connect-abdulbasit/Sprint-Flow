@@ -17,7 +17,7 @@ export default function SignInForm() {
 
         setTimeout(() => {
             setLoading(false);
-            router.push("/onboarding/workspace");
+            router.push("/workspace/default/dashboard");
         }, 1000);
     };
 
