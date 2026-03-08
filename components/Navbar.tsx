@@ -34,16 +34,38 @@ export default function Navbar() {
 
       {/* Links */}
       <ul className="hidden md:flex items-center gap-9 list-none">
-        {["Features", "How it works", "Docs", "Changelog"].map((item) => (
-          <li key={item}>
-            <a
-              href={`#${item.toLowerCase().replace(" ", "-")}`}
-              className="text-[#9090a8] text-sm hover:text-[#f0f0f5] transition-colors duration-200 no-underline"
-            >
-              {item}
-            </a>
-          </li>
-        ))}
+        <li key="Features">
+          <a
+            href="#features"
+            className="text-[#9090a8] text-sm hover:text-[#f0f0f5] transition-colors duration-200 no-underline"
+          >
+            Features
+          </a>
+        </li>
+        <li key="How it works">
+          <a
+            href="#how-it-works"
+            className="text-[#9090a8] text-sm hover:text-[#f0f0f5] transition-colors duration-200 no-underline"
+          >
+            How it works
+          </a>
+        </li>
+        <li key="Docs">
+          <a
+            href="#"
+            className="text-[#9090a8] text-sm hover:text-[#f0f0f5] transition-colors duration-200 no-underline"
+          >
+            Docs
+          </a>
+        </li>
+        <li key="Changelog">
+          <a
+            href="#"
+            className="text-[#9090a8] text-sm hover:text-[#f0f0f5] transition-colors duration-200 no-underline"
+          >
+            Changelog
+          </a>
+        </li>
       </ul>
 
       {/* CTA */}
