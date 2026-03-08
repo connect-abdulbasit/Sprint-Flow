@@ -15,7 +15,7 @@ export default function Navbar() {
   return (
     <nav
       className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-12 h-16 transition-all duration-300 border-b ${scrolled
-        ? "bg-[#0a0a0f]/90 backdrop-blur-xl border-white/10"
+        ? "bg-[#0a0a0f]/90 backdrop-blur-xl border-white/5"
         : "bg-transparent border-transparent"
         }`}
     >
@@ -77,7 +77,7 @@ export default function Navbar() {
           Sign in
         </Link>
         <button className="px-5 py-2 text-sm font-medium text-white bg-[#4f7cff] rounded-lg hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer border-none font-[inherit]">
-          Get started free
+          Get started
         </button>
       </div>
     </nav>
