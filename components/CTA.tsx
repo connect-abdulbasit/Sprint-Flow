@@ -20,7 +20,7 @@ export default function CTA() {
         Ready to run better sprints?
       </h2>
       <p className="text-base text-[#9090a8] font-light mb-10 reveal relative z-10">
-        Get your team set up in minutes. Free forever for small teams.
+        Get your team set up in minutes.
       </p>
       <div className="flex items-center justify-center gap-3.5 reveal relative z-10">
         <button className="px-7 py-3.5 text-[0.95rem] font-medium text-white bg-[#4f7cff] rounded-xl hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer border-none font-[inherit]">

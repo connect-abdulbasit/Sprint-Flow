@@ -64,7 +64,7 @@ export default function Hero() {
       {/* Actions */}
       <div className="flex items-center gap-3.5 animate-[fadeUp_0.6s_0.3s_ease_both] opacity-0">
         <button className="px-7 py-3.5 text-[0.95rem] font-medium text-white bg-[#4f7cff] rounded-xl hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer border-none font-[inherit]">
-          Start for free →
+          Get started →
         </button>
         <button className="flex items-center gap-2 px-7 py-3.5 text-[0.95rem] text-[#f0f0f5] bg-transparent border border-white/7 rounded-xl hover:border-white/20 hover:bg-[#18181f] transition-all duration-200 cursor-pointer font-[inherit]">
           <svg
@@ -81,10 +81,7 @@ export default function Hero() {
         </button>
       </div>
 
-      {/* Note */}
-      <p className="mt-4 text-[0.8rem] text-[#6b6b80] animate-[fadeUp_0.6s_0.4s_ease_both] opacity-0">
-        Free for teams up to 5 · No credit card needed
-      </p>
+
 
       {/* Board Mockup */}
       <BoardMockup />
