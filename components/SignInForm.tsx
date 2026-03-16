@@ -15,12 +15,26 @@ export default function SignInForm() {
         e.preventDefault();
         setLoading(true);
 
-        setTimeout(() => {
-            setLoading(false);
-            router.push("/workspace/default/dashboard");
-        }, 1000);
-    };
+        try {
+            const res = await fetch("/api/auth/signin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
 
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body?.error ?? "Failed to sign in");
+            }
+
+            router.push("/workspace/default/dashboard");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Something went wrong";
+            alert(message);
+        } finally {
+            setLoading(false);
+        }
+    };
     return (
         <div className="w-full max-w-md">
             <div className="flex flex-col items-center mb-8">
