@@ -14,8 +14,32 @@ export default function SignUpForm() {
 
     const handleSignUp = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (password !== confirmPassword) {
+            alert("Passwords do not match");
+            return;
+        }
+
         setLoading(true);
-        setTimeout(() => setLoading(false), 1000);
+        try {
+            const res = await fetch("/api/auth/signup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: fullName, email, password }),
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body?.error ?? "Failed to create account");
+            }
+
+            // Automatically redirect to dashboard after signup
+            window.location.href = "/workspace/default/dashboard";
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Something went wrong";
+            alert(message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
