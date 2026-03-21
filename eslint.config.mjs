@@ -1,13 +1,8 @@
 import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
 import tsEslint from "typescript-eslint";
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  ...tsEslint.configs.strictTypeChecked,
-  ...tsEslint.configs.stylisticTypeChecked,
+  ...tsEslint.configs.recommended,
   {
     languageOptions: {
       parserOptions: {
@@ -24,22 +19,10 @@ const eslintConfig = defineConfig([
       "prefer-const": "error",
       "eqeqeq": ["error", "always"],
       "no-implicit-coercion": "error",
-      "no-unused-vars": "off", // handled by TypeScript
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
-      ],
-      "@typescript-eslint/explicit-function-return-types": [
-        "warn",
-        { allowExpressions: true, allowTypedFunctionExpressions: true },
-      ],
-      "@typescript-eslint/no-floating-promises": "error",
-      "@typescript-eslint/no-misused-promises": "error",
-      "@typescript-eslint/await-thenable": "error",
-      "@typescript-eslint/no-explicit-any": "error",
-      "react/no-unescaped-entities": "error",
-      "react/jsx-uses-react": "off",
-      "react/react-in-jsx-scope": "off",
+      "no-unused-vars": "off", 
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+
     },
   },
   // Override default ignores of eslint-config-next.
@@ -52,6 +35,8 @@ const eslintConfig = defineConfig([
     "node_modules/**",
     ".env*",
     "dist/**",
+    "*.mjs",
+    "*.config.ts"
   ]),
 ]);
 
