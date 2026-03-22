@@ -27,7 +27,7 @@ export default function SignInForm() {
         throw new Error(body?.error ?? "Failed to sign in");
       }
 
-      router.push("/workspace/default/dashboard");
+      router.push("/organizations");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong";
       alert(message);
