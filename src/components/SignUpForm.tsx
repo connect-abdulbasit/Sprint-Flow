@@ -207,6 +207,7 @@ export default function SignUpForm() {
 
       <button
         type="button"
+        onClick={() => window.location.href = '/api/auth/google'}
         className="w-full px-5 py-3 text-sm font-medium text-[#f0f0f5] bg-[#18181f] border border-[#333339] rounded-lg hover:bg-[#1f1f27] hover:border-[#4f7cff] transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
