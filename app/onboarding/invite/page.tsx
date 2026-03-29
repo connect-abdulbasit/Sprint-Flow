@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Users, Plus, X, ChevronDown, Check } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Users, Plus, X, ChevronDown, Check, Loader2 } from "lucide-react";
 
 type Role = "Admin" | "Member" | "Viewer";
 
@@ -14,12 +14,16 @@ interface Invite {
 
 export default function InviteTeamPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const workspaceId = searchParams.get("workspaceId");
 
     const [invites, setInvites] = useState<Invite[]>([
         { id: "1", email: "", role: "Member" }
     ]);
 
     const [openRoleDropdownId, setOpenRoleDropdownId] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const handleEmailChange = (id: string, email: string) => {
         setInvites(invites.map((inv) => (inv.id === id ? { ...inv, email } : inv)));
@@ -40,10 +44,40 @@ export default function InviteTeamPage() {
         }
     };
 
-    const handleSendInvites = (e: React.FormEvent) => {
+    const handleSendInvites = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Simulate sending invites
-        router.push("/dashboard"); // or wherever the user goes next
+        setError(null);
+
+        const emailsToInvite = invites.filter((inv) => inv.email.trim() !== "");
+
+        if (emailsToInvite.length > 0 && workspaceId) {
+            setIsLoading(true);
+            try {
+                await Promise.all(
+                    emailsToInvite.map((inv) =>
+                        fetch(`/api/workspace/${workspaceId}/members`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                email: inv.email.trim().toLowerCase(),
+                                role: inv.role.toLowerCase() as "member" | "admin",
+                            }),
+                        })
+                    )
+                );
+            } catch {
+                setError("Some invites may not have been sent.");
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        // Redirect to the workspace dashboard
+        if (workspaceId) {
+            router.push(`/workspace/${workspaceId}/dashboard`);
+        } else {
+            router.push("/");
+        }
     };
 
     const activeInvitesCount = invites.filter((inv) => inv.email.trim() !== "").length;
@@ -88,6 +122,7 @@ export default function InviteTeamPage() {
                                         value={invite.email}
                                         onChange={(e) => handleEmailChange(invite.id, e.target.value)}
                                         className="w-full bg-[#18181f] border border-[#333339] hover:border-[#4f7cff]/50 focus:border-[#4f7cff] focus:ring-1 focus:ring-[#4f7cff] rounded-xl px-4 py-3 text-sm text-[#f0f0f5] placeholder-[#6b6b80] outline-none transition-all duration-200"
+                                        disabled={isLoading}
                                     />
                                 </div>
 
@@ -97,6 +132,7 @@ export default function InviteTeamPage() {
                                         type="button"
                                         onClick={() => setOpenRoleDropdownId(openRoleDropdownId === invite.id ? null : invite.id)}
                                         className="w-full flex items-center justify-between bg-[#18181f] border border-[#333339] hover:border-[#4f7cff]/50 rounded-xl px-4 py-3 text-sm font-medium text-[#f0f0f5] outline-none transition-all duration-200"
+                                        disabled={isLoading}
                                     >
                                         {invite.role}
                                         <ChevronDown className="h-4 w-4 text-[#6b6b80]" />
@@ -127,7 +163,7 @@ export default function InviteTeamPage() {
                                     type="button"
                                     onClick={() => removeInviteRow(invite.id)}
                                     className="w-8 h-8 flex items-center justify-center rounded-lg text-[#6b6b80] hover:text-[#ff4f4f] hover:bg-[#ff4f4f]/10 transition-colors"
-                                    disabled={invites.length === 1}
+                                    disabled={invites.length === 1 || isLoading}
                                 >
                                     <X className="h-4 w-4" />
                                 </button>
@@ -141,6 +177,7 @@ export default function InviteTeamPage() {
                             type="button"
                             onClick={addInviteRow}
                             className="flex items-center gap-2 text-sm font-medium text-[#4f7cff] hover:text-[#a259ff] py-2 px-1 transition-colors"
+                            disabled={isLoading}
                         >
                             <div className="h-5 w-5 rounded-full bg-[#4f7cff]/10 flex items-center justify-center">
                                 <Plus className="h-3 w-3" />
@@ -149,31 +186,45 @@ export default function InviteTeamPage() {
                         </button>
                     </div>
 
+                    {/* Error message */}
+                    {error && (
+                        <p className="text-[#ff4f4f] text-sm">{error}</p>
+                    )}
+
                     <hr className="border-[#333339] my-8" />
 
                     {/* Footer Actions */}
                     <div className="flex items-center justify-between gap-4 pt-2">
                         <button
                             type="button"
-                            onClick={() => router.push("/dashboard")}
+                            onClick={() => router.push(workspaceId ? `/workspace/${workspaceId}/dashboard` : "/")}
                             className="text-sm font-medium text-[#9090a8] hover:text-[#f0f0f5] px-4 py-2 transition-colors"
+                            disabled={isLoading}
                         >
                             Skip
                         </button>
                         <button
                             type="submit"
-                            className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 ${activeInvitesCount > 0
+                            disabled={isLoading}
+                            className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 flex items-center gap-2 ${activeInvitesCount > 0
                                 ? "bg-[#4f7cff] hover:opacity-90 text-white shadow-[0_2px_10px_rgb(79,124,255,0.3)] hover:shadow-[0_4px_15px_rgb(79,124,255,0.4)] transform hover:-translate-y-0.5"
                                 : "bg-[#18181f] text-[#f0f0f5] border border-[#333339] hover:bg-[#1f1f27]"
                                 }`}
                         >
-                            {activeInvitesCount > 0 ? `Send ${activeInvitesCount} Invites` : "Continue without Invites"}
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Sending...
+                                </>
+                            ) : (
+                                activeInvitesCount > 0 ? `Send ${activeInvitesCount} Invites` : "Continue without Invites"
+                            )}
                         </button>
                     </div>
                 </form>
             </div>
 
-            {/* Click outside to close dropdowns handler overlay (simplified) */}
+            {/* Click outside to close dropdowns handler overlay */}
             {openRoleDropdownId && (
                 <div
                     className="fixed inset-0 z-40"

@@ -2,12 +2,14 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Hexagon, ArrowRight, Building } from "lucide-react";
+import { Upload, Hexagon, ArrowRight, Building, Loader2 } from "lucide-react";
 
 export default function CreateWorkspacePage() {
     const router = useRouter();
     const [workspaceName, setWorkspaceName] = useState("");
     const [isFocused, setIsFocused] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Auto-generate slug (to lowercase, replace spaces with hyphens)
     const slug = workspaceName
@@ -17,10 +19,34 @@ export default function CreateWorkspacePage() {
         .replace(/[\s_-]+/g, "-")
         .replace(/^-+|-+$/g, "");
 
-    const handleContinue = (e: React.FormEvent) => {
+    const handleContinue = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!workspaceName.trim()) return;
-        router.push("/onboarding/invite");
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            const res = await fetch("/api/workspace", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: workspaceName }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                setError(data.error ?? "Something went wrong");
+                return;
+            }
+
+            // Redirect to invite page with the new workspace id
+            router.push(`/onboarding/invite?workspaceId=${data.workspace.id}`);
+        } catch {
+            setError("Failed to create workspace. Please try again.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const currentDomain = "sprintflow.com";
@@ -89,8 +115,14 @@ export default function CreateWorkspacePage() {
                                     onBlur={() => setIsFocused(false)}
                                     placeholder="Acme Corp"
                                     className="w-full bg-transparent px-4 py-3 text-[#f0f0f5] placeholder-[#6b6b80] outline-none text-base font-medium rounded-xl"
+                                    disabled={isLoading}
                                 />
                             </div>
+
+                            {/* Error message */}
+                            {error && (
+                                <p className="text-[#ff4f4f] text-sm mt-2">{error}</p>
+                            )}
 
                             {/* URL Preview */}
                             <div className="mt-3 flex items-start gap-2 bg-[#18181f] rounded-lg p-3 border border-[#333339]">
@@ -112,18 +144,28 @@ export default function CreateWorkspacePage() {
                                 type="button"
                                 onClick={() => router.push("/onboarding/invite")}
                                 className="text-sm font-medium text-[#9090a8] hover:text-[#f0f0f5] px-4 py-2 transition-colors"
+                                disabled={isLoading}
                             >
                                 Skip for now
                             </button>
                             <button
                                 type="submit"
-                                disabled={!workspaceName.trim()}
-                                className={`px-6 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${workspaceName.trim()
+                                disabled={!workspaceName.trim() || isLoading}
+                                className={`px-6 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${workspaceName.trim() && !isLoading
                                     ? "bg-[#4f7cff] hover:opacity-90 text-white shadow-[0_2px_10px_rgb(79,124,255,0.3)] hover:shadow-[0_4px_15px_rgb(79,124,255,0.4)] transform hover:-translate-y-0.5"
                                     : "bg-[#18181f] text-[#6b6b80] cursor-not-allowed"
                                     }`}
                             >
-                                Continue <ArrowRight className="h-4 w-4" />
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                        Creating...
+                                    </>
+                                ) : (
+                                    <>
+                                        Continue <ArrowRight className="h-4 w-4" />
+                                    </>
+                                )}
                             </button>
                         </div>
                     </form>

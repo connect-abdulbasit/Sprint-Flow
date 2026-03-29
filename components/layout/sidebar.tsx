@@ -17,9 +17,8 @@ import {
     ChevronDown,
     ChevronLeft,
     ChevronRight,
-    Menu,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Sidebar() {
     const pathname = usePathname() || "";
@@ -30,6 +29,28 @@ export default function Sidebar() {
 
     const projectMatch = pathname.match(/^\/workspace\/[^/]+\/projects\/([^/]+)/);
     const projectId = projectMatch ? projectMatch[1] : null;
+
+    // Fetch workspace name and current user dynamically
+    const [workspace, setWorkspace] = useState<{ name: string; id: string } | null>(null);
+    const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+
+    useEffect(() => {
+        fetch("/api/workspace")
+            .then((r) => r.json())
+            .then((data) => {
+                if (data.workspaces?.length > 0) {
+                    setWorkspace(data.workspaces[0]);
+                }
+            })
+            .catch(() => {});
+
+        fetch("/api/auth/me")
+            .then((r) => r.json())
+            .then((data) => {
+                if (data.user) setCurrentUser(data.user);
+            })
+            .catch(() => {});
+    }, []);
 
     const mainMenuItems = [
         { name: "Dashboard", href: `/workspace/${workspaceId}/dashboard`, icon: LayoutDashboard },
@@ -93,11 +114,11 @@ export default function Sidebar() {
                         }`}
                 >
                     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4f7cff] to-[#a259ff] flex items-center justify-center font-bold shrink-0 text-white shadow-[0_0_15px_rgba(79,124,255,0.4)]">
-                        S
+                        {workspace?.name?.charAt(0)?.toUpperCase() ?? "S"}
                     </div>
                     {!isCollapsed && (
                         <div className="flex-1 overflow-hidden ml-1 flex items-center justify-between">
-                            <div className="text-base font-bold truncate font-syne tracking-wide text-[#f0f0f5]">SprintFlow</div>
+                            <div className="text-base font-bold truncate font-syne tracking-wide text-[#f0f0f5]">{workspace?.name ?? "SprintFlow"}</div>
                             <ChevronDown className="w-4 h-4 text-[#6b6b80] shrink-0" />
                         </div>
                     )}
@@ -148,8 +169,8 @@ export default function Sidebar() {
                     </div>
                     {!isCollapsed && (
                         <div className="flex-1 overflow-hidden ml-1">
-                            <div className="text-sm font-semibold truncate text-[#f0f0f5]">Abdul Basit</div>
-                            <div className="text-[12px] text-[#6b6b80] truncate mt-0.5">abdul@example.com</div>
+                            <div className="text-sm font-semibold truncate text-[#f0f0f5]">{currentUser?.name ?? "..."}</div>
+                            <div className="text-[12px] text-[#6b6b80] truncate mt-0.5">{currentUser?.email ?? ""}</div>
                         </div>
                     )}
                 </div>
