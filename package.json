@@ -6,8 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings=0",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . --max-warnings=0 --no-warn-ignored",
+    "lint:fix": "eslint . --fix --no-warn-ignored",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "type-check": "tsc --noEmit",
@@ -18,12 +18,13 @@
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
       "prettier --write",
-      "eslint --fix",
-      "eslint --max-warnings=0"
+      "eslint --fix --no-warn-ignored",
+      "eslint --max-warnings=0 --no-warn-ignored"
     ],
     "*.json": "prettier --write"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
