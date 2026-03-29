@@ -1,0 +1,332 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ChevronDown,
+  Check,
+  Plus,
+  Settings,
+  ExternalLink,
+  Building2,
+  FolderKanban,
+} from "lucide-react";
+
+/* ── Mock data (replace with API calls later) ─────────────── */
+
+interface Organization {
+  id: string;
+  name: string;
+  initials: string;
+  role: string;
+  plan: string;
+  gradient: string;
+}
+
+interface Workspace {
+  id: string;
+  name: string;
+  color: string;
+  taskCount: number;
+  memberCount: number;
+}
+
+const organizations: Organization[] = [
+  {
+    id: "org-1",
+    name: "Acme Corporation",
+    initials: "AC",
+    role: "Owner",
+    plan: "Business",
+    gradient: "from-[#4f7cff] to-[#7c5cff]",
+  },
+  {
+    id: "org-2",
+    name: "Stark Industries",
+    initials: "SI",
+    role: "Member",
+    plan: "Enterprise",
+    gradient: "from-[#ff6b6b] to-[#ff9f43]",
+  },
+  {
+    id: "org-3",
+    name: "Personal Projects",
+    initials: "PP",
+    role: "Owner",
+    plan: "Free",
+    gradient: "from-[#00d4aa] to-[#00b4d8]",
+  },
+];
+
+const workspacesByOrg: Record<string, Workspace[]> = {
+  "org-1": [
+    { id: "engineering", name: "Engineering", color: "#4f7cff", taskCount: 42, memberCount: 12 },
+    { id: "marketing", name: "Marketing", color: "#ff9f43", taskCount: 18, memberCount: 6 },
+    { id: "design", name: "Design System", color: "#7c5cff", taskCount: 7, memberCount: 4 },
+  ],
+  "org-2": [
+    { id: "r-and-d", name: "R&D", color: "#ff6b6b", taskCount: 31, memberCount: 18 },
+    { id: "operations", name: "Operations", color: "#00d4aa", taskCount: 15, memberCount: 8 },
+  ],
+  "org-3": [
+    { id: "side-projects", name: "Side Projects", color: "#00b4d8", taskCount: 5, memberCount: 1 },
+  ],
+};
+
+/* ── Component ────────────────────────────────────────────── */
+
+export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
+  const pathname = usePathname() || "";
+  const router = useRouter();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedOrgId, setSelectedOrgId] = useState("org-1");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Detect current workspace from URL
+  const workspaceMatch = pathname.match(/^\/workspace\/([^/]+)/);
+  const currentWorkspaceId = workspaceMatch ? workspaceMatch[1] : null;
+
+  const selectedOrg = organizations.find((o) => o.id === selectedOrgId) ?? organizations[0];
+  const workspaces = workspacesByOrg[selectedOrgId] ?? [];
+  const currentWorkspace = workspaces.find((ws) => ws.id === currentWorkspaceId);
+
+  // Close on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
+  const handleWorkspaceSelect = (wsId: string) => {
+    router.push(`/workspace/${wsId}/dashboard`);
+    setIsOpen(false);
+  };
+
+  const handleOrgSelect = (orgId: string) => {
+    setSelectedOrgId(orgId);
+  };
+
+  /* ── Trigger button ── */
+
+  const trigger = (
+    <button
+      onClick={() => setIsOpen(!isOpen)}
+      className={`group flex items-center gap-3 w-full rounded-xl transition-all duration-200 hover:bg-white/[0.05] active:scale-[0.98] ${
+        isCollapsed ? "justify-center p-2" : "p-2.5"
+      } ${isOpen ? "bg-white/[0.05]" : ""}`}
+      title={isCollapsed ? `${selectedOrg.name}` : undefined}
+    >
+      {/* Org Avatar */}
+      <div
+        className={`w-9 h-9 rounded-xl bg-gradient-to-br ${selectedOrg.gradient} flex items-center justify-center text-[11px] font-black text-white shrink-0 shadow-[0_2px_12px_rgba(79,124,255,0.25)] transition-transform duration-200 group-hover:scale-105`}
+      >
+        {selectedOrg.initials}
+      </div>
+
+      {!isCollapsed && (
+        <div className="flex-1 overflow-hidden text-left">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] font-bold truncate text-[#f0f0f5] leading-tight">
+              {selectedOrg.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {currentWorkspace && (
+              <>
+                <div
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{
+                    background: currentWorkspace.color,
+                    boxShadow: `0 0 6px ${currentWorkspace.color}`,
+                  }}
+                />
+                <span className="text-[11px] text-[#8888a0] truncate">{currentWorkspace.name}</span>
+              </>
+            )}
+            {!currentWorkspace && (
+              <span className="text-[11px] text-[#6b6b80] truncate">Select workspace</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!isCollapsed && (
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-[#6b6b80] shrink-0 transition-transform duration-300 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      )}
+    </button>
+  );
+
+  /* ── Dropdown panel ── */
+
+  const dropdown = isOpen && (
+    <div
+      className={`absolute z-[100] mt-1.5 rounded-2xl border border-white/[0.08] bg-[#16161e]/95 backdrop-blur-2xl shadow-[0_20px_60px_-12px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)] overflow-hidden animate-in ${
+        isCollapsed ? "left-full ml-2 top-0 w-[300px]" : "left-0 right-0 w-full min-w-[280px]"
+      }`}
+      style={{
+        animation: "switcher-open 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+      }}
+    >
+      {/* ── Organizations ── */}
+      <div className="px-3 pt-3 pb-1.5">
+        <div className="flex items-center gap-1.5 px-2 mb-2">
+          <Building2 className="w-3 h-3 text-[#6b6b80]" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#6b6b80]">
+            Organizations
+          </span>
+        </div>
+        <div className="space-y-0.5">
+          {organizations.map((org) => {
+            const isSelected = org.id === selectedOrgId;
+            return (
+              <button
+                key={org.id}
+                onClick={() => handleOrgSelect(org.id)}
+                className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-all duration-150 ${
+                  isSelected
+                    ? "bg-white/[0.07] text-[#f0f0f5]"
+                    : "text-[#9090a8] hover:bg-white/[0.04] hover:text-[#d0d0db]"
+                }`}
+              >
+                <div
+                  className={`w-7 h-7 rounded-lg bg-gradient-to-br ${org.gradient} flex items-center justify-center text-[9px] font-black text-white shrink-0`}
+                >
+                  {org.initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-[12.5px] font-semibold truncate block leading-tight">
+                    {org.name}
+                  </span>
+                  <span className="text-[10px] text-[#6b6b80]">{org.role}</span>
+                </div>
+                {isSelected && (
+                  <Check className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Divider ── */}
+      <div className="mx-3 border-t border-white/[0.06]" />
+
+      {/* ── Workspaces ── */}
+      <div className="px-3 pt-2.5 pb-1.5">
+        <div className="flex items-center justify-between px-2 mb-2">
+          <div className="flex items-center gap-1.5">
+            <FolderKanban className="w-3 h-3 text-[#6b6b80]" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#6b6b80]">
+              Workspaces
+            </span>
+          </div>
+          <button
+            className="w-5 h-5 flex items-center justify-center rounded-md text-[#6b6b80] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-all duration-150"
+            title="New workspace"
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+        </div>
+        <div className="space-y-0.5">
+          {workspaces.map((ws) => {
+            const isActive = ws.id === currentWorkspaceId;
+            return (
+              <button
+                key={ws.id}
+                onClick={() => handleWorkspaceSelect(ws.id)}
+                className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-all duration-150 ${
+                  isActive
+                    ? "bg-white/[0.07] text-[#f0f0f5]"
+                    : "text-[#9090a8] hover:bg-white/[0.04] hover:text-[#d0d0db]"
+                }`}
+              >
+                <div
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{
+                    background: ws.color,
+                    boxShadow: `0 0 8px ${ws.color}40`,
+                  }}
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="text-[12.5px] font-medium truncate block leading-tight">
+                    {ws.name}
+                  </span>
+                </div>
+                <span className="text-[10px] text-[#6b6b80] tabular-nums shrink-0">
+                  {ws.taskCount} tasks
+                </span>
+                {isActive && <Check className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Footer ── */}
+      <div className="mx-3 border-t border-white/[0.06]" />
+      <div className="px-3 py-2 flex items-center gap-1">
+        <Link
+          href="/organizations"
+          onClick={() => setIsOpen(false)}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-[#6b6b80] hover:text-[#d0d0db] hover:bg-white/[0.04] transition-all duration-150"
+        >
+          <ExternalLink className="w-3 h-3" />
+          Manage orgs
+        </Link>
+        <div className="w-px h-3.5 bg-white/[0.06]" />
+        <Link
+          href={`/organization/${selectedOrgId}`}
+          onClick={() => setIsOpen(false)}
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-[#6b6b80] hover:text-[#d0d0db] hover:bg-white/[0.04] transition-all duration-150"
+        >
+          <Settings className="w-3 h-3" />
+          Org settings
+        </Link>
+      </div>
+    </div>
+  );
+
+  return (
+    <div ref={dropdownRef} className="relative px-4 py-4 border-b border-[#333339]">
+      {trigger}
+      {dropdown}
+
+      {/* Keyframe animation */}
+      <style jsx>{`
+        @keyframes switcher-open {
+          0% {
+            opacity: 0;
+            transform: translateY(-6px) scale(0.97);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
