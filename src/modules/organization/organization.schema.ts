@@ -54,6 +54,27 @@ export const organizationsTable = pgTable(
   })
 );
 
+// --- TABLE: organization_invites ---
+export const organizationInvitesTable = pgTable(
+  "organization_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizationsTable.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 255 }).notNull(),
+    role: orgRoleEnum("role").notNull().default("member"),
+    token: varchar("token", { length: 255 }).notNull(),
+    status: varchar("status", { length: 50 }).notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (t) => ({
+    orgIdx: index("organization_invites_org_idx").on(t.organizationId),
+    tokenIdx: index("organization_invites_token_idx").on(t.token),
+  })
+);
+
+
 // --- RELATIONS: organizationMembers ---
 export const organizationMembersRelations = relations(organizationMembersTable, ({ one }) => ({
   organization: one(organizationsTable, {
@@ -63,6 +84,14 @@ export const organizationMembersRelations = relations(organizationMembersTable, 
   user: one(usersTable, {
     fields: [organizationMembersTable.userId],
     references: [usersTable.id],
+  }),
+}));
+
+// --- RELATIONS: organizationInvites ---
+export const organizationInvitesRelations = relations(organizationInvitesTable, ({ one }) => ({
+  organization: one(organizationsTable, {
+    fields: [organizationInvitesTable.organizationId],
+    references: [organizationsTable.id],
   }),
 }));
 
@@ -76,4 +105,5 @@ export const organizationsRelations = relations(organizationsTable, ({ one, many
   members: many(organizationMembersTable),
   projects: many(projectsTable),
   activeUsers: many(usersTable, { relationName: "active_organization" }),
+  invites: many(organizationInvitesTable),
 }));
