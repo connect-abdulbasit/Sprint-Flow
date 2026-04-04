@@ -350,13 +350,32 @@ function ProgressRing({
 
 export default function DashboardPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
-  const ws = WORKSPACE_INFO[workspaceId] ?? { name: workspaceId, color: "#4f7cff" };
-  const sprintProgress = Math.round((sprintData.completed / sprintData.totalTasks) * 100);
+  const [workspace, setWorkspace] = useState<{ name: string; color: string } | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    setLoaded(true);
-  }, []);
+    async function fetchWorkspace() {
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setWorkspace({
+            name: data.name,
+            color: data.color || "#4f7cff",
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching workspace details:", err);
+      } finally {
+        setLoaded(true);
+      }
+    }
+
+    fetchWorkspace();
+  }, [workspaceId]);
+
+  const ws = workspace ?? WORKSPACE_INFO[workspaceId] ?? { name: workspaceId, color: "#4f7cff" };
+  const sprintProgress = Math.round((sprintData.completed / sprintData.totalTasks) * 100);
 
   return (
     <div className="flex flex-col gap-6 pb-12">
