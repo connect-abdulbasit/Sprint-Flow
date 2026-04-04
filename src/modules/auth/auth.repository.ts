@@ -40,6 +40,15 @@ export class AuthRepository extends BaseRepository<any> {
   async deleteUserSessions(userId: string) {
     await db.delete(sessionsTable).where(eq(sessionsTable.userId, userId)).execute();
   }
+
+  async updateSession(id: string, data: Partial<typeof sessionsTable.$inferInsert>) {
+    await db.update(sessionsTable).set(data).where(eq(sessionsTable.id, id)).execute();
+  }
+
+  async findSessionById(id: string) {
+    const results = await db.select().from(sessionsTable).where(eq(sessionsTable.id, id)).execute();
+    return results[0];
+  }
 }
 
 export const authRepository = new AuthRepository();

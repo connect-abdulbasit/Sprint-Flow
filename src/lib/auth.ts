@@ -1,10 +1,8 @@
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 
-import { db } from "@/lib/db";
-import { sessionsTable, usersTable } from "@/db";
-import { signAccessToken, verifyAccessToken } from "@/lib/jwt";
+import { authService } from "@/modules/auth/auth.service";
+import { verifyAccessToken } from "@/lib/jwt";
 
 export function hashPassword(password: string) {
   return bcrypt.hashSync(password, 10);
@@ -79,13 +77,7 @@ export async function getCurrentUser(req: NextRequest) {
 
   try {
     const payload = await verifyAccessToken(token);
-    const users = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.id, payload.sub))
-      .execute();
-
-    const user = users[0];
+    const user = await authService.getUserById(payload.sub);
 
     return user || null;
   } catch {
@@ -94,40 +86,13 @@ export async function getCurrentUser(req: NextRequest) {
 }
 
 export async function createSession(userId: string) {
-  const refreshToken = createRefreshToken();
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
-
-  await db.insert(sessionsTable).values({ userId, refreshToken, expiresAt });
-
-  return { refreshToken, expiresAt };
+  return authService.createSession(userId);
 }
 
 export async function rotateSession(oldRefreshToken: string) {
-  const sessions = await db
-    .select()
-    .from(sessionsTable)
-    .where(eq(sessionsTable.refreshToken, oldRefreshToken))
-    .execute();
-
-  const session = sessions[0];
-
-  if (!session) return null;
-  if (new Date(session.expiresAt) < new Date()) {
-    await db.delete(sessionsTable).where(eq(sessionsTable.id, session.id));
-    return null;
-  }
-
-  const refreshToken = createRefreshToken();
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
-
-  await db
-    .update(sessionsTable)
-    .set({ refreshToken, expiresAt })
-    .where(eq(sessionsTable.id, session.id));
-
-  return { userId: session.userId, refreshToken, expiresAt };
+  return authService.rotateSession(oldRefreshToken);
 }
 
 export async function revokeSession(refreshToken: string) {
-  await db.delete(sessionsTable).where(eq(sessionsTable.refreshToken, refreshToken));
+  return authService.revokeSession(refreshToken);
 }
