@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { usersTable } from "@/modules/user/user.schema";
 import { relations } from "drizzle-orm";
-import { projectsTable } from "@/modules/project/project.schema";
+import { workspacesTable } from "@/modules/workspace/workspace.schema";
 
 export const orgRoleEnum = pgEnum("org_role", ["member", "admin", "owner"]);
 
@@ -95,7 +95,7 @@ export const organizationsRelations = relations(organizationsTable, ({ one, many
     relationName: "organization_owner",
   }),
   members: many(organizationMembersTable),
-  projects: many(projectsTable),
+  workspaces: many(workspacesTable),
   activeUsers: many(usersTable, { relationName: "active_organization" }),
   invites: many(organizationInvitesTable),
 }));

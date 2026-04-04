@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { usersTable } from "@/modules/user/user.schema";
 import { organizationsTable } from "@/modules/organization/organization.schema";
+import { workspacesTable } from "@/modules/workspace/workspace.schema";
 import { relations } from "drizzle-orm";
 import { sprintsTable } from "@/modules/sprint/sprint.schema";
 import { tasksTable } from "@/modules/task/task.schema";
@@ -42,9 +43,9 @@ export const projectsTable = pgTable(
   "projects",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id")
+    workspaceId: uuid("workspace_id")
       .notNull()
-      .references(() => organizationsTable.id, { onDelete: "cascade", onUpdate: "cascade" }),
+      .references(() => workspacesTable.id, { onDelete: "cascade", onUpdate: "cascade" }),
     name: varchar("name", { length: 255 }).notNull(),
     description: text("description"),
     createdBy: uuid("created_by")
@@ -55,7 +56,7 @@ export const projectsTable = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
-    orgIdx: index("projects_org_idx").on(t.organizationId),
+    workspaceIdx: index("projects_workspace_idx").on(t.workspaceId),
     createdByIdx: index("projects_created_by_idx").on(t.createdBy),
   })
 );
@@ -72,9 +73,9 @@ export const projectMembersRelations = relations(projectMembersTable, ({ one }) 
 }));
 
 export const projectsRelations = relations(projectsTable, ({ one, many }) => ({
-  organization: one(organizationsTable, {
-    fields: [projectsTable.organizationId],
-    references: [organizationsTable.id],
+  workspace: one(workspacesTable, {
+    fields: [projectsTable.workspaceId],
+    references: [workspacesTable.id],
   }),
   creator: one(usersTable, {
     fields: [projectsTable.createdBy],

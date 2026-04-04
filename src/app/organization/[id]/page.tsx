@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -12,22 +12,18 @@ import {
   Plus,
   Settings,
   ArrowLeft,
+  AlertCircle,
 } from "lucide-react";
 import InviteModal from "@/components/InviteModal";
 
-const ORGS: Record<string, { name: string; initials: string; desc: string }> = {
-  "org-1": {
-    name: "Acme Corporation",
-    initials: "AC",
-    desc: "Building digital experiences for the modern web.",
-  },
-  "org-2": {
-    name: "Stark Industries",
-    initials: "SI",
-    desc: "Advanced R&D and defense technology.",
-  },
-  "org-3": { name: "Personal Projects", initials: "PP", desc: "Side projects and experiments." },
-};
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 const members = [
   { id: 1, name: "Alice Johnson", role: "Frontend Lead", initials: "AJ" },
@@ -74,8 +70,59 @@ const stats = [
 
 export default function OrganizationPage() {
   const { id } = useParams<{ id: string }>();
-  const org = ORGS[id] ?? { name: id, initials: id.slice(0, 2).toUpperCase(), desc: "" };
+  const [org, setOrg] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchOrg() {
+      try {
+        const res = await fetch(`/api/organizations/${id}`);
+        if (!res.ok) {
+          throw new Error("Failed to load organization details");
+        }
+        const data = await res.json();
+        setOrg(data);
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    if (id) fetchOrg();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="w-12 h-12 border-2 border-[var(--color-accent)]/20 border-t-[var(--color-accent)] rounded-full animate-spin mb-4" />
+        <p className="text-sm text-[var(--color-muted)] font-medium">Synchronizing brand data...</p>
+      </div>
+    );
+  }
+
+  if (error || !org) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
+        <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-6">
+          <AlertCircle className="w-8 h-8 text-red-500" />
+        </div>
+        <h2 className="text-xl font-bold text-[#f0f0f5] mb-2">Organization Not Found</h2>
+        <p className="text-sm text-[var(--color-muted)] max-w-xs mb-8">
+          The requested organization could not be loaded. Please verify the URL or check your
+          membership.
+        </p>
+        <Link
+          href="/organizations"
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[var(--color-bg)] bg-[#f0f0f5] rounded-xl hover:bg-white transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to list
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -91,7 +138,7 @@ export default function OrganizationPage() {
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-lg font-bold text-[#f0f0f5]">
-              {org.initials}
+              {getInitials(org.name)}
             </div>
             <div>
               <h1
@@ -100,7 +147,9 @@ export default function OrganizationPage() {
               >
                 {org.name}
               </h1>
-              <p className="text-sm text-[var(--color-muted)] mt-0.5">{org.desc}</p>
+              <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                {org.description || "Building something great."}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">

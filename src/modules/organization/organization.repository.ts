@@ -42,6 +42,26 @@ export class OrganizationRepository extends BaseRepository<any> {
     return results.map((r) => r.organizations).filter(Boolean);
   }
 
+  async getOrganization(userId: string, organizationId: string) {
+    const results = await db
+      .select()
+      .from(organizationMembersTable)
+      .where(
+        and(
+          eq(organizationMembersTable.userId, userId),
+          eq(organizationMembersTable.organizationId, organizationId)
+        )
+      )
+      .leftJoin(
+        organizationsTable,
+        eq(organizationMembersTable.organizationId, organizationsTable.id)
+      )
+      .execute();
+
+    const first = results[0];
+    return first ? first.organizations : null;
+  }
+
   async createInvite(data: typeof organizationInvitesTable.$inferInsert) {
     const [invite] = await db.insert(organizationInvitesTable).values(data).returning().execute();
     return invite;

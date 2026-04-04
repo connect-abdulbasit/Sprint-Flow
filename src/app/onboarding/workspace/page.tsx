@@ -6,8 +6,12 @@ import { Upload, Hexagon, ArrowRight, Building } from "lucide-react";
 
 export default function CreateWorkspacePage() {
   const router = useRouter();
+  const [organizationName, setOrganizationName] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
-  const [isFocused, setIsFocused] = useState(false);
+  const [isOrgFocused, setIsOrgFocused] = useState(false);
+  const [isWsFocused, setIsWsFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   // Auto-generate slug (to lowercase, replace spaces with hyphens)
   const slug = workspaceName
@@ -17,10 +21,35 @@ export default function CreateWorkspacePage() {
     .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-  const handleContinue = (e: React.FormEvent) => {
+  const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!workspaceName.trim()) return;
-    router.push("/onboarding/invite");
+    if (!organizationName.trim() || !workspaceName.trim()) return;
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/organizations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: organizationName,
+          workspaceName: workspaceName,
+          workspaceSlug: slug,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create workspace");
+      }
+
+      const { workspace } = await res.json();
+      router.push(`/workspace/${workspace.id}/dashboard`);
+    } catch (err) {
+      setError((err as Error).message);
+      setIsLoading(false);
+    }
   };
 
   const currentDomain = "sprintflow.com";
@@ -38,16 +67,22 @@ export default function CreateWorkspacePage() {
         <div className="flex-1 p-8 md:p-12">
           {/* Header */}
           <div className="mb-8">
-            <div className="h-12 w-12 bg-[#18181f] text-[#4f7cff] rounded-xl flex items-center justify-center mb-6 border border-[#333339] shadow-sm">
-              <Building className="h-6 w-6" />
+            <div className="h-12 w-12 bg-[#18181f] rounded-xl flex items-center justify-center mb-6 border border-[var(--color-accent)]/20 shadow-[0_0_15px_rgba(79,124,255,0.15)] overflow-hidden">
+              <img src="/logo-icon.png" alt="SprintFlow" className="h-7 w-7 object-contain" />
             </div>
             <h1 className="text-3xl font-bold tracking-tight text-[#f0f0f5] mb-2 font-syne">
-              Create Your Workspace
+              Set Up Your Brand
             </h1>
             <p className="text-[#9090a8] text-sm leading-relaxed">
-              A workspace represents your team or company where projects and tasks will be managed.
+              Define your organization and choose your first workspace to start sprinting.
             </p>
           </div>
+
+          {error && (
+            <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium animate-shake">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleContinue} className="space-y-6">
             {/* Workspace Auto-Avatar / Upload */}
@@ -68,17 +103,46 @@ export default function CreateWorkspacePage() {
               </div>
             </div>
 
-            {/* Name Input */}
+            {/* Organization Name Input */}
+            <div>
+              <label
+                htmlFor="organizationName"
+                className="block text-sm font-medium text-[#f0f0f5] mb-2"
+              >
+                Organization Name
+              </label>
+              <div
+                className={`flex items-center rounded-xl border transition-all duration-200 bg-[#18181f] ${
+                  isOrgFocused
+                    ? "border-[#4f7cff] ring-1 ring-[#4f7cff]"
+                    : "border-[#333339] hover:border-[#4f7cff]/50"
+                }`}
+              >
+                <input
+                  id="organizationName"
+                  type="text"
+                  required
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                  onFocus={() => setIsOrgFocused(true)}
+                  onBlur={() => setIsOrgFocused(false)}
+                  placeholder="e.g. Stark Industries"
+                  className="w-full bg-transparent px-4 py-3 text-[#f0f0f5] placeholder-[#6b6b80] outline-none text-base font-medium rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* Workspace Name Input */}
             <div>
               <label
                 htmlFor="workspaceName"
                 className="block text-sm font-medium text-[#f0f0f5] mb-2"
               >
-                Workspace Name
+                First Workspace Name
               </label>
               <div
                 className={`flex items-center rounded-xl border transition-all duration-200 bg-[#18181f] ${
-                  isFocused
+                  isWsFocused
                     ? "border-[#4f7cff] ring-1 ring-[#4f7cff]"
                     : "border-[#333339] hover:border-[#4f7cff]/50"
                 }`}
@@ -89,9 +153,9 @@ export default function CreateWorkspacePage() {
                   required
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  placeholder="Acme Corp"
+                  onFocus={() => setIsWsFocused(true)}
+                  onBlur={() => setIsWsFocused(false)}
+                  placeholder="e.g. Engineering"
                   className="w-full bg-transparent px-4 py-3 text-[#f0f0f5] placeholder-[#6b6b80] outline-none text-base font-medium rounded-xl"
                 />
               </div>
@@ -102,7 +166,7 @@ export default function CreateWorkspacePage() {
                   <Hexagon className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-[#9090a8]">Your URL will be:</p>
+                  <p className="text-xs font-medium text-[#9090a8]">First workspace URL:</p>
                   <p className="text-sm text-[#f0f0f5] font-mono mt-0.5 break-all">
                     {currentDomain}/
                     <span className="text-[#4f7cff] font-semibold">{slug || "workspace-name"}</span>
@@ -118,18 +182,27 @@ export default function CreateWorkspacePage() {
                 onClick={() => router.push("/onboarding/invite")}
                 className="text-sm font-medium text-[#9090a8] hover:text-[#f0f0f5] px-4 py-2 transition-colors"
               >
-                Skip for now
+                Go back
               </button>
               <button
                 type="submit"
-                disabled={!workspaceName.trim()}
+                disabled={!workspaceName.trim() || !organizationName.trim() || isLoading}
                 className={`px-6 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
-                  workspaceName.trim()
+                  workspaceName.trim() && organizationName.trim() && !isLoading
                     ? "bg-[#4f7cff] hover:opacity-90 text-white shadow-[0_2px_10px_rgb(79,124,255,0.3)] hover:shadow-[0_4px_15px_rgb(79,124,255,0.4)] transform hover:-translate-y-0.5"
                     : "bg-[#18181f] text-[#6b6b80] cursor-not-allowed"
                 }`}
               >
-                Continue <ArrowRight className="h-4 w-4" />
+                {isLoading ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    Create Workspace <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
           </form>

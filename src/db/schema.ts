@@ -3,6 +3,7 @@ export * from "@/modules/attachment/attachment.schema";
 export * from "@/modules/comment/comment.schema";
 export * from "@/modules/notification/notification.schema";
 export * from "@/modules/organization/organization.schema";
+export * from "@/modules/workspace/workspace.schema";
 export * from "@/modules/project/project.schema";
 export * from "@/modules/auth/auth.schema";
 export * from "@/modules/sprint/sprint.schema";

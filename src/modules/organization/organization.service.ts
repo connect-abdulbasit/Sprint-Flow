@@ -1,19 +1,42 @@
 import { organizationRepository } from "./organization.repository";
+import { workspaceService } from "@/modules/workspace/workspace.service";
 import crypto from "crypto";
 
 export class OrganizationService {
-  async createOrganization(userId: string, name: string) {
+  async createOrganization(
+    userId: string,
+    name: string,
+    workspace?: { name: string; slug: string; description?: string }
+  ) {
     const organization = await organizationRepository.createOrganization({ name, ownerId: userId });
     await organizationRepository.addMember({
       organizationId: organization.id,
       userId,
       role: "owner",
     });
-    return organization;
+
+    // Create a workspace for the organization
+    // Default to "General" if not provided
+    const ws = await workspaceService.createWorkspace(userId, {
+      name: workspace?.name || "General",
+      organizationId: organization.id,
+      slug: workspace?.slug || "general",
+      description: workspace?.description || "Default workspace for collaboration",
+    });
+
+    return { organization, workspace: ws };
   }
 
   async getUserOrganizations(userId: string) {
     return organizationRepository.getUserOrganizations(userId);
+  }
+
+  async getOrganizationById(userId: string, orgId: string) {
+    const org = await organizationRepository.getOrganization(userId, orgId);
+    if (!org) {
+      throw new Error("Organization not found or you don't have access");
+    }
+    return org;
   }
 
   async sendInvite(
