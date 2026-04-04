@@ -3,7 +3,6 @@ import { projectsTable } from "@/modules/project/project.schema";
 import { relations } from "drizzle-orm";
 import { tasksTable } from "@/modules/task/task.schema";
 
-// --- TABLE: sprints ---
 export const sprintsTable = pgTable(
   "sprints",
   {
@@ -24,7 +23,6 @@ export const sprintsTable = pgTable(
   })
 );
 
-// --- RELATIONS: sprints ---
 export const sprintsRelations = relations(sprintsTable, ({ one, many }) => ({
   project: one(projectsTable, {
     fields: [sprintsTable.projectId],

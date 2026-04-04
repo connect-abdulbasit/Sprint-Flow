@@ -12,10 +12,8 @@ import { usersTable } from "@/modules/user/user.schema";
 import { relations } from "drizzle-orm";
 import { projectsTable } from "@/modules/project/project.schema";
 
-// --- ENUM: org.ts ---
 export const orgRoleEnum = pgEnum("org_role", ["member", "admin", "owner"]);
 
-// --- TABLE: organizationMembers ---
 export const organizationMembersTable = pgTable(
   "organization_members",
   {
@@ -37,7 +35,6 @@ export const organizationMembersTable = pgTable(
   })
 );
 
-// --- TABLE: organizations ---
 export const organizationsTable = pgTable(
   "organizations",
   {
@@ -54,7 +51,6 @@ export const organizationsTable = pgTable(
   })
 );
 
-// --- TABLE: organization_invites ---
 export const organizationInvitesTable = pgTable(
   "organization_invites",
   {
@@ -66,7 +62,7 @@ export const organizationInvitesTable = pgTable(
     role: orgRoleEnum("role").notNull().default("member"),
     token: varchar("token", { length: 255 }).notNull(),
     status: varchar("status", { length: 50 }).notNull().default("pending"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     orgIdx: index("organization_invites_org_idx").on(t.organizationId),
@@ -74,8 +70,6 @@ export const organizationInvitesTable = pgTable(
   })
 );
 
-
-// --- RELATIONS: organizationMembers ---
 export const organizationMembersRelations = relations(organizationMembersTable, ({ one }) => ({
   organization: one(organizationsTable, {
     fields: [organizationMembersTable.organizationId],
@@ -87,7 +81,6 @@ export const organizationMembersRelations = relations(organizationMembersTable, 
   }),
 }));
 
-// --- RELATIONS: organizationInvites ---
 export const organizationInvitesRelations = relations(organizationInvitesTable, ({ one }) => ({
   organization: one(organizationsTable, {
     fields: [organizationInvitesTable.organizationId],
@@ -95,7 +88,6 @@ export const organizationInvitesRelations = relations(organizationInvitesTable, 
   }),
 }));
 
-// --- RELATIONS: organizations ---
 export const organizationsRelations = relations(organizationsTable, ({ one, many }) => ({
   owner: one(usersTable, {
     fields: [organizationsTable.ownerId],
