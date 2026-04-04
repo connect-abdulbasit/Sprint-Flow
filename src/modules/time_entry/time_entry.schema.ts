@@ -3,7 +3,6 @@ import { tasksTable } from "@/modules/task/task.schema";
 import { usersTable } from "@/modules/user/user.schema";
 import { relations } from "drizzle-orm";
 
-// --- TABLE: timeEntries ---
 export const timeEntriesTable = pgTable(
   "time_entries",
   {
@@ -25,7 +24,6 @@ export const timeEntriesTable = pgTable(
   })
 );
 
-// --- RELATIONS: timeEntries ---
 export const timeEntriesRelations = relations(timeEntriesTable, ({ one }) => ({
   task: one(tasksTable, {
     fields: [timeEntriesTable.taskId],

@@ -3,7 +3,6 @@ import { usersTable } from "@/modules/user/user.schema";
 import { projectsTable } from "@/modules/project/project.schema";
 import { relations } from "drizzle-orm";
 
-// --- TABLE: activityLogs ---
 export const activityLogsTable = pgTable(
   "activity_logs",
   {
@@ -26,7 +25,6 @@ export const activityLogsTable = pgTable(
   })
 );
 
-// --- RELATIONS: activityLogs ---
 export const activityLogsRelations = relations(activityLogsTable, ({ one }) => ({
   user: one(usersTable, {
     fields: [activityLogsTable.userId],

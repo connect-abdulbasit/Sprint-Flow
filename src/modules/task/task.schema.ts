@@ -18,10 +18,8 @@ import { commentsTable } from "@/modules/comment/comment.schema";
 import { attachmentsTable } from "@/modules/attachment/attachment.schema";
 import { timeEntriesTable } from "@/modules/time_entry/time_entry.schema";
 
-// --- ENUM: task.ts ---
 export const taskTypeEnum = pgEnum("task_type", ["task", "bug", "feature", "improvement"]);
 
-// --- TABLE: taskDependencies ---
 export const taskDependenciesTable = pgTable(
   "task_dependencies",
   {
@@ -40,7 +38,6 @@ export const taskDependenciesTable = pgTable(
   })
 );
 
-// --- TABLE: tasks ---
 export const tasksTable = pgTable(
   "tasks",
   {
@@ -77,7 +74,6 @@ export const tasksTable = pgTable(
   })
 );
 
-// --- RELATIONS: taskDependencies ---
 export const taskDependenciesRelations = relations(taskDependenciesTable, ({ one }) => ({
   task: one(tasksTable, {
     fields: [taskDependenciesTable.taskId],
@@ -91,7 +87,6 @@ export const taskDependenciesRelations = relations(taskDependenciesTable, ({ one
   }),
 }));
 
-// --- RELATIONS: tasks ---
 export const tasksRelations = relations(tasksTable, ({ one, many }) => ({
   project: one(projectsTable, {
     fields: [tasksTable.projectId],

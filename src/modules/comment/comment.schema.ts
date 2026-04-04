@@ -3,7 +3,6 @@ import { tasksTable } from "@/modules/task/task.schema";
 import { usersTable } from "@/modules/user/user.schema";
 import { relations } from "drizzle-orm";
 
-// --- TABLE: comments ---
 export const commentsTable = pgTable(
   "comments",
   {
@@ -24,7 +23,6 @@ export const commentsTable = pgTable(
   })
 );
 
-// --- RELATIONS: comments ---
 export const commentsRelations = relations(commentsTable, ({ one }) => ({
   task: one(tasksTable, {
     fields: [commentsTable.taskId],

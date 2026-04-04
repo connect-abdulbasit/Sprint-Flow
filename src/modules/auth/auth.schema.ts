@@ -2,7 +2,6 @@ import { pgTable, uuid, varchar, timestamp, index, uniqueIndex } from "drizzle-o
 import { usersTable } from "@/modules/user/user.schema";
 import { relations } from "drizzle-orm";
 
-// --- TABLE: sessions ---
 export const sessionsTable = pgTable(
   "sessions",
   {
@@ -21,7 +20,6 @@ export const sessionsTable = pgTable(
   })
 );
 
-// --- RELATIONS: sessions ---
 export const sessionsRelations = relations(sessionsTable, ({ one }) => ({
   user: one(usersTable, {
     fields: [sessionsTable.userId],

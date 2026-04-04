@@ -22,8 +22,6 @@ import { notificationsTable } from "@/modules/notification/notification.schema";
 import { activityLogsTable } from "@/modules/activity/activity.schema";
 import { sessionsTable } from "@/modules/auth/auth.schema";
 
-// --- TABLE: users ---
-
 export const usersTable = pgTable(
   "users",
   {
@@ -49,7 +47,6 @@ export const usersTable = pgTable(
   })
 );
 
-// --- RELATIONS: users ---
 export const usersRelations = relations(usersTable, ({ one, many }) => ({
   activeOrganization: one(organizationsTable, {
     fields: [usersTable.activeOrganizationId],

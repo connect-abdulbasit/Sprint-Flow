@@ -15,10 +15,8 @@ import { sprintsTable } from "@/modules/sprint/sprint.schema";
 import { tasksTable } from "@/modules/task/task.schema";
 import { activityLogsTable } from "@/modules/activity/activity.schema";
 
-// --- ENUM: project.ts ---
 export const projectRoleEnum = pgEnum("project_role", ["member", "admin", "owner"]);
 
-// --- TABLE: projectMembers ---
 export const projectMembersTable = pgTable(
   "project_members",
   {
@@ -40,7 +38,6 @@ export const projectMembersTable = pgTable(
   })
 );
 
-// --- TABLE: projects ---
 export const projectsTable = pgTable(
   "projects",
   {
@@ -63,7 +60,6 @@ export const projectsTable = pgTable(
   })
 );
 
-// --- RELATIONS: projectMembers ---
 export const projectMembersRelations = relations(projectMembersTable, ({ one }) => ({
   project: one(projectsTable, {
     fields: [projectMembersTable.projectId],
@@ -75,7 +71,6 @@ export const projectMembersRelations = relations(projectMembersTable, ({ one }) 
   }),
 }));
 
-// --- RELATIONS: projects ---
 export const projectsRelations = relations(projectsTable, ({ one, many }) => ({
   organization: one(organizationsTable, {
     fields: [projectsTable.organizationId],

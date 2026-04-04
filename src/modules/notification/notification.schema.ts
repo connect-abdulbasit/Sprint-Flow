@@ -2,7 +2,6 @@ import { pgTable, uuid, varchar, text, boolean, timestamp, index } from "drizzle
 import { usersTable } from "@/modules/user/user.schema";
 import { relations } from "drizzle-orm";
 
-// --- TABLE: notifications ---
 export const notificationsTable = pgTable(
   "notifications",
   {
@@ -21,7 +20,6 @@ export const notificationsTable = pgTable(
   })
 );
 
-// --- RELATIONS: notifications ---
 export const notificationsRelations = relations(notificationsTable, ({ one }) => ({
   user: one(usersTable, {
     fields: [notificationsTable.userId],
