@@ -45,16 +45,11 @@ export default function SignUpForm() {
   return (
     <div className="w-full max-w-md mt-12">
       <div className="flex flex-col items-center mb-8">
-        <Link href="/" className="flex items-center gap-2.5 mb-6 no-underline">
-          <div className="w-12 h-12 rounded-[10px] bg-gradient-to-br from-[#4f7cff] to-[#a259ff] flex items-center justify-center text-lg font-black text-white">
-            SF
-          </div>
-          <span
-            className="font-black text-2xl tracking-tight text-[#f0f0f5]"
-            style={{ fontFamily: "Syne, sans-serif" }}
-          >
-            SprintFlow
-          </span>
+        <Link
+          href="/"
+          className="flex items-center gap-3 mb-6 no-underline transition-transform duration-300 hover:scale-[1.02]"
+        >
+          <img src="/logo.png" alt="SprintFlow" className="h-10 w-auto object-contain" />
         </Link>
 
         <p className="text-[#9090a8] text-sm">Sign up to continue</p>
@@ -207,7 +202,7 @@ export default function SignUpForm() {
 
       <button
         type="button"
-        onClick={() => window.location.href = '/api/auth/google'}
+        onClick={() => (window.location.href = "/api/auth/google")}
         className="w-full px-5 py-3 text-sm font-medium text-[#f0f0f5] bg-[#18181f] border border-[#333339] rounded-lg hover:bg-[#1f1f27] hover:border-[#4f7cff] transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

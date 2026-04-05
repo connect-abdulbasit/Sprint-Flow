@@ -20,9 +20,8 @@ import { attachmentsTable } from "@/modules/attachment/attachment.schema";
 import { timeEntriesTable } from "@/modules/time_entry/time_entry.schema";
 import { notificationsTable } from "@/modules/notification/notification.schema";
 import { activityLogsTable } from "@/modules/activity/activity.schema";
+import { workspaceMembersTable, workspacesTable } from "@/modules/workspace/workspace.schema";
 import { sessionsTable } from "@/modules/auth/auth.schema";
-
-// --- TABLE: users ---
 
 export const usersTable = pgTable(
   "users",
@@ -49,7 +48,6 @@ export const usersTable = pgTable(
   })
 );
 
-// --- RELATIONS: users ---
 export const usersRelations = relations(usersTable, ({ one, many }) => ({
   activeOrganization: one(organizationsTable, {
     fields: [usersTable.activeOrganizationId],
@@ -58,6 +56,7 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
   }),
   ownedOrganizations: many(organizationsTable, { relationName: "organization_owner" }),
   organizationMemberships: many(organizationMembersTable),
+  workspaceMemberships: many(workspaceMembersTable),
   projectMemberships: many(projectMembersTable),
   createdProjects: many(projectsTable),
   assignedTasks: many(tasksTable, { relationName: "task_assignee" }),

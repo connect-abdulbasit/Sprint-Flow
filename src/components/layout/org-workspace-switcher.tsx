@@ -13,8 +13,6 @@ import {
   FolderKanban,
 } from "lucide-react";
 
-/* ── Mock data (replace with API calls later) ─────────────── */
-
 interface Organization {
   id: string;
   name: string;
@@ -32,67 +30,91 @@ interface Workspace {
   memberCount: number;
 }
 
-const organizations: Organization[] = [
-  {
-    id: "org-1",
-    name: "Acme Corporation",
-    initials: "AC",
-    role: "Owner",
-    plan: "Business",
-    gradient: "from-[#4f7cff] to-[#7c5cff]",
-  },
-  {
-    id: "org-2",
-    name: "Stark Industries",
-    initials: "SI",
-    role: "Member",
-    plan: "Enterprise",
-    gradient: "from-[#ff6b6b] to-[#ff9f43]",
-  },
-  {
-    id: "org-3",
-    name: "Personal Projects",
-    initials: "PP",
-    role: "Owner",
-    plan: "Free",
-    gradient: "from-[#00d4aa] to-[#00b4d8]",
-  },
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+const GRADIENTS = [
+  "from-[#4f7cff] to-[#7c5cff]",
+  "from-[#ff6b6b] to-[#ff9f43]",
+  "from-[#00d4aa] to-[#00b4d8]",
+  "from-[#a259ff] to-[#ff6add]",
+  "from-[#ff4f7c] to-[#ff8a4f]",
 ];
 
-const workspacesByOrg: Record<string, Workspace[]> = {
-  "org-1": [
-    { id: "engineering", name: "Engineering", color: "#4f7cff", taskCount: 42, memberCount: 12 },
-    { id: "marketing", name: "Marketing", color: "#ff9f43", taskCount: 18, memberCount: 6 },
-    { id: "design", name: "Design System", color: "#7c5cff", taskCount: 7, memberCount: 4 },
-  ],
-  "org-2": [
-    { id: "r-and-d", name: "R&D", color: "#ff6b6b", taskCount: 31, memberCount: 18 },
-    { id: "operations", name: "Operations", color: "#00d4aa", taskCount: 15, memberCount: 8 },
-  ],
-  "org-3": [
-    { id: "side-projects", name: "Side Projects", color: "#00b4d8", taskCount: 5, memberCount: 1 },
-  ],
-};
-
-/* ── Component ────────────────────────────────────────────── */
+function getGradient(id: string) {
+  const charSum = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return GRADIENTS[charSum % GRADIENTS.length];
+}
 
 export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
   const pathname = usePathname() || "";
   const router = useRouter();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedOrgId, setSelectedOrgId] = useState("org-1");
+  const [selectedOrgId, setSelectedOrgId] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Detect current workspace from URL
-  const workspaceMatch = pathname.match(/^\/workspace\/([^/]+)/);
-  const currentWorkspaceId = workspaceMatch ? workspaceMatch[1] : null;
+  const [realOrganizations, setRealOrganizations] = useState<Organization[]>([]);
+  const [realWorkspacesByOrg, setRealWorkspacesByOrg] = useState<Record<string, Workspace[]>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
-  const selectedOrg = organizations.find((o) => o.id === selectedOrgId) ?? organizations[0];
-  const workspaces = workspacesByOrg[selectedOrgId] ?? [];
-  const currentWorkspace = workspaces.find((ws) => ws.id === currentWorkspaceId);
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [orgsRes, wsRes] = await Promise.all([
+          fetch("/api/organizations"),
+          fetch("/api/workspaces"),
+        ]);
 
-  // Close on click outside
+        if (!orgsRes.ok || !wsRes.ok) throw new Error("Failed to fetch");
+
+        const orgsData = await orgsRes.json();
+        const wsData = await wsRes.json();
+
+        const mappedOrgs = orgsData.map((org: any) => ({
+          id: org.id,
+          name: org.name,
+          initials: getInitials(org.name),
+          role: "Owner",
+          plan: "Free",
+          gradient: getGradient(org.id),
+        }));
+
+        const wsByOrg: Record<string, Workspace[]> = {};
+        wsData.forEach((ws: any) => {
+          if (!wsByOrg[ws.organizationId]) wsByOrg[ws.organizationId] = [];
+          wsByOrg[ws.organizationId].push({
+            id: ws.id,
+            name: ws.name,
+            color: ws.color || "#4f7cff",
+            taskCount: 0,
+            memberCount: 1,
+          });
+        });
+
+        if (mappedOrgs.length > 0) {
+          setRealOrganizations(mappedOrgs);
+          setRealWorkspacesByOrg(wsByOrg);
+          setSelectedOrgId(mappedOrgs[0].id);
+        }
+      } catch (err) {
+        console.error("Error fetching orgs/workspaces:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  // ── Global Event Listeners (Hooks must be above returns) ──
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -105,7 +127,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen]);
 
-  // Close on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setIsOpen(false);
@@ -116,6 +137,62 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
+  if (isLoading) {
+    return (
+      <div
+        className={`px-4 py-4 border-b border-[#333339] ${isCollapsed ? "flex justify-center" : ""}`}
+      >
+        <div className="flex items-center gap-3 animate-pulse">
+          <div className="w-9 h-9 rounded-xl bg-white/[0.05]" />
+          {!isCollapsed && (
+            <div className="flex-1 space-y-2">
+              <div className="h-3 w-24 bg-white/[0.05] rounded" />
+              <div className="h-2 w-16 bg-white/[0.05] rounded" />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (realOrganizations.length === 0) {
+    return (
+      <div className="px-4 py-4 border-b border-[#333339]">
+        <button
+          onClick={() => router.push("/onboarding/workspace")}
+          className={`group flex items-center gap-3 w-full rounded-xl transition-all duration-200 hover:bg-[var(--color-accent)]/10 p-2.5 border border-dashed border-[#333339] hover:border-[var(--color-accent)]/50 ${
+            isCollapsed ? "justify-center p-2" : ""
+          }`}
+          title="Setup Organization"
+        >
+          <div className="w-9 h-9 rounded-xl bg-[#18181f] flex items-center justify-center text-[var(--color-accent)] shrink-0 transition-transform duration-200 group-hover:scale-110">
+            <Plus className="w-5 h-5" />
+          </div>
+          {!isCollapsed && (
+            <div className="text-left overflow-hidden">
+              <div className="text-[13px] font-bold text-[#f0f0f5] truncate leading-tight">
+                Setup Organization
+              </div>
+              <div className="text-[10px] text-[#6b6b80] mt-0.5">Click to begin</div>
+            </div>
+          )}
+        </button>
+      </div>
+    );
+  }
+
+  const displayOrganizations = realOrganizations;
+  const displayWorkspacesByOrg = realWorkspacesByOrg;
+
+  const currentOrgId = selectedOrgId || displayOrganizations[0]?.id;
+  const selectedOrg =
+    displayOrganizations.find((o) => o.id === currentOrgId) ?? displayOrganizations[0];
+  const workspaces = displayWorkspacesByOrg[currentOrgId] ?? [];
+
+  const workspaceMatch = pathname.match(/^\/workspace\/([^/]+)/);
+  const currentWorkspaceId = workspaceMatch ? workspaceMatch[1] : null;
+  const currentWorkspace = workspaces.find((ws) => ws.id === currentWorkspaceId);
+
   const handleWorkspaceSelect = (wsId: string) => {
     router.push(`/workspace/${wsId}/dashboard`);
     setIsOpen(false);
@@ -125,8 +202,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
     setSelectedOrgId(orgId);
   };
 
-  /* ── Trigger button ── */
-
   const trigger = (
     <button
       onClick={() => setIsOpen(!isOpen)}
@@ -135,7 +210,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
       } ${isOpen ? "bg-white/[0.05]" : ""}`}
       title={isCollapsed ? `${selectedOrg.name}` : undefined}
     >
-      {/* Org Avatar */}
       <div
         className={`w-9 h-9 rounded-xl bg-gradient-to-br ${selectedOrg.gradient} flex items-center justify-center text-[11px] font-black text-white shrink-0 shadow-[0_2px_12px_rgba(79,124,255,0.25)] transition-transform duration-200 group-hover:scale-105`}
       >
@@ -179,8 +253,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
     </button>
   );
 
-  /* ── Dropdown panel ── */
-
   const dropdown = isOpen && (
     <div
       className={`absolute z-[100] mt-1.5 rounded-2xl border border-white/[0.08] bg-[#16161e]/95 backdrop-blur-2xl shadow-[0_20px_60px_-12px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)] overflow-hidden animate-in ${
@@ -190,7 +262,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         animation: "switcher-open 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
       }}
     >
-      {/* ── Organizations ── */}
       <div className="px-3 pt-3 pb-1.5">
         <div className="flex items-center gap-1.5 px-2 mb-2">
           <Building2 className="w-3 h-3 text-[#6b6b80]" />
@@ -199,8 +270,8 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
           </span>
         </div>
         <div className="space-y-0.5">
-          {organizations.map((org) => {
-            const isSelected = org.id === selectedOrgId;
+          {displayOrganizations.map((org) => {
+            const isSelected = org.id === currentOrgId;
             return (
               <button
                 key={org.id}
@@ -231,10 +302,8 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         </div>
       </div>
 
-      {/* ── Divider ── */}
       <div className="mx-3 border-t border-white/[0.06]" />
 
-      {/* ── Workspaces ── */}
       <div className="px-3 pt-2.5 pb-1.5">
         <div className="flex items-center justify-between px-2 mb-2">
           <div className="flex items-center gap-1.5">
@@ -285,7 +354,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         </div>
       </div>
 
-      {/* ── Footer ── */}
       <div className="mx-3 border-t border-white/[0.06]" />
       <div className="px-3 py-2 flex items-center gap-1">
         <Link
@@ -314,7 +382,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
       {trigger}
       {dropdown}
 
-      {/* Keyframe animation */}
       <style jsx>{`
         @keyframes switcher-open {
           0% {
