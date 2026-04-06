@@ -11,49 +11,47 @@ export default function ProjectsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
-    <div className="flex flex-col h-full bg-[#0d0d12]">
+    <div className="flex flex-col h-full bg-[#09090b]">
       {/* Projects Header */}
-      <div className="px-8 py-10 border-b border-white/[0.04] bg-[#111118]/40 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 shadow-inner flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
-              <FolderKanban className="w-7 h-7 shadow-lg shadow-indigo-500/20" />
+      <div className="px-10 py-10 border-b border-white/[0.04] bg-[#0c0c0f]/50 backdrop-blur-xl sticky top-0 z-10">
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-5">
+            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+              <FolderKanban className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-3xl font-black text-[#f0f0f5] tracking-tight font-syne uppercase">
-                Projects
-              </h1>
-              <p className="text-[12px] font-bold text-[#6b6b80] uppercase tracking-[0.2em] flex items-center gap-2">
-                Workspace Central <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/40" />{" "}
+              <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">Projects</h1>
+              <p className="text-[13px] text-zinc-500 flex items-center gap-2 mt-0.5">
+                Workspace Central <span className="w-1 h-1 rounded-full bg-zinc-800" />{" "}
                 {MOCK_PROJECTS.length} Total Projects
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* View Switcher */}
-            <div className="flex items-center p-1 bg-white/[0.03] border border-white/[0.08] rounded-xl h-10 shadow-inner">
+            <div className="flex items-center p-1 bg-white/[0.03] border border-white/[0.08] rounded-lg h-9">
               <button
                 onClick={() => setViewMode("grid")}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === "grid" ? "bg-white/[0.08] text-white shadow-lg" : "text-[#6b6b80] hover:text-[#9090a8]"}`}
+                className={`p-1 rounded-md transition-all ${viewMode === "grid" ? "bg-white/[0.08] text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode("list")}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === "list" ? "bg-white/[0.08] text-white shadow-lg" : "text-[#6b6b80] hover:text-[#9090a8]"}`}
+                className={`p-1 rounded-md transition-all ${viewMode === "list" ? "bg-white/[0.08] text-white shadow-sm" : "text-zinc-500 hover:text-zinc-300"}`}
               >
                 <List className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="h-6 w-px bg-white/[0.08] mx-2" />
+            <div className="h-4 w-px bg-white/[0.08] mx-1" />
 
             <button
               onClick={() => setIsModalOpen(true)}
-              className="group flex items-center gap-2.5 px-6 py-2.5 bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/90 text-white text-[14px] font-black rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-[var(--color-accent)]/20"
+              className="group flex items-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 text-[13px] font-semibold rounded-lg transition-all active:scale-[0.98] shadow-sm"
             >
-              <Plus className="w-5 h-5 transition-transform group-hover:rotate-90 duration-300" />
+              <Plus className="w-4 h-4" />
               Create Project
             </button>
           </div>
@@ -61,67 +59,64 @@ export default function ProjectsPage() {
 
         {/* Toolbar */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6b6b80] group-focus-within:text-[var(--color-accent)] transition-colors" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 group-focus-within:text-blue-400 transition-colors" />
               <input
                 type="text"
                 placeholder="Search projects..."
-                className="bg-white/[0.03] border border-white/[0.08] rounded-2xl pl-12 pr-6 py-2.5 text-[14px] text-[#f0f0f5] placeholder-[#6b6b80] focus:outline-none focus:border-[var(--color-accent)]/50 focus:bg-white/[0.06] transition-all w-[320px] shadow-inner"
+                className="bg-white/[0.03] border border-white/[0.06] rounded-lg pl-9 pr-4 py-2 text-[13px] text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all w-[280px]"
               />
             </div>
 
-            <button className="flex items-center gap-2 px-4 py-2.5 bg-white/[0.03] border border-white/[0.08] rounded-2xl text-[13px] font-bold text-[#6b6b80] hover:text-[#f0f0f5] hover:bg-white/[0.06] transition-all group">
-              <Filter className="w-4 h-4 group-hover:text-[var(--color-accent)]" />
-              Filters
+            <button className="flex items-center gap-2 px-3 py-2 bg-white/[0.03] border border-white/[0.06] rounded-lg text-[13px] font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05] transition-all border-dashed">
+              <Filter className="w-3.5 h-3.5" />
+              Filter
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] font-black text-[#333339] uppercase tracking-widest">
-              Sort By:
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-medium text-zinc-600 uppercase tracking-wider">
+              Sort:
             </span>
-            <button className="flex items-center gap-2 text-[11px] font-bold text-[#6b6b80] hover:text-[#f0f0f5] transition-colors">
-              Recently Updated
-              <ArrowUpRight className="w-3.5 h-3.5" />
+            <button className="flex items-center gap-1.5 text-[12px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors">
+              Last updated
+              <ArrowUpRight className="w-3 h-3" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Projects Grid Container */}
-      <div className="flex-1 overflow-y-auto px-10 py-12 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-10 py-10 custom-scrollbar">
         {viewMode === "grid" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 pb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-6 pb-10">
             {MOCK_PROJECTS.map((project) => (
               <ProjectCard key={project.id} project={project} />
             ))}
 
             {/* Empty State / Add New Placeholder */}
-            <div
+            <button
               onClick={() => setIsModalOpen(true)}
-              className="border-2 border-dashed border-white/[0.05] rounded-[2.5rem] flex flex-col items-center justify-center p-10 group hover:border-white/[0.12] hover:bg-white/[0.01] transition-all cursor-pointer"
+              className="border border-dashed border-white/[0.06] rounded-2xl flex flex-col items-center justify-center p-8 group hover:border-white/[0.15] hover:bg-white/[0.01] transition-all"
             >
-              <div className="w-14 h-14 rounded-2xl bg-white/[0.02] flex items-center justify-center text-[#333339] group-hover:text-indigo-400/60 group-hover:scale-110 transition-all mb-6 border border-white/[0.04]">
-                <Plus className="w-7 h-7" />
+              <div className="w-10 h-10 rounded-xl bg-white/[0.02] flex items-center justify-center text-zinc-600 group-hover:text-zinc-400 group-hover:scale-105 transition-all mb-4 border border-zinc-800/50">
+                <Plus className="w-5 h-5" />
               </div>
-              <span className="text-lg font-black text-[#333339] group-hover:text-[#6b6b80] uppercase tracking-[0.2em] font-syne">
+              <span className="text-[14px] font-semibold text-zinc-500 group-hover:text-zinc-300 transition-colors">
                 New Project
               </span>
-              <p className="text-[12px] font-bold text-[#333339] group-hover:text-[#6b6b80] mt-3 uppercase tracking-widest italic">
-                Ignite your next journey
-              </p>
-            </div>
+            </button>
           </div>
         ) : (
-          <div className="max-w-5xl mx-auto space-y-3 pb-10">
+          <div className="max-w-6xl mx-auto space-y-1 pb-10">
             {/* List Header */}
-            <div className="flex items-center gap-4 px-6 py-3 text-[10px] font-black text-[#6b6b80] uppercase tracking-widest">
-              <div className="w-10" />
-              <div className="flex-1">Project Name</div>
-              <div className="w-32">Status</div>
-              <div className="w-48 text-center">Sprint Progress</div>
-              <div className="w-24 text-right">Activity</div>
+            <div className="flex items-center gap-4 px-5 py-3 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider border-b border-white/[0.03] mb-2">
+              <div className="w-8" />
+              <div className="flex-1">Project</div>
+              <div className="w-24">Status</div>
+              <div className="w-40">Progress</div>
+              <div className="w-20 text-right">Team</div>
             </div>
 
             {MOCK_PROJECTS.map((project) => (

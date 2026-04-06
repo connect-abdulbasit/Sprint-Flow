@@ -45,97 +45,100 @@ export default function ProjectPageHeader() {
       href: `/workspace/${workspaceId}/projects/${projectId}/members`,
       icon: Users,
     },
+    {
+      name: "Settings",
+      href: `/workspace/${workspaceId}/projects/${projectId}/settings`,
+      icon: Settings,
+    },
   ];
 
-  const activeTab = navItems.find((item) => pathname.includes(item.href))?.name || "Overview";
-
   return (
-    <div className="px-8 pt-6 border-b border-white/[0.04] bg-[#111118]/40 backdrop-blur-md sticky top-0 z-10 transition-all duration-300">
+    <div className="px-10 pt-6 pb-0 border-b border-white/[0.04] bg-[#0c0c0f]/60 backdrop-blur-xl sticky top-0 z-10">
       {/* Breadcrumbs */}
-      <div className="flex items-center gap-2 mb-6 ml-1">
+      <div className="flex items-center gap-1.5 mb-5 ml-0.5">
         <Link
           href={`/workspace/${workspaceId}/projects`}
-          className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6b6b80] hover:text-[var(--color-accent)] transition-colors flex items-center gap-1.5"
+          className="text-[12px] font-medium text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1.5"
         >
           <FolderKanban className="w-3 h-3" />
           Projects
         </Link>
-        <ChevronRight className="w-3 h-3 text-[#333339]" />
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#f0f0f5]">
-          {project.name}
-        </span>
+        <ChevronRight className="w-3 h-3 text-zinc-700" />
+        <span className="text-[12px] font-medium text-zinc-300">{project.name}</span>
       </div>
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <div
-            className="w-12 h-12 rounded-2xl shadow-inner flex items-center justify-center transition-transform duration-300"
+            className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/[0.06] shadow-sm"
             style={{
-              backgroundColor: `${project.color}15`,
+              backgroundColor: `${project.color}10`,
               color: project.color,
-              border: `1px solid ${project.color}30`,
             }}
           >
-            <FolderKanban className="w-6 h-6" />
+            <FolderKanban className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-[#f0f0f5] tracking-tight font-syne uppercase leading-none">
+            <h1 className="text-xl font-semibold text-zinc-100 tracking-tight leading-none">
               {project.name}
             </h1>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-[11px] font-mono text-[#6b6b80] uppercase tracking-widest">
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[11px] font-mono text-zinc-500 tracking-tight">
                 {project.key}
               </span>
-              <span className="w-1 h-1 rounded-full bg-white/10" />
-              <span className="text-[11px] font-bold text-[#333339] uppercase tracking-[0.1em]">
-                Internal Project
+              <span className="w-1 h-1 rounded-full bg-zinc-800" />
+              <span
+                className={`text-[11px] font-medium ${
+                  project.status === "active" ? "text-emerald-400" : "text-zinc-500"
+                }`}
+              >
+                {project.status === "active" ? "Active" : "On hold"}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="relative group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#6b6b80] group-focus-within:text-[var(--color-accent)] transition-colors" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 group-focus-within:text-blue-400 transition-colors" />
             <input
               type="text"
               placeholder="Search in project..."
-              className="bg-white/[0.03] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2 text-[13px] text-[#f0f0f5] placeholder-[#6b6b80] focus:outline-none focus:border-[var(--color-accent)]/50 focus:bg-white/[0.06] transition-all w-[240px]"
+              className="bg-white/[0.03] border border-white/[0.06] rounded-lg pl-9 pr-4 py-1.5 text-[13px] text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all w-[200px]"
             />
           </div>
 
-          <button className="p-2 text-[#6b6b80] hover:text-[#f0f0f5] hover:bg-white/[0.05] border border-white/[0.08] rounded-xl transition-all">
-            <Filter className="w-4 h-4" />
+          <button className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05] border border-white/[0.06] rounded-lg transition-all">
+            <Filter className="w-3.5 h-3.5" />
           </button>
 
-          <div className="h-6 w-px bg-white/[0.08] mx-1" />
+          <div className="h-4 w-px bg-white/[0.06] mx-0.5" />
 
-          <button className="flex items-center gap-2 px-4 py-2 bg-[var(--color-accent)] hover:bg-[var(--color-accent)]/90 text-white text-[13px] font-black rounded-xl transition-all active:scale-[0.98] shadow-lg shadow-[var(--color-accent)]/20 group">
-            <Plus className="w-4 h-4 transition-transform group-hover:rotate-90" />
-            Create
+          <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-white text-zinc-950 text-[13px] font-semibold rounded-lg transition-all active:scale-[0.98] shadow-sm">
+            <Plus className="w-3.5 h-3.5" />
+            New Issue
           </button>
         </div>
       </div>
 
       {/* Project Navigation Tabs */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-0.5 -mb-px">
         {navItems.map((item) => {
           const isActive = pathname.includes(item.href);
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`group flex items-center gap-2 px-4 py-3 text-[11px] font-black uppercase tracking-[0.15em] transition-all relative ${
-                isActive ? "text-white" : "text-[#6b6b80] hover:text-[#9090a8]"
+              className={`group flex items-center gap-1.5 px-3.5 py-2.5 text-[13px] font-medium transition-all relative border-b-2 ${
+                isActive
+                  ? "text-zinc-100 border-blue-500"
+                  : "text-zinc-500 border-transparent hover:text-zinc-300 hover:border-zinc-700"
               }`}
             >
               <item.icon
-                className={`w-4 h-4 ${isActive ? "text-[var(--color-accent)]" : "text-[#333339] group-hover:text-[#6b6b80]"} transition-colors`}
+                className={`w-3.5 h-3.5 ${isActive ? "text-blue-400" : "text-zinc-600 group-hover:text-zinc-400"} transition-colors`}
               />
               {item.name}
-              {isActive && (
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-[var(--color-accent)] shadow-[0_-4px_12px_-2px_var(--color-accent)]" />
-              )}
             </Link>
           );
         })}

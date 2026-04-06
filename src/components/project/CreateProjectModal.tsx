@@ -102,12 +102,12 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
     <>
       <style>{`
         @keyframes modalIn {
-          from { opacity: 0; transform: scale(0.95) translateY(20px); }
+          from { opacity: 0; transform: scale(0.98) translateY(10px); }
           to { opacity: 1; transform: scale(1) translateY(0); }
         }
         @keyframes modalOut {
           from { opacity: 1; transform: scale(1) translateY(0); }
-          to { opacity: 0; transform: scale(0.95) translateY(20px); }
+          to { opacity: 0; transform: scale(0.98) translateY(10px); }
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
@@ -117,115 +117,82 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
         className={`fixed inset-0 z-[1000] flex items-center justify-center p-4 ${backdropClass}`}
         onClick={handleClose}
       >
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
         <div
-          className={`relative w-full max-w-2xl rounded-[2.5rem] overflow-hidden ${animClass}`}
+          className={`relative w-full max-w-2xl rounded-2xl overflow-hidden bg-[#0c0c0f] border border-white/[0.08] shadow-2xl ${animClass}`}
           onClick={(e) => e.stopPropagation()}
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(22, 22, 30, 0.95) 0%, rgba(13, 13, 18, 1) 100%)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            boxShadow: "0 40px 100px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05)",
-          }}
         >
-          {/* Top Glow Accent */}
-          <div
-            className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[1px] opacity-50"
-            style={{
-              background: `linear-gradient(90deg, transparent, ${selectedColor}, transparent)`,
-            }}
-          />
-
-          <div className="flex">
+          <div className="flex flex-col md:flex-row h-full">
             {/* Left Sidebar - Preview */}
-            <div className="w-[240px] bg-white/[0.02] border-r border-white/[0.05] p-8 flex flex-col items-center justify-center text-center">
+            <div className="w-full md:w-[220px] bg-white/[0.02] border-r border-white/[0.05] p-8 flex flex-col items-center justify-center text-center">
               <div
-                className="w-24 h-24 rounded-3xl flex items-center justify-center transition-all duration-500 shadow-2xl mb-6 relative group"
+                className="w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500 mb-6 relative group border border-white/[0.05] shadow-lg"
                 style={{
-                  backgroundColor: `${selectedColor}15`,
+                  backgroundColor: `${selectedColor}10`,
                   color: selectedColor,
-                  border: `1px solid ${selectedColor}30`,
-                  boxShadow: `0 20px 40px -12px ${selectedColor}40`,
                 }}
               >
-                <div
-                  className="absolute inset-0 blur-xl opacity-20 group-hover:opacity-40 transition-opacity"
-                  style={{ backgroundColor: selectedColor }}
-                />
                 {(() => {
                   const ActiveIcon =
                     icons.find((i) => i.id === selectedIcon)?.icon || LayoutDashboard;
-                  return <ActiveIcon className="w-12 h-12 relative z-10" />;
+                  return <ActiveIcon className="w-8 h-8 relative z-10" />;
                 })()}
               </div>
 
-              <div className="space-y-1">
-                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#333339]">
-                  Preview
-                </h3>
-                <div className="text-xl font-black text-white font-syne uppercase truncate w-full px-2">
-                  {name || "My Project"}
+              <div className="space-y-1 w-full overflow-hidden">
+                <div className="text-sm font-semibold text-zinc-100 truncate w-full px-2">
+                  {name || "Project Name"}
                 </div>
-                <div className="text-[11px] font-mono text-[#6b6b80] uppercase tracking-widest">
+                <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest">
                   {key || "KEY"}
                 </div>
               </div>
 
-              <div className="mt-12 w-full space-y-4">
-                <div className="h-2 w-full bg-white/[0.05] rounded-full overflow-hidden">
-                  <div
-                    className="h-full w-[40%] rounded-full opacity-50"
-                    style={{ backgroundColor: selectedColor }}
-                  />
+              <div className="mt-10 w-full space-y-3 opacity-40">
+                <div className="h-1.5 w-full bg-white/[0.05] rounded-full overflow-hidden">
+                  <div className="h-full w-[40%] bg-zinc-600 rounded-full" />
                 </div>
-                <div className="h-2 w-full bg-white/[0.05] rounded-full overflow-hidden">
-                  <div
-                    className="h-full w-[60%] rounded-full opacity-50"
-                    style={{ backgroundColor: selectedColor }}
-                  />
+                <div className="h-1.5 w-full bg-white/[0.05] rounded-full overflow-hidden">
+                  <div className="h-full w-[60%] bg-zinc-600 rounded-full" />
                 </div>
               </div>
             </div>
 
             {/* Right Side - Form */}
-            <div className="flex-1 p-10">
+            <div className="flex-1 p-8">
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight font-syne uppercase">
-                    Ignite Project
-                  </h2>
-                  <p className="text-[11px] font-bold text-[#6b6b80] uppercase tracking-[0.2em] mt-1">
-                    Configure your next journey
-                  </p>
+                  <h2 className="text-xl font-semibold text-zinc-100">Create new project</h2>
+                  <p className="text-[13px] text-zinc-500 mt-1">Set up your workspace and team.</p>
                 </div>
                 <button
                   onClick={handleClose}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.03] border border-white/[0.08] text-[#6b6b80] hover:text-white transition-all"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.05] transition-all"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-8">
-                <div className="grid grid-cols-3 gap-6">
-                  <div className="col-span-2 space-y-2">
-                    <label className="text-[11px] font-black text-[#6b6b80] uppercase tracking-widest ml-1">
-                      Project Name
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="col-span-3 space-y-1.5">
+                    <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5">
+                      Name
                     </label>
                     <input
                       ref={inputRef}
                       type="text"
                       value={name}
                       onChange={(e) => handleNameChange(e.target.value)}
-                      placeholder="e.g. Phoenix Rising"
+                      placeholder="e.g. Design System"
                       required
-                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-5 py-3 text-[15px] text-white placeholder-[#333339] focus:outline-none focus:border-white/[0.2] focus:bg-white/[0.05] transition-all shadow-inner"
+                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-2.5 text-[14px] text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[11px] font-black text-[#6b6b80] uppercase tracking-widest ml-1">
-                      Key ID
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5">
+                      Key
                     </label>
                     <input
                       type="text"
@@ -234,78 +201,70 @@ export default function CreateProjectModal({ isOpen, onClose }: CreateProjectMod
                       placeholder="KEY"
                       maxLength={5}
                       required
-                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-5 py-3 text-[15px] font-mono text-center text-white placeholder-[#333339] focus:outline-none focus:border-white/[0.2] focus:bg-white/[0.05] transition-all shadow-inner"
+                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-2 py-2.5 text-[14px] font-mono text-center text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <label className="text-[11px] font-black text-[#6b6b80] uppercase tracking-widest ml-1">
-                    Branding & Identity
+                <div className="space-y-3">
+                  <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5">
+                    Appearance
                   </label>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-2.5">
                     {colors.map((color) => (
                       <button
                         key={color}
                         type="button"
                         onClick={() => setSelectedColor(color)}
-                        className={`w-10 h-10 rounded-xl transition-all duration-300 relative ${selectedColor === color ? "scale-110 shadow-lg" : "hover:scale-105 opacity-60 hover:opacity-100"}`}
+                        className={`w-7 h-7 rounded-full transition-all relative ${selectedColor === color ? "ring-2 ring-white ring-offset-2 ring-offset-[#0c0c0f]" : "opacity-40 hover:opacity-100"}`}
                         style={{ backgroundColor: color }}
-                      >
-                        {selectedColor === color && (
-                          <div className="absolute inset-0 rounded-xl border-2 border-white/50 animate-pulse" />
-                        )}
-                      </button>
+                      />
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-8 gap-3 pt-2">
+                  <div className="flex flex-wrap gap-2 pt-2">
                     {icons.map((item) => (
                       <button
                         key={item.id}
                         type="button"
                         onClick={() => setSelectedIcon(item.id)}
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 ${
+                        className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all ${
                           selectedIcon === item.id
-                            ? "bg-white/[0.08] border-white/20 text-white shadow-xl"
-                            : "bg-white/[0.02] border-white/[0.05] text-[#333339] hover:text-[#6b6b80] hover:bg-white/[0.04]"
+                            ? "bg-white/[0.08] border-white/20 text-blue-400"
+                            : "bg-white/[0.02] border-white/[0.05] text-zinc-600 hover:text-zinc-400"
                         }`}
                       >
-                        <item.icon className="w-5 h-5" />
+                        <item.icon className="w-4 h-4" />
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[11px] font-black text-[#6b6b80] uppercase tracking-widest ml-1">
-                    Manifesto (Description)
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5">
+                    Description
                   </label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What is the objective of this project?"
+                    placeholder="Briefly describe the project goals..."
                     rows={3}
-                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-2xl px-5 py-4 text-[14px] text-white placeholder-[#333339] focus:outline-none focus:border-white/[0.2] focus:bg-white/[0.05] transition-all shadow-inner resize-none"
+                    className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all resize-none"
                   />
                 </div>
 
-                <div className="flex items-center justify-between pt-4">
-                  <div className="flex items-center gap-2 text-[10px] font-black text-[#333339] uppercase tracking-widest">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Auto-generating workspace context
-                  </div>
+                <div className="flex items-center justify-end pt-4">
                   <button
                     type="submit"
                     disabled={loading || !name}
-                    className="group flex items-center gap-2 px-8 py-3.5 bg-white text-black text-[14px] font-black rounded-2xl transition-all active:scale-[0.98] shadow-2xl relative overflow-hidden disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 text-[14px] font-semibold rounded-lg transition-all active:scale-[0.98] disabled:opacity-50"
                   >
                     {loading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        Launch Project
-                        <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                        Create Project
+                        <ChevronRight className="w-4 h-4" />
                       </>
                     )}
                   </button>
