@@ -1,125 +1,246 @@
 "use client";
 
-import { MOCK_TICKETS, MOCK_PROJECTS } from "@/modules/project/mock-projects";
+import { MOCK_TICKETS, MOCK_PROJECTS, Ticket } from "@/modules/project/mock-projects";
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
 import {
   MoreHorizontal,
   Plus,
-  Search,
-  Filter,
-  Columns,
   GripVertical,
-  Zap,
-  Target,
-  CircleAlert,
+  Circle,
+  Loader2,
+  Eye,
+  CheckCircle2,
 } from "lucide-react";
 import { useParams } from "next/navigation";
+import { useState, useRef, useCallback } from "react";
 
 const columns = [
-  { id: "todo", title: "To Do", color: "bg-[#6b6b80]/20 text-[#6b6b80]", icon: Target },
-  { id: "in_progress", title: "In Progress", color: "bg-blue-500/20 text-blue-400", icon: Zap },
-  {
-    id: "review",
-    title: "In Review",
-    color: "bg-purple-500/20 text-purple-400",
-    icon: CircleAlert,
-  },
-  { id: "done", title: "Done", color: "bg-emerald-500/20 text-emerald-400", icon: Columns },
+  { id: "todo", title: "To Do", icon: Circle, dotColor: "bg-zinc-500" },
+  { id: "in_progress", title: "In Progress", icon: Loader2, dotColor: "bg-blue-500" },
+  { id: "review", title: "In Review", icon: Eye, dotColor: "bg-purple-500" },
+  { id: "done", title: "Done", icon: CheckCircle2, dotColor: "bg-emerald-500" },
 ];
+
+const priorityColors: Record<string, string> = {
+  urgent: "bg-red-500/10 text-red-400 border-red-500/10",
+  high: "bg-amber-500/10 text-amber-400 border-amber-500/10",
+  medium: "bg-blue-500/10 text-blue-400 border-blue-500/10",
+  low: "bg-zinc-500/10 text-zinc-400 border-zinc-500/10",
+};
+
+const typeColors: Record<string, string> = {
+  feature: "bg-purple-500/10 text-purple-400",
+  bug: "bg-red-500/10 text-red-400",
+  task: "bg-blue-500/10 text-blue-400",
+  improvement: "bg-emerald-500/10 text-emerald-400",
+};
 
 export default function ProjectBoardPage() {
   const { projectId } = useParams();
   const project = MOCK_PROJECTS.find((p) => p.id === projectId) || MOCK_PROJECTS[0];
 
+  const [tickets, setTickets] = useState<Ticket[]>(() => [...MOCK_TICKETS]);
+  const [draggedTicketId, setDraggedTicketId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+  const dragCounterRef = useRef<Record<string, number>>({});
+
+  const handleDragStart = useCallback((e: React.DragEvent, ticketId: string) => {
+    setDraggedTicketId(ticketId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", ticketId);
+
+    const el = e.currentTarget as HTMLElement;
+    requestAnimationFrame(() => {
+      el.style.opacity = "0.4";
+    });
+  }, []);
+
+  const handleDragEnd = useCallback((e: React.DragEvent) => {
+    const el = e.currentTarget as HTMLElement;
+    el.style.opacity = "1";
+    setDraggedTicketId(null);
+    setDragOverColumn(null);
+    setDropTargetIndex(null);
+    dragCounterRef.current = {};
+  }, []);
+
+  const handleColumnDragEnter = useCallback((e: React.DragEvent, columnId: string) => {
+    e.preventDefault();
+    if (!dragCounterRef.current[columnId]) {
+      dragCounterRef.current[columnId] = 0;
+    }
+    dragCounterRef.current[columnId]++;
+    setDragOverColumn(columnId);
+  }, []);
+
+  const handleColumnDragLeave = useCallback((columnId: string) => {
+    if (dragCounterRef.current[columnId]) {
+      dragCounterRef.current[columnId]--;
+    }
+    if (dragCounterRef.current[columnId] === 0) {
+      setDragOverColumn((prev) => (prev === columnId ? null : prev));
+    }
+  }, []);
+
+  const handleColumnDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const handleCardDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    setDropTargetIndex(e.clientY < midY ? index : index + 1);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent, columnId: string) => {
+      e.preventDefault();
+      const ticketId = e.dataTransfer.getData("text/plain");
+      if (!ticketId) return;
+
+      setTickets((prev) => {
+        const updated = prev.map((t) =>
+          t.id === ticketId ? { ...t, status: columnId as Ticket["status"] } : t
+        );
+
+        if (dropTargetIndex !== null) {
+          const movedTicket = updated.find((t) => t.id === ticketId);
+          if (movedTicket) {
+            const withoutMoved = updated.filter((t) => t.id !== ticketId);
+            const columnTickets = withoutMoved.filter((t) => t.status === columnId);
+            const otherTickets = withoutMoved.filter((t) => t.status !== columnId);
+            const clampedIndex = Math.min(dropTargetIndex, columnTickets.length);
+            columnTickets.splice(clampedIndex, 0, movedTicket);
+            return [...otherTickets, ...columnTickets];
+          }
+        }
+
+        return updated;
+      });
+
+      setDraggedTicketId(null);
+      setDragOverColumn(null);
+      setDropTargetIndex(null);
+      dragCounterRef.current = {};
+    },
+    [dropTargetIndex]
+  );
+
   return (
-    <div className="flex flex-col h-full bg-[#0d0d12]">
+    <div className="flex flex-col h-full bg-[#09090b]">
       <ProjectPageHeader />
 
-      {/* Board Columns Grid */}
-      <div className="flex-1 overflow-x-auto p-8 flex gap-6 custom-scrollbar bg-black/5">
+      <div className="flex-1 overflow-x-auto p-6 flex gap-4 custom-scrollbar">
         {columns.map((column) => {
-          const tickets = MOCK_TICKETS.filter((t) => t.status === column.id);
+          const columnTickets = tickets.filter((t) => t.status === column.id);
+          const isOver = dragOverColumn === column.id && draggedTicketId !== null;
+
           return (
-            <div
-              key={column.id}
-              className="flex flex-col w-[340px] shrink-0 bg-[#16161e]/40 border border-white/[0.04] rounded-[2.5rem] p-5 group/col hover:bg-[#16161e]/60 hover:border-white/[0.08] transition-all duration-300 shadow-2xl shadow-black/20"
-            >
+            <div key={column.id} className="flex flex-col w-[300px] shrink-0 group/col">
               {/* Column Header */}
-              <div className="flex items-center justify-between mb-6 px-3">
-                <div className="flex items-center gap-3">
-                  <div className={`p-1.5 rounded-xl ${column.color}`}>
-                    <column.icon className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-[#f0f0f5] uppercase tracking-wider">
-                      {column.title}
-                    </h3>
-                    <div className="text-[10px] font-bold text-[#333339] uppercase tracking-widest mt-0.5">
-                      {tickets.length} Tasks Scheduled
-                    </div>
-                  </div>
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${column.dotColor}`} />
+                  <h3 className="text-[13px] font-semibold text-zinc-300">{column.title}</h3>
+                  <span className="text-[11px] font-medium text-zinc-600 bg-zinc-800/60 px-1.5 py-0.5 rounded">
+                    {columnTickets.length}
+                  </span>
                 </div>
-                <button className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/[0.06] text-[#333339] hover:text-white transition-all opacity-0 group-hover/col:opacity-100">
-                  <Plus className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1 opacity-0 group-hover/col:opacity-100 transition-opacity">
+                  <button className="p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-md transition-all">
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                  <button className="p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-md transition-all">
+                    <MoreHorizontal className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
-              {/* Column Cards Container */}
-              <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-                {tickets.map((ticket) => (
-                  <div
-                    key={ticket.id}
-                    className="group/card relative bg-[#1c1c24] border border-white/[0.06] rounded-3xl p-5 shadow-xl shadow-black/30 hover:border-[var(--color-accent)]/30 hover:bg-[#22222a] transition-all duration-300 cursor-grab active:cursor-grabbing hover:scale-[1.02] active:scale-95"
-                  >
-                    {/* Card Handle */}
-                    <div className="absolute top-4 right-4 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                      <GripVertical className="w-4 h-4 text-[#333339]" />
-                    </div>
-
-                    <div className="flex items-center gap-3 mb-4">
-                      <div
-                        className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider ${
-                          ticket.priority === "urgent"
-                            ? "bg-red-500/10 text-red-500 border border-red-500/20"
-                            : ticket.priority === "high"
-                              ? "bg-orange-500/10 text-orange-500 border border-orange-500/20"
-                              : "bg-white/[0.04] text-[#6b6b80] border border-white/[0.04]"
-                        }`}
-                      >
-                        {ticket.priority}
+              {/* Column Drop Zone */}
+              <div
+                className={`flex-1 space-y-2 overflow-y-auto custom-scrollbar rounded-xl p-2 border transition-all duration-200 min-h-[120px] ${
+                  isOver
+                    ? "bg-blue-500/[0.04] border-blue-500/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]"
+                    : "bg-zinc-900/30 border-white/[0.03]"
+                }`}
+                onDragEnter={(e) => handleColumnDragEnter(e, column.id)}
+                onDragLeave={() => handleColumnDragLeave(column.id)}
+                onDragOver={handleColumnDragOver}
+                onDrop={(e) => handleDrop(e, column.id)}
+              >
+                {columnTickets.map((ticket, index) => (
+                  <div key={ticket.id}>
+                    {/* Drop indicator line */}
+                    {isOver && dropTargetIndex === index && (
+                      <div className="h-0.5 bg-blue-500 rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
+                    )}
+                    <div
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, ticket.id)}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => handleCardDragOver(e, index)}
+                      className={`group/card relative bg-[#111115] border border-white/[0.05] rounded-lg p-3.5 shadow-sm hover:border-white/[0.1] hover:bg-[#141418] transition-all cursor-grab active:cursor-grabbing select-none ${
+                        draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
+                      }`}
+                    >
+                      {/* Drag Handle */}
+                      <div className="absolute top-3 right-3 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                        <GripVertical className="w-3.5 h-3.5 text-zinc-700" />
                       </div>
-                      <span className="text-[10px] font-mono text-[#333339] group-hover/card:text-[#6b6b80] transition-colors">
-                        {ticket.key}
-                      </span>
-                    </div>
 
-                    <h4 className="text-[14px] font-bold text-[#d0d0db] mb-6 leading-relaxed group-hover/card:text-white transition-colors tracking-tight">
-                      {ticket.title}
-                    </h4>
+                      {/* Type & Priority Row */}
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <span
+                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded capitalize ${typeColors[ticket.type] || typeColors.task}`}
+                        >
+                          {ticket.type}
+                        </span>
+                        <span
+                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded border capitalize ${priorityColors[ticket.priority]}`}
+                        >
+                          {ticket.priority}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between pt-2">
-                      <div className="flex -space-x-2">
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[var(--color-accent)]/20 to-[var(--color-accent)]/5 border-2 border-[#1c1c24] flex items-center justify-center text-[9px] font-black text-[var(--color-accent)] group-hover/card:border-[#22222a] transition-all">
+                      {/* Ticket Key */}
+                      <div className="text-[11px] font-mono text-zinc-600 mb-1">{ticket.key}</div>
+
+                      {/* Title */}
+                      <h4 className="text-[13px] font-medium text-zinc-300 mb-4 leading-snug group-hover/card:text-zinc-100 transition-colors">
+                        {ticket.title}
+                      </h4>
+
+                      {/* Footer */}
+                      <div className="flex items-center justify-between">
+                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700/50 flex items-center justify-center text-[9px] font-semibold text-zinc-400">
                           {ticket.assignee?.initials || "?"}
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-2">
-                        {ticket.storyPoints && (
-                          <div className="px-2 py-0.5 rounded-lg bg-white/[0.03] text-[9px] font-black text-[#333339] group-hover/card:text-[#6b6b80] group-hover/card:bg-white/[0.05] transition-all">
-                            {ticket.storyPoints} PTS
-                          </div>
-                        )}
-                        <MoreHorizontal className="w-4 h-4 text-[#333339] group-hover/card:text-[#6b6b80] transition-colors" />
+                        <div className="flex items-center gap-2">
+                          {ticket.storyPoints && (
+                            <div className="px-1.5 py-0.5 rounded bg-zinc-800/80 text-[10px] font-medium text-zinc-500">
+                              {ticket.storyPoints} pts
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
 
-                {/* Add Card Button Section */}
-                <button className="w-full flex items-center justify-center gap-2 py-4 rounded-3xl border border-dashed border-white/[0.06] text-[#333339] text-[12px] font-bold uppercase tracking-widest hover:border-white/[0.15] hover:text-[#6b6b80] hover:bg-white/[0.02] transition-all duration-300">
-                  <Plus className="w-4 h-4" />
-                  Add Issue
+                {/* Drop indicator at end of column */}
+                {isOver && dropTargetIndex === columnTickets.length && (
+                  <div className="h-0.5 bg-blue-500 rounded-full mx-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
+                )}
+
+                {/* Add Card Button */}
+                <button className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-zinc-600 text-[12px] font-medium hover:text-zinc-400 hover:bg-white/[0.02] transition-all border border-dashed border-transparent hover:border-white/[0.06]">
+                  <Plus className="w-3.5 h-3.5" />
+                  Add task
                 </button>
               </div>
             </div>
@@ -127,12 +248,12 @@ export default function ProjectBoardPage() {
         })}
 
         {/* Add Column Button */}
-        <div className="w-[340px] shrink-0 border border-dashed border-white/[0.04] rounded-[2.5rem] flex flex-col items-center justify-center group/add hover:border-white/[0.1] hover:bg-white/[0.01] transition-all duration-300 cursor-pointer">
-          <div className="w-12 h-12 rounded-2xl bg-white/[0.02] flex items-center justify-center text-[#333339] group-hover/add:text-[#6b6b80] group-hover/add:scale-110 transition-all mb-4 border border-white/[0.04]">
-            <Plus className="w-6 h-6" />
+        <div className="w-[300px] shrink-0 border border-dashed border-white/[0.04] rounded-xl flex flex-col items-center justify-center group/add hover:border-white/[0.1] hover:bg-white/[0.01] transition-all cursor-pointer">
+          <div className="w-8 h-8 rounded-lg bg-white/[0.02] flex items-center justify-center text-zinc-600 group-hover/add:text-zinc-400 group-hover/add:scale-105 transition-all mb-2 border border-zinc-800/50">
+            <Plus className="w-4 h-4" />
           </div>
-          <span className="text-[12px] font-black uppercase tracking-[0.2em] text-[#333339] group-hover/add:text-[#6b6b80]">
-            New Pipeline
+          <span className="text-[12px] font-medium text-zinc-600 group-hover/add:text-zinc-400 transition-colors">
+            Add column
           </span>
         </div>
       </div>
