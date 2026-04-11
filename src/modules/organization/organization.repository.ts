@@ -1,9 +1,8 @@
 import { db } from "@/lib/db";
 import { organizationsTable, organizationMembersTable, organizationInvitesTable } from "@/db";
 import { eq, and } from "drizzle-orm";
-import { BaseRepository } from "@/repositories/base.repository";
 
-export class OrganizationRepository extends BaseRepository<any> {
+export class OrganizationRepository {
   async createOrganization(data: typeof organizationsTable.$inferInsert) {
     const [organization] = await db.insert(organizationsTable).values(data).returning().execute();
     return organization;

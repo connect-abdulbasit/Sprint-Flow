@@ -20,7 +20,6 @@ export default function ProjectsPage() {
               <FolderKanban className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">Projects</h1>
               <p className="text-[13px] text-zinc-500 flex items-center gap-2 mt-0.5">
                 Workspace Central <span className="w-1 h-1 rounded-full bg-zinc-800" />{" "}
                 {MOCK_PROJECTS.length} Total Projects
