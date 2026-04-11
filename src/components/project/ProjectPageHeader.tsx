@@ -10,7 +10,6 @@ import {
   Columns,
   Timer,
   Settings,
-  Users,
   BarChart2,
 } from "lucide-react";
 import Link from "next/link";
@@ -41,11 +40,6 @@ export default function ProjectPageHeader() {
       icon: Timer,
     },
     {
-      name: "Members",
-      href: `/workspace/${workspaceId}/projects/${projectId}/members`,
-      icon: Users,
-    },
-    {
       name: "Settings",
       href: `/workspace/${workspaceId}/projects/${projectId}/settings`,
       icon: Settings,
@@ -55,16 +49,23 @@ export default function ProjectPageHeader() {
   return (
     <div className="px-10 pt-6 pb-0 border-b border-white/[0.04] bg-[#0c0c0f]/60 backdrop-blur-xl sticky top-0 z-10">
       {/* Breadcrumbs */}
-      <div className="flex items-center gap-1.5 mb-5 ml-0.5">
+      <div className="flex items-center gap-1.5 mb-5 ml-0.5 text-[12px] font-medium">
         <Link
-          href={`/workspace/${workspaceId}/projects`}
-          className="text-[12px] font-medium text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1.5"
+          href={`/workspace/${workspaceId}/dashboard`}
+          className="text-zinc-500 hover:text-blue-400 transition-colors flex items-center gap-1.5"
         >
           <FolderKanban className="w-3 h-3" />
+          Workspace
+        </Link>
+        <ChevronRight className="w-3 h-3 text-zinc-700" />
+        <Link
+          href={`/workspace/${workspaceId}/projects`}
+          className="text-zinc-500 hover:text-blue-400 transition-colors"
+        >
           Projects
         </Link>
         <ChevronRight className="w-3 h-3 text-zinc-700" />
-        <span className="text-[12px] font-medium text-zinc-300">{project.name}</span>
+        <span className="text-zinc-300">{project.name}</span>
       </div>
 
       <div className="flex items-center justify-between mb-6">

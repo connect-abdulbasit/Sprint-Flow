@@ -1,9 +1,14 @@
 import { db } from "@/lib/db";
 import { workspacesTable, workspaceMembersTable } from "@/db";
 import { eq, and } from "drizzle-orm";
-import { BaseRepository } from "@/repositories/base.repository";
 
-export class WorkspaceRepository extends BaseRepository<any> {
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string) {
+  return UUID_PATTERN.test(value);
+}
+
+export class WorkspaceRepository {
   async createWorkspace(data: typeof workspacesTable.$inferInsert) {
     const [workspace] = await db.insert(workspacesTable).values(data).returning().execute();
     return workspace;
@@ -39,12 +44,12 @@ export class WorkspaceRepository extends BaseRepository<any> {
     return results.map((r) => r.workspaces).filter(Boolean);
   }
 
-  async getWorkspaceById(id: string) {
-    const results = await db
-      .select()
-      .from(workspacesTable)
-      .where(eq(workspacesTable.id, id))
-      .execute();
+  async getWorkspaceById(idOrSlug: string) {
+    const predicate = isUuid(idOrSlug)
+      ? eq(workspacesTable.id, idOrSlug)
+      : eq(workspacesTable.slug, idOrSlug);
+
+    const results = await db.select().from(workspacesTable).where(predicate).execute();
     return results[0];
   }
 }

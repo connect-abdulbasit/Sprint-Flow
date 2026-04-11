@@ -1,9 +1,8 @@
 import { db } from "@/lib/db";
 import { usersTable, sessionsTable } from "@/db";
 import { eq } from "drizzle-orm";
-import { BaseRepository } from "@/repositories/base.repository";
 
-export class AuthRepository extends BaseRepository<any> {
+export class AuthRepository {
   async findUserByEmail(email: string) {
     const results = await db.select().from(usersTable).where(eq(usersTable.email, email)).execute();
     return results[0];
