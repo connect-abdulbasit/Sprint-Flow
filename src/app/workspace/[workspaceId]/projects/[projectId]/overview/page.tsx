@@ -260,13 +260,6 @@ export default function ProjectOverviewPage() {
           <div className="bg-[#111115] border border-white/[0.05] rounded-xl p-6 hover:border-white/[0.08] transition-all">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-[15px] font-semibold text-zinc-200">Team</h3>
-              <Link
-                href={`/workspace/${workspaceId}/projects/${projectId}/members`}
-                className="text-[11px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1"
-              >
-                Manage
-                <ArrowUpRight className="w-3 h-3" />
-              </Link>
             </div>
 
             <div className="space-y-3">
