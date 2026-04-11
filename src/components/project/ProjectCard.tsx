@@ -24,7 +24,7 @@ export default function ProjectCard({ project }: { project: Project }) {
 
   return (
     <Link
-      href={`/workspace/${workspaceId}/projects/${project.id}/backlog`}
+      href={`/workspace/${workspaceId}/projects/${project.id}/board`}
       className="group relative flex flex-col bg-[#111115] border border-white/[0.05] rounded-2xl p-5 hover:bg-[#16161b] hover:border-white/[0.1] transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-black/40"
     >
       <div className="relative flex items-start justify-between mb-5">

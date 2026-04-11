@@ -9,18 +9,10 @@ import {
   BarChart2,
   Users,
   Settings,
-  Briefcase,
-  Columns,
-  ListTodo,
-  Rocket,
-  FileText,
   ChevronLeft,
   ChevronRight,
   Bell,
-  KanbanSquare,
-  Layers,
   CircleUserRound,
-  Timer,
 } from "lucide-react";
 import { useState } from "react";
 import OrgWorkspaceSwitcher from "./org-workspace-switcher";
@@ -45,34 +37,16 @@ export default function Sidebar() {
   const workspaceMatch = pathname.match(/^\/workspace\/([^/]+)/);
   const workspaceId = workspaceMatch ? workspaceMatch[1] : "default";
 
-  const projectMatch = pathname.match(/^\/workspace\/[^/]+\/projects\/([^/]+)/);
-  const projectId = projectMatch ? projectMatch[1] : null;
-
   // ── Sidebar Sections ─────────────────────────────────
 
   const sections: NavSectionDef[] = [
     {
-      label: "Planning",
+      label: "Workspace",
       items: [
         {
           name: "Dashboard",
           href: `/workspace/${workspaceId}/dashboard`,
           icon: LayoutDashboard,
-        },
-        {
-          name: "Backlog",
-          href: `/workspace/${workspaceId}/backlog`,
-          icon: Layers,
-        },
-        {
-          name: "Board",
-          href: `/workspace/${workspaceId}/board`,
-          icon: KanbanSquare,
-        },
-        {
-          name: "Sprints",
-          href: `/workspace/${workspaceId}/sprints`,
-          icon: Timer,
         },
       ],
     },
@@ -124,52 +98,11 @@ export default function Sidebar() {
     },
   ];
 
-  const projectMenuItems: NavItemDef[] = projectId
-    ? [
-        {
-          name: "Overview",
-          href: `/workspace/${workspaceId}/projects/${projectId}/overview`,
-          icon: Briefcase,
-        },
-        {
-          name: "Board",
-          href: `/workspace/${workspaceId}/projects/${projectId}/board`,
-          icon: Columns,
-        },
-        {
-          name: "Backlog",
-          href: `/workspace/${workspaceId}/projects/${projectId}/backlog`,
-          icon: ListTodo,
-        },
-        {
-          name: "Sprints",
-          href: `/workspace/${workspaceId}/projects/${projectId}/sprints`,
-          icon: Rocket,
-        },
-        {
-          name: "Members",
-          href: `/workspace/${workspaceId}/projects/${projectId}/members`,
-          icon: Users,
-        },
-        {
-          name: "Reports",
-          href: `/workspace/${workspaceId}/projects/${projectId}/reports`,
-          icon: FileText,
-        },
-        {
-          name: "Settings",
-          href: `/workspace/${workspaceId}/projects/${projectId}/settings`,
-          icon: Settings,
-        },
-      ]
-    : [];
-
   // ── Active state logic ────────────────────────────────
 
   const isItemActive = (item: NavItemDef) => {
     if (item.name === "Dashboard") return pathname === item.href;
-    if (item.name === "Projects" && !projectId) return pathname.startsWith(item.href);
-    if (projectId && item.href.includes(projectId)) return pathname.includes(item.href);
+    if (item.name === "Projects") return pathname.startsWith(item.href);
     return pathname === item.href;
   };
 
@@ -246,16 +179,6 @@ export default function Sidebar() {
             ))}
           </div>
         ))}
-
-        {/* ── Project Context ── */}
-        {projectId && (
-          <div className="space-y-0.5 pt-4 border-t border-[#333339]">
-            <SectionLabel label="Project" dot="#00d4aa" />
-            {projectMenuItems.map((item) => (
-              <NavItem key={item.name} item={item} />
-            ))}
-          </div>
-        )}
       </nav>
 
       {/* ── Collapse Toggle ── */}
