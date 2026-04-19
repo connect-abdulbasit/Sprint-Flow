@@ -8,7 +8,7 @@ export class ProjectService {
     if (!workspace) {
       throw new Error("Workspace not found or access denied");
     }
-    return projectRepository.findByWorkspace(workspaceId);
+    return projectRepository.findByWorkspace(workspace.id);
   }
 
   async createProject(
@@ -20,7 +20,11 @@ export class ProjectService {
     if (!workspace) {
       throw new Error("Workspace not found or access denied");
     }
-    return projectRepository.create({ ...payload, createdBy: userId });
+    return projectRepository.create({
+      ...payload,
+      workspaceId: workspace.id,
+      createdBy: userId,
+    });
   }
 
   async updateProject(

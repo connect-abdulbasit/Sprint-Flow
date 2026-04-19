@@ -15,6 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import InviteModal from "@/components/InviteModal";
+import { writeSelectedOrgId, writeWorkspaceIdForOrg } from "@/lib/workspace-prefs";
 
 function getInitials(name: string) {
   return name
@@ -32,38 +33,17 @@ const members = [
   { id: 4, name: "Diana Prince", role: "UX Designer", initials: "DP" },
 ];
 
-const workspaces = [
-  {
-    id: "engineering",
-    name: "Engineering",
-    desc: "Core product development",
-    tasks: 42,
-    members: 12,
-    updated: "2 hours ago",
-    color: "var(--color-accent)",
-  },
-  {
-    id: "marketing",
-    name: "Marketing",
-    desc: "Campaigns and growth",
-    tasks: 18,
-    members: 6,
-    updated: "5 hours ago",
-    color: "var(--color-accent3)",
-  },
-  {
-    id: "design",
-    name: "Design System",
-    desc: "Components and design tokens",
-    tasks: 7,
-    members: 4,
-    updated: "1 day ago",
-    color: "var(--color-accent2)",
-  },
-];
+type ApiWorkspace = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  organizationId: string;
+  color?: string | null;
+};
 
-const stats = [
-  { label: "Workspaces", value: "3", icon: FolderKanban, color: "var(--color-accent)" },
+const statsBase = [
+  { label: "Workspaces", value: "0", icon: FolderKanban, color: "var(--color-accent)" },
   { label: "Members", value: "24", icon: Users, color: "var(--color-accent2)" },
   { label: "Active Tasks", value: "67", icon: Activity, color: "var(--color-accent3)" },
 ];
@@ -71,27 +51,49 @@ const stats = [
 export default function OrganizationPage() {
   const { id } = useParams<{ id: string }>();
   const [org, setOrg] = useState<any>(null);
+  const [orgWorkspaces, setOrgWorkspaces] = useState<ApiWorkspace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
-    async function fetchOrg() {
+    async function fetchOrgAndWorkspaces() {
+      if (!id) return;
       try {
-        const res = await fetch(`/api/organizations/${id}`);
-        if (!res.ok) {
+        const [orgRes, wsRes] = await Promise.all([
+          fetch(`/api/organizations/${id}`),
+          fetch("/api/workspaces"),
+        ]);
+        if (!orgRes.ok) {
           throw new Error("Failed to load organization details");
         }
-        const data = await res.json();
-        setOrg(data);
+        const orgData = await orgRes.json();
+        setOrg(orgData);
+
+        if (wsRes.ok) {
+          const allWs: ApiWorkspace[] = await wsRes.json();
+          setOrgWorkspaces(allWs.filter((w) => w.organizationId === id));
+        } else {
+          setOrgWorkspaces([]);
+        }
       } catch (err) {
         setError((err as Error).message);
       } finally {
         setIsLoading(false);
       }
     }
-    if (id) fetchOrg();
+    fetchOrgAndWorkspaces();
   }, [id]);
+
+  const stats = statsBase.map((s) =>
+    s.label === "Workspaces" ? { ...s, value: String(orgWorkspaces.length) } : s
+  );
+
+  const persistWorkspaceNav = (workspaceId: string) => {
+    if (!id) return;
+    writeSelectedOrgId(id);
+    writeWorkspaceIdForOrg(id, workspaceId);
+  };
 
   if (isLoading) {
     return (
@@ -197,26 +199,39 @@ export default function OrganizationPage() {
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {workspaces.map((ws) => (
-              <Link key={ws.id} href={`/workspace/${ws.id}/dashboard`} className="group block">
-                <div className="relative h-full flex flex-col p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5">
-                  <div className="w-8 h-1 rounded-full mb-4" style={{ background: ws.color }} />
-                  <h3 className="text-base font-bold text-[#f0f0f5] mb-1 group-hover:text-white transition-colors">
-                    {ws.name}
-                  </h3>
-                  <p className="text-xs text-[var(--color-muted)] mb-5">{ws.desc}</p>
+            {orgWorkspaces.length === 0 ? (
+              <p className="text-sm text-[var(--color-muted)] md:col-span-3 py-6 px-1">
+                No workspaces yet. Create one from the switcher or onboarding to get started.
+              </p>
+            ) : (
+              orgWorkspaces.map((ws) => {
+                const accent = ws.color || "var(--color-accent)";
+                return (
+                  <Link
+                    key={ws.id}
+                    href={`/workspace/${ws.id}/dashboard`}
+                    onClick={() => persistWorkspaceNav(ws.id)}
+                    className="group block"
+                  >
+                    <div className="relative h-full flex flex-col p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5">
+                      <div className="w-8 h-1 rounded-full mb-4" style={{ background: accent }} />
+                      <h3 className="text-base font-bold text-[#f0f0f5] mb-1 group-hover:text-white transition-colors">
+                        {ws.name}
+                      </h3>
+                      <p className="text-xs text-[var(--color-muted)] mb-5 line-clamp-2">
+                        {ws.description?.trim() ||
+                          "Open this workspace to manage projects and tasks."}
+                      </p>
 
-                  <div className="mt-auto pt-4 border-t border-white/[0.05] flex items-center justify-between text-xs text-[var(--color-muted)]">
-                    <div className="flex items-center gap-3">
-                      <span>{ws.tasks} tasks</span>
-                      <span className="w-0.5 h-0.5 rounded-full bg-[var(--color-muted)]" />
-                      <span>{ws.members} members</span>
+                      <div className="mt-auto pt-4 border-t border-white/[0.05] flex items-center justify-between text-xs text-[var(--color-muted)]">
+                        <span className="truncate">/{ws.slug}</span>
+                        <ChevronRight className="w-4 h-4 text-[var(--color-muted)] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 shrink-0" />
+                      </div>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-[var(--color-muted)] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
-                  </div>
-                </div>
-              </Link>
-            ))}
+                  </Link>
+                );
+              })
+            )}
           </div>
         </section>
 

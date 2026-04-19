@@ -28,7 +28,7 @@ export class WorkspaceService {
     if (!workspace) return null;
 
     // Optional: Check if user is a member of the workspace or organization
-    const member = await workspaceRepository.getMember(userId, id);
+    const member = await workspaceRepository.getMember(userId, workspace.id);
     if (!member) {
       // You might want to allow org admins to see all workspaces in their org
       // For now, strict membership check

@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useWorkspaceNav } from "@/contexts/workspace-nav-context";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -33,9 +34,11 @@ interface NavSectionDef {
 export default function Sidebar() {
   const pathname = usePathname() || "";
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { workspaceIdForNav } = useWorkspaceNav();
 
-  const workspaceMatch = pathname.match(/^\/workspace\/([^/]+)/);
-  const workspaceId = workspaceMatch ? workspaceMatch[1] : "default";
+  const workspaceBase = workspaceIdForNav
+    ? `/workspace/${workspaceIdForNav}`
+    : "/onboarding/workspace";
 
   // ── Sidebar Sections ─────────────────────────────────
 
@@ -45,7 +48,7 @@ export default function Sidebar() {
       items: [
         {
           name: "Dashboard",
-          href: `/workspace/${workspaceId}/dashboard`,
+          href: `${workspaceBase}/dashboard`,
           icon: LayoutDashboard,
         },
       ],
@@ -55,17 +58,17 @@ export default function Sidebar() {
       items: [
         {
           name: "My Tasks",
-          href: `/workspace/${workspaceId}/my-tasks`,
+          href: `${workspaceBase}/my-tasks`,
           icon: CheckSquare,
         },
         {
           name: "Assigned to Me",
-          href: `/workspace/${workspaceId}/assigned`,
+          href: `${workspaceBase}/assigned`,
           icon: CircleUserRound,
         },
         {
           name: "Notifications",
-          href: `/workspace/${workspaceId}/notifications`,
+          href: `${workspaceBase}/notifications`,
           icon: Bell,
           badge: "3",
         },
@@ -76,22 +79,22 @@ export default function Sidebar() {
       items: [
         {
           name: "Projects",
-          href: `/workspace/${workspaceId}/projects`,
+          href: `${workspaceBase}/projects`,
           icon: FolderKanban,
         },
         {
           name: "Team",
-          href: `/workspace/${workspaceId}/team`,
+          href: `${workspaceBase}/team`,
           icon: Users,
         },
         {
           name: "Reports",
-          href: `/workspace/${workspaceId}/reports`,
+          href: `${workspaceBase}/reports`,
           icon: BarChart2,
         },
         {
           name: "Settings",
-          href: `/workspace/${workspaceId}/settings`,
+          href: `${workspaceBase}/settings`,
           icon: Settings,
         },
       ],

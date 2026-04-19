@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useWorkspaceNav } from "@/contexts/workspace-nav-context";
+import { readSelectedOrgId, writeWorkspaceIdForOrg } from "@/lib/workspace-prefs";
 import {
   ChevronDown,
   Check,
@@ -55,6 +57,7 @@ function getGradient(id: string) {
 export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
   const pathname = usePathname() || "";
   const router = useRouter();
+  const { syncWorkspaceSelection, setNavWorkspaceId } = useWorkspaceNav();
 
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState("");
@@ -101,7 +104,24 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         if (mappedOrgs.length > 0) {
           setRealOrganizations(mappedOrgs);
           setRealWorkspacesByOrg(wsByOrg);
-          setSelectedOrgId(mappedOrgs[0].id);
+
+          const path = typeof window !== "undefined" ? window.location.pathname : "";
+          const pathOrgMatch = path.match(/^\/organization\/([^/]+)/);
+          const pathOrgId = pathOrgMatch?.[1];
+          const storedOrgId = readSelectedOrgId();
+          const firstOrgId = mappedOrgs[0].id as string;
+
+          let resolvedOrgId = pathOrgId ?? "";
+          if (!resolvedOrgId || !mappedOrgs.some((o: { id: string }) => o.id === resolvedOrgId)) {
+            resolvedOrgId =
+              storedOrgId && mappedOrgs.some((o: { id: string }) => o.id === storedOrgId)
+                ? storedOrgId
+                : firstOrgId;
+          }
+
+          setSelectedOrgId(resolvedOrgId);
+          const workspaces = wsByOrg[resolvedOrgId] ?? [];
+          syncWorkspaceSelection(resolvedOrgId, workspaces);
         }
       } catch (err) {
         console.error("Error fetching orgs/workspaces:", err);
@@ -111,7 +131,18 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
     }
 
     fetchData();
-  }, []);
+  }, [syncWorkspaceSelection]);
+
+  useEffect(() => {
+    if (isLoading || realOrganizations.length === 0) return;
+    const m = pathname.match(/^\/organization\/([^/]+)/);
+    if (!m?.[1]) return;
+    const orgIdFromPath = m[1];
+    if (!realOrganizations.some((o) => o.id === orgIdFromPath)) return;
+    setSelectedOrgId(orgIdFromPath);
+    const workspaces = realWorkspacesByOrg[orgIdFromPath] ?? [];
+    syncWorkspaceSelection(orgIdFromPath, workspaces);
+  }, [isLoading, pathname, realOrganizations, realWorkspacesByOrg, syncWorkspaceSelection]);
 
   // ── Global Event Listeners (Hooks must be above returns) ──
 
@@ -194,12 +225,16 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
   const currentWorkspace = workspaces.find((ws) => ws.id === currentWorkspaceId);
 
   const handleWorkspaceSelect = (wsId: string) => {
+    writeWorkspaceIdForOrg(currentOrgId, wsId);
+    setNavWorkspaceId(wsId);
     router.push(`/workspace/${wsId}/dashboard`);
     setIsOpen(false);
   };
 
   const handleOrgSelect = (orgId: string) => {
     setSelectedOrgId(orgId);
+    const list = displayWorkspacesByOrg[orgId] ?? [];
+    syncWorkspaceSelection(orgId, list);
   };
 
   const trigger = (
