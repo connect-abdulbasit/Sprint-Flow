@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { workspacesTable, workspaceMembersTable } from "@/db";
-import { eq, and } from "drizzle-orm";
+import { workspacesTable, workspaceMembersTable, usersTable } from "@/db";
+import { eq, and, asc } from "drizzle-orm";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -51,6 +51,21 @@ export class WorkspaceRepository {
 
     const results = await db.select().from(workspacesTable).where(predicate).execute();
     return results[0];
+  }
+
+  async listMembersWithUsers(workspaceId: string) {
+    return db
+      .select({
+        userId: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        role: workspaceMembersTable.role,
+      })
+      .from(workspaceMembersTable)
+      .innerJoin(usersTable, eq(workspaceMembersTable.userId, usersTable.id))
+      .where(eq(workspaceMembersTable.workspaceId, workspaceId))
+      .orderBy(asc(usersTable.name))
+      .execute();
   }
 }
 

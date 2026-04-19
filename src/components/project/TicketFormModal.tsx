@@ -168,12 +168,16 @@ export default function TicketFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4">
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-lg rounded-xl border border-white/[0.08] bg-[#111115] shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar"
+        className="w-full max-w-lg rounded-xl border border-white/[0.08] bg-[#111115] shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar transition-all duration-300"
         role="dialog"
         aria-modal="true"
         aria-labelledby="ticket-form-title"
+        onClick={(e) => e.stopPropagation()}
       >
         <form onSubmit={(e) => void handleSubmit(e)} className="p-5">
           <div className="flex items-center justify-between mb-4">

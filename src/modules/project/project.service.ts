@@ -1,5 +1,6 @@
 import { projectRepository } from "./project.repository";
 import { workspaceService } from "@/modules/workspace/workspace.service";
+import { workspaceRepository } from "@/modules/workspace/workspace.repository";
 
 export class ProjectService {
   async getWorkspaceProjects(userId: string, workspaceId: string) {
@@ -56,7 +57,7 @@ export class ProjectService {
     if (!project) {
       throw new Error("Project not found or access denied");
     }
-    return projectRepository.listMembersWithUsers(projectId);
+    return workspaceRepository.listMembersWithUsers(project.workspaceId);
   }
 }
 

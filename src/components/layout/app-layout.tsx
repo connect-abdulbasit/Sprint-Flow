@@ -11,7 +11,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Sidebar />
         <div className="flex-1 flex flex-col h-full overflow-hidden bg-transparent">
           <Topbar />
-          <main className="flex-1 overflow-auto p-8 pt-2 z-10">
+          <main className="flex-1 overflow-auto p-8 pt-2">
             <div className="max-w-[1600px] mx-auto h-full">{children}</div>
           </main>
         </div>

@@ -50,7 +50,7 @@ export default function ProjectOverviewPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
             {
               label: "Completion Rate",
@@ -78,15 +78,6 @@ export default function ProjectOverviewPage() {
               icon: Activity,
               color: "text-purple-400",
               bg: "bg-purple-500/8",
-            },
-            {
-              label: "Team Members",
-              value: "—",
-              change: "Members API soon",
-              positive: true,
-              icon: Users,
-              color: "text-amber-400",
-              bg: "bg-amber-500/8",
             },
           ].map((stat) => (
             <div
@@ -138,16 +129,7 @@ export default function ProjectOverviewPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-6">
-          <div className="bg-[#111115] border border-white/[0.05] rounded-xl p-6 hover:border-white/[0.08] transition-all">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-[15px] font-semibold text-zinc-200">Team</h3>
-            </div>
-            <p className="text-[13px] text-zinc-600">
-              Member list will load from the project directory API.
-            </p>
-          </div>
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-[#111115] border border-white/[0.05] rounded-xl p-6 hover:border-white/[0.08] transition-all">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-[15px] font-semibold text-zinc-200">Active Sprint</h3>

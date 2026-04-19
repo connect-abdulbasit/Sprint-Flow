@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { projectsTable, projectMembersTable } from "@/modules/project/project.schema";
 import { usersTable } from "@/modules/user/user.schema";
+import { workspaceMembersTable } from "@/modules/workspace/workspace.schema";
 import { and, asc, eq } from "drizzle-orm";
 
 export class ProjectRepository {
@@ -19,11 +20,17 @@ export class ProjectRepository {
   }
 
   async isProjectMember(projectId: string, userId: string) {
+    const project = await this.findById(projectId);
+    if (!project) return false;
+
     const [row] = await db
-      .select({ projectId: projectMembersTable.projectId })
-      .from(projectMembersTable)
+      .select({ userId: workspaceMembersTable.userId })
+      .from(workspaceMembersTable)
       .where(
-        and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.userId, userId))
+        and(
+          eq(workspaceMembersTable.workspaceId, project.workspaceId),
+          eq(workspaceMembersTable.userId, userId)
+        )
       )
       .execute();
     return Boolean(row);
@@ -53,13 +60,6 @@ export class ProjectRepository {
           status: "active",
         })
         .returning();
-
-      // Auto-assign creator as project owner
-      await tx.insert(projectMembersTable).values({
-        projectId: project.id,
-        userId: data.createdBy,
-        role: "owner",
-      });
 
       return project;
     });

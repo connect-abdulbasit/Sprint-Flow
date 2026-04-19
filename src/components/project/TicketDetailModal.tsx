@@ -295,12 +295,16 @@ export default function TicketDetailModal({
   const showPendingImage = Boolean(imagePreviewUrl);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/75 p-3 sm:p-5">
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-3 sm:p-5 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
-        className="relative flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0c] shadow-2xl"
+        className="relative flex max-h-[94vh] w-[95%] sm:w-[92%] max-w-5xl flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0c] shadow-2xl transition-all duration-300"
         role="dialog"
         aria-modal="true"
         aria-labelledby="ticket-detail-title"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Top bar — Jira-style global actions */}
         <div className="flex shrink-0 items-center justify-end gap-1 border-b border-white/[0.06] px-3 py-2 sm:px-4">
