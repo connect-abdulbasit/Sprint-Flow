@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sprint } from "@/modules/project/mock-projects";
+import type { ProjectTicket, SprintGroup } from "@/lib/projects-api";
 import {
   ChevronDown,
   ChevronRight,
@@ -15,11 +15,18 @@ import {
 import TicketItem from "./TicketItem";
 
 interface SprintSectionProps {
-  sprint: Sprint;
+  sprint: SprintGroup;
   isBacklog?: boolean;
+  onCreateTask?: () => void;
+  onTicketSelect?: (ticket: ProjectTicket) => void;
 }
 
-export default function SprintSection({ sprint, isBacklog }: SprintSectionProps) {
+export default function SprintSection({
+  sprint,
+  isBacklog,
+  onCreateTask,
+  onTicketSelect,
+}: SprintSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -34,7 +41,7 @@ export default function SprintSection({ sprint, isBacklog }: SprintSectionProps)
     <div className="mb-3 last:mb-0">
       {/* Header */}
       <div
-        className="group flex items-center gap-3 px-4 py-2.5 bg-[#111115] border border-white/[0.05] rounded-t-lg cursor-pointer hover:bg-[#141418] transition-all"
+        className="group flex cursor-pointer items-center gap-3 rounded-t-lg border border-white/[0.05] bg-[#111115] px-4 py-2.5 transition-all hover:bg-[#141418]"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -120,7 +127,9 @@ export default function SprintSection({ sprint, isBacklog }: SprintSectionProps)
       {isExpanded && (
         <div className="border-x border-b border-white/[0.04] bg-[#0c0c0f] rounded-b-lg overflow-hidden">
           {sprint.tickets.length > 0 ? (
-            sprint.tickets.map((ticket) => <TicketItem key={ticket.id} ticket={ticket} />)
+            sprint.tickets.map((ticket) => (
+              <TicketItem key={ticket.id} ticket={ticket} onSelect={onTicketSelect} />
+            ))
           ) : (
             <div className="px-4 py-6 text-center text-[12px] text-zinc-600">
               No tasks yet. Drag tasks here or create a new one.
@@ -128,7 +137,14 @@ export default function SprintSection({ sprint, isBacklog }: SprintSectionProps)
           )}
 
           {/* Quick Create */}
-          <button className="w-full text-left px-4 py-2 text-[12px] text-zinc-600 hover:text-zinc-400 hover:bg-white/[0.02] transition-all flex items-center gap-2 border-t border-white/[0.03]">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onCreateTask?.();
+            }}
+            className="flex w-full items-center gap-2 border-t border-white/[0.03] px-4 py-2 text-left text-[12px] text-zinc-600 transition-all hover:bg-white/[0.02] hover:text-zinc-400"
+          >
             <Plus className="w-3 h-3" />
             Create task
           </button>

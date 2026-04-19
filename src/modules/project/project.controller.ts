@@ -57,6 +57,46 @@ export class ProjectController {
     }
   }
 
+  async listMembers(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const members = await projectService.listProjectMembers(user.id, id);
+      return NextResponse.json(members);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to list members";
+      const status = message.includes("denied") || message.includes("not found") ? 403 : 500;
+      console.error("List project members error:", error);
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
+  async get(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const project = await projectService.getProjectForMember(user.id, id);
+      if (!project) {
+        return NextResponse.json({ error: "Project not found or access denied" }, { status: 404 });
+      }
+      return NextResponse.json(project);
+    } catch (error) {
+      console.error("Get project error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to load project" },
+        { status: 500 }
+      );
+    }
+  }
+
   async update(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const user = await getCurrentUser(req);
     if (!user) {

@@ -1,13 +1,27 @@
 "use client";
 
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
-import { Settings, Palette, Bell, Shield, Trash2 } from "lucide-react";
+import { Settings, Palette, Bell, Trash2 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { MOCK_PROJECTS } from "@/modules/project/mock-projects";
+import { useEffect, useState } from "react";
+import { fetchProject, type Project } from "@/lib/projects-api";
+import { projectKeyPrefix } from "@/lib/ticket-key";
 
 export default function ProjectSettingsPage() {
   const { projectId } = useParams();
-  const project = MOCK_PROJECTS.find((p) => p.id === projectId) || MOCK_PROJECTS[0];
+  const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
+  const [project, setProject] = useState<Project | null>(null);
+
+  useEffect(() => {
+    if (!pid) return;
+    fetchProject(pid)
+      .then(setProject)
+      .catch(() => setProject(null));
+  }, [pid]);
+
+  const name = project?.name ?? "";
+  const description = project?.description ?? "";
+  const key = project ? projectKeyPrefix(project.name) : "";
 
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
@@ -20,7 +34,6 @@ export default function ProjectSettingsPage() {
             <p className="text-[12px] text-zinc-500 mt-0.5">Manage your project configuration</p>
           </div>
 
-          {/* General */}
           <div className="bg-[#111115] border border-white/[0.05] rounded-xl p-6 space-y-5">
             <div className="flex items-center gap-2 text-zinc-300">
               <Settings className="w-4 h-4 text-zinc-500" />
@@ -33,19 +46,21 @@ export default function ProjectSettingsPage() {
                   Project Name
                 </label>
                 <input
+                  key={name}
                   type="text"
-                  defaultValue={project.name}
+                  defaultValue={name}
                   className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-2.5 text-[14px] text-zinc-200 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all"
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Key
+                  Key prefix
                 </label>
                 <input
                   type="text"
-                  defaultValue={project.key}
-                  className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-2.5 text-[14px] font-mono text-zinc-200 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all"
+                  readOnly
+                  value={key}
+                  className="w-full bg-white/[0.02] border border-white/[0.06] rounded-lg px-4 py-2.5 text-[14px] font-mono text-zinc-400"
                 />
               </div>
               <div className="space-y-1.5">
@@ -53,7 +68,8 @@ export default function ProjectSettingsPage() {
                   Description
                 </label>
                 <textarea
-                  defaultValue={project.description}
+                  key={description}
+                  defaultValue={description}
                   rows={3}
                   className="w-full bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 text-[14px] text-zinc-200 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all resize-none"
                 />
@@ -61,38 +77,16 @@ export default function ProjectSettingsPage() {
             </div>
           </div>
 
-          {/* Appearance */}
           <div className="bg-[#111115] border border-white/[0.05] rounded-xl p-6 space-y-5">
             <div className="flex items-center gap-2 text-zinc-300">
               <Palette className="w-4 h-4 text-zinc-500" />
               <h3 className="text-[14px] font-semibold">Appearance</h3>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                Project Color
-              </label>
-              <div className="flex gap-2">
-                {[
-                  "#6366f1",
-                  "#10b981",
-                  "#ec4899",
-                  "#f59e0b",
-                  "#3b82f6",
-                  "#8b5cf6",
-                  "#ef4444",
-                  "#06b6d4",
-                ].map((color) => (
-                  <button
-                    key={color}
-                    className={`w-7 h-7 rounded-full transition-all ${color === project.color ? "ring-2 ring-white ring-offset-2 ring-offset-[#111115]" : "opacity-50 hover:opacity-100"}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </div>
-            </div>
+            <p className="text-[12px] text-zinc-600">
+              Project color themes will be saved here when the setting is wired to the API.
+            </p>
           </div>
 
-          {/* Notifications */}
           <div className="bg-[#111115] border border-white/[0.05] rounded-xl p-6 space-y-5">
             <div className="flex items-center gap-2 text-zinc-300">
               <Bell className="w-4 h-4 text-zinc-500" />
@@ -114,7 +108,6 @@ export default function ProjectSettingsPage() {
             </div>
           </div>
 
-          {/* Danger Zone */}
           <div className="bg-[#111115] border border-red-500/10 rounded-xl p-6 space-y-4">
             <div className="flex items-center gap-2 text-red-400">
               <Trash2 className="w-4 h-4" />
@@ -123,7 +116,10 @@ export default function ProjectSettingsPage() {
             <p className="text-[12px] text-zinc-500">
               Permanently delete this project and all of its data. This action cannot be undone.
             </p>
-            <button className="px-4 py-2 bg-red-500/10 text-red-400 text-[12px] font-medium rounded-lg border border-red-500/20 hover:bg-red-500/15 transition-all">
+            <button
+              type="button"
+              className="px-4 py-2 bg-red-500/10 text-red-400 text-[12px] font-medium rounded-lg border border-red-500/20 hover:bg-red-500/15 transition-all"
+            >
               Delete Project
             </button>
           </div>

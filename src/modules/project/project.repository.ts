@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { projectsTable, projectMembersTable } from "@/modules/project/project.schema";
-import { eq } from "drizzle-orm";
+import { usersTable } from "@/modules/user/user.schema";
+import { and, asc, eq } from "drizzle-orm";
 
 export class ProjectRepository {
   async findByWorkspace(workspaceId: string) {
@@ -15,6 +16,24 @@ export class ProjectRepository {
   async findById(id: string) {
     const results = await db.select().from(projectsTable).where(eq(projectsTable.id, id)).execute();
     return results[0] ?? null;
+  }
+
+  async isProjectMember(projectId: string, userId: string) {
+    const [row] = await db
+      .select({ projectId: projectMembersTable.projectId })
+      .from(projectMembersTable)
+      .where(
+        and(eq(projectMembersTable.projectId, projectId), eq(projectMembersTable.userId, userId))
+      )
+      .execute();
+    return Boolean(row);
+  }
+
+  async getProjectIfMember(userId: string, projectId: string) {
+    const project = await this.findById(projectId);
+    if (!project) return null;
+    const ok = await this.isProjectMember(projectId, userId);
+    return ok ? project : null;
   }
 
   async create(data: {
@@ -59,6 +78,21 @@ export class ProjectRepository {
   async delete(id: string) {
     // Cascade deletes project_members automatically (FK constraint)
     await db.delete(projectsTable).where(eq(projectsTable.id, id)).execute();
+  }
+
+  async listMembersWithUsers(projectId: string) {
+    return db
+      .select({
+        userId: projectMembersTable.userId,
+        name: usersTable.name,
+        email: usersTable.email,
+        role: projectMembersTable.role,
+      })
+      .from(projectMembersTable)
+      .innerJoin(usersTable, eq(projectMembersTable.userId, usersTable.id))
+      .where(eq(projectMembersTable.projectId, projectId))
+      .orderBy(asc(usersTable.name))
+      .execute();
   }
 }
 

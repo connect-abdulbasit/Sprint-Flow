@@ -46,6 +46,18 @@ export class ProjectService {
     }
     await projectRepository.delete(projectId);
   }
+
+  async getProjectForMember(userId: string, projectId: string) {
+    return projectRepository.getProjectIfMember(userId, projectId);
+  }
+
+  async listProjectMembers(userId: string, projectId: string) {
+    const project = await projectRepository.getProjectIfMember(userId, projectId);
+    if (!project) {
+      throw new Error("Project not found or access denied");
+    }
+    return projectRepository.listMembersWithUsers(projectId);
+  }
 }
 
 export const projectService = new ProjectService();
