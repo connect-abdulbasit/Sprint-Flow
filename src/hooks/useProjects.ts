@@ -15,9 +15,9 @@ interface UseProjectsReturn {
   projects: Project[];
   loading: boolean;
   error: string | null;
-  createProject: (payload: Omit<CreateProjectPayload, "workspaceId">) => Promise<Project>;
-  updateProject: (id: string, payload: UpdateProjectPayload) => Promise<Project>;
-  deleteProject: (id: string) => Promise<void>;
+  createProject: (_payload: Omit<CreateProjectPayload, "workspaceId">) => Promise<Project>;
+  updateProject: (_id: string, _payload: UpdateProjectPayload) => Promise<Project>;
+  deleteProject: (_id: string) => Promise<void>;
   dismissError: () => void;
 }
 

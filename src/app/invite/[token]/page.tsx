@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
-  Building2,
+  Briefcase,
   User,
   Shield,
   Check,
@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Clock,
   XCircle,
+  X,
 } from "lucide-react";
 
 type InvitationData = {
@@ -22,51 +23,131 @@ type InvitationData = {
   status: string;
   expiresAt: string;
   createdAt: string;
-  organizationName: string;
+  workspaceName: string;
+  workspaceId: string;
   organizationId: string;
   invitedByName: string;
 };
 
 export default function InviteAcceptPage() {
   const { token } = useParams<{ token: string }>();
+  const router = useRouter();
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  const [rejected, setRejected] = useState(false);
   const [error, setError] = useState("");
   const [errorType, setErrorType] = useState<
     "expired" | "not_found" | "auth" | "email_mismatch" | "general"
   >("general");
 
   useEffect(() => {
-    const loadMockInvitation = async () => {
-      await new Promise((r) => setTimeout(r, 600));
-      setInvitation({
-        id: "mock-inv-1",
-        email: "colleague@company.com",
-        role: "member",
-        status: "pending",
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: new Date().toISOString(),
-        organizationName: "Acme Corporation",
-        organizationId: "org-1",
-        invitedByName: "Abdul Basit",
-      });
-      setLoading(false);
+    const loadInvitation = async () => {
+      try {
+        const res = await fetch(`/api/invites/${token}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          setErrorType(res.status === 404 ? "not_found" : "general");
+          setError(data.error || "This invitation could not be loaded.");
+          setLoading(false);
+          return;
+        }
+
+        if (data.status === "expired") {
+          setErrorType("expired");
+          setError("This invitation has expired. Please ask for a new one.");
+          setLoading(false);
+          return;
+        }
+
+        if (data.status === "accepted") {
+          setErrorType("general");
+          setError("This invitation has already been accepted.");
+          setLoading(false);
+          return;
+        }
+
+        if (data.status === "declined") {
+          setErrorType("general");
+          setError("This invitation has been declined.");
+          setLoading(false);
+          return;
+        }
+
+        setInvitation(data);
+      } catch {
+        setError("Network error. Please check your connection and try again.");
+        setErrorType("general");
+      } finally {
+        setLoading(false);
+      }
     };
-    loadMockInvitation();
+
+    if (token) {
+      loadInvitation();
+    }
   }, [token]);
 
   const handleAccept = async () => {
     setAccepting(true);
     setError("");
 
-    await new Promise((r) => setTimeout(r, 1000));
-    setAccepted(true);
+    try {
+      const res = await fetch(`/api/invites/${token}/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
 
-    setTimeout(() => {
-      window.location.href = `/organization/${invitation?.organizationId ?? "org-1"}`;
-    }, 2000);
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 401) {
+          // Not logged in — redirect to sign in with callback
+          router.push(`/signin?callbackUrl=/invite/${token}`);
+          return;
+        }
+        setError(data.error || "Failed to accept invitation.");
+        setAccepting(false);
+        return;
+      }
+
+      setAccepted(true);
+
+      setTimeout(() => {
+        router.push(`/workspace/${data.workspaceId ?? invitation?.workspaceId}/dashboard`);
+      }, 2000);
+    } catch {
+      setError("Network error. Please try again.");
+      setAccepting(false);
+    }
+  };
+
+  const handleReject = async () => {
+    setRejecting(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/invites/${token}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to decline invitation.");
+        setRejecting(false);
+        return;
+      }
+
+      setRejected(true);
+    } catch {
+      setError("Network error. Please try again.");
+      setRejecting(false);
+    }
   };
 
   return (
@@ -145,7 +226,7 @@ export default function InviteAcceptPage() {
                     border: "1px solid rgba(255, 100, 100, 0.2)",
                   }}
                 >
-                  {errorType === "not_found" ? (
+                  {errorType === "not_found" || errorType === "expired" ? (
                     <XCircle className="w-6 h-6 text-red-400" />
                   ) : (
                     <AlertTriangle className="w-6 h-6 text-amber-400" />
@@ -155,12 +236,45 @@ export default function InviteAcceptPage() {
                   className="text-xl font-bold text-[#f0f0f5] mb-2"
                   style={{ fontFamily: "var(--font-syne)" }}
                 >
-                  {errorType === "not_found" ? "Invitation Not Found" : "Invitation Unavailable"}
+                  {errorType === "not_found"
+                    ? "Invitation Not Found"
+                    : errorType === "expired"
+                      ? "Invitation Expired"
+                      : "Invitation Unavailable"}
                 </h2>
                 <p className="text-sm text-[#6b6b80] mb-6 max-w-[280px]">{error}</p>
                 <Link
                   href="/organizations"
                   className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#4f7cff] rounded-xl bg-[#4f7cff]/[0.08] border border-[#4f7cff]/20 hover:bg-[#4f7cff]/[0.12] transition-all duration-200 no-underline"
+                >
+                  Go to Organizations
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            ) : rejected ? (
+              <div className="flex flex-col items-center py-6 text-center">
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+                  style={{
+                    background: "rgba(255, 100, 100, 0.08)",
+                    border: "1px solid rgba(255, 100, 100, 0.2)",
+                  }}
+                >
+                  <X className="w-7 h-7 text-red-400" />
+                </div>
+                <h2
+                  className="text-xl font-bold text-[#f0f0f5] mb-2"
+                  style={{ fontFamily: "var(--font-syne)" }}
+                >
+                  Invitation Declined
+                </h2>
+                <p className="text-sm text-[#6b6b80] mb-1">
+                  You&apos;ve declined the invitation to{" "}
+                  <span className="text-[#f0f0f5] font-medium">{invitation?.workspaceName}</span>
+                </p>
+                <Link
+                  href="/organizations"
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#9090a8] rounded-xl hover:bg-white/[0.04] transition-all duration-200 no-underline mt-4"
                 >
                   Go to Organizations
                   <ArrowRight className="w-4 h-4" />
@@ -190,7 +304,7 @@ export default function InviteAcceptPage() {
                 </h2>
                 <p className="text-sm text-[#6b6b80] mb-1">
                   You&apos;re now a member of{" "}
-                  <span className="text-[#f0f0f5] font-medium">{invitation?.organizationName}</span>
+                  <span className="text-[#f0f0f5] font-medium">{invitation?.workspaceName}</span>
                 </p>
                 <p className="text-xs text-[#6b6b80] flex items-center gap-1.5">
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -207,7 +321,7 @@ export default function InviteAcceptPage() {
                     border: "1px solid rgba(79, 124, 255, 0.2)",
                   }}
                 >
-                  {invitation.organizationName
+                  {invitation.workspaceName
                     .split(" ")
                     .map((w) => w[0])
                     .slice(0, 2)
@@ -234,10 +348,8 @@ export default function InviteAcceptPage() {
                   }}
                 >
                   <div className="flex items-center justify-center gap-3 mb-3">
-                    <Building2 className="w-4 h-4 text-[#4f7cff]" />
-                    <h3 className="text-lg font-bold text-[#f0f0f5]">
-                      {invitation.organizationName}
-                    </h3>
+                    <Briefcase className="w-4 h-4 text-[#4f7cff]" />
+                    <h3 className="text-lg font-bold text-[#f0f0f5]">{invitation.workspaceName}</h3>
                   </div>
                   <div className="flex items-center justify-center gap-4 text-xs text-[#6b6b80]">
                     <span className="flex items-center gap-1.5">
@@ -267,38 +379,20 @@ export default function InviteAcceptPage() {
                   <div
                     className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg mb-5 text-left"
                     style={{
-                      background:
-                        errorType === "email_mismatch"
-                          ? "rgba(255, 180, 50, 0.08)"
-                          : "rgba(255, 100, 100, 0.08)",
-                      border: `1px solid ${
-                        errorType === "email_mismatch"
-                          ? "rgba(255, 180, 50, 0.2)"
-                          : "rgba(255, 100, 100, 0.2)"
-                      }`,
+                      background: "rgba(255, 100, 100, 0.08)",
+                      border: "1px solid rgba(255, 100, 100, 0.2)",
                     }}
                   >
-                    <AlertTriangle
-                      className="w-4 h-4 shrink-0"
-                      style={{
-                        color: errorType === "email_mismatch" ? "#ffb432" : "#ff6464",
-                      }}
-                    />
-                    <p
-                      className="text-xs"
-                      style={{
-                        color: errorType === "email_mismatch" ? "#ffcc66" : "#ff8888",
-                      }}
-                    >
-                      {error}
-                    </p>
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-[#ff6464]" />
+                    <p className="text-xs text-[#ff8888]">{error}</p>
                   </div>
                 )}
 
+                {/* Accept Button */}
                 <button
                   onClick={handleAccept}
-                  disabled={accepting}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-semibold rounded-xl transition-all duration-200 disabled:opacity-60"
+                  disabled={accepting || rejecting}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-semibold rounded-xl transition-all duration-200 disabled:opacity-60 mb-3"
                   style={{
                     background: "linear-gradient(135deg, #4f7cff, #6b93ff)",
                     color: "#fff",
@@ -316,6 +410,25 @@ export default function InviteAcceptPage() {
                     <>
                       <Check className="w-4 h-4" />
                       Accept Invitation
+                    </>
+                  )}
+                </button>
+
+                {/* Reject Button */}
+                <button
+                  onClick={handleReject}
+                  disabled={accepting || rejecting}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium rounded-xl transition-all duration-200 disabled:opacity-60 text-[#9090a8] hover:text-red-300 hover:bg-red-500/[0.06] border border-transparent hover:border-red-500/20"
+                >
+                  {rejecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Declining…
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-4 h-4" />
+                      Reject Invitation
                     </>
                   )}
                 </button>

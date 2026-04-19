@@ -1,6 +1,6 @@
 "use client";
 
-import { Target, Users, Zap, Activity, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { Target, Zap, Activity, ArrowUpRight, CheckCircle2 } from "lucide-react";
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
 import { useParams } from "next/navigation";
 import Link from "next/link";

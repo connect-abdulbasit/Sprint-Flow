@@ -1,16 +1,7 @@
 "use client";
 
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
-import {
-  Settings,
-  Palette,
-  Bell,
-  Trash2,
-  ShieldAlert,
-  Save,
-  Info,
-  ChevronRight,
-} from "lucide-react";
+import { Settings, Palette, Bell, Trash2, ShieldAlert, Save, Info } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { fetchProject, type Project } from "@/lib/projects-api";

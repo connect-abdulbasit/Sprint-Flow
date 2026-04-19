@@ -80,7 +80,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         const orgsData = await orgsRes.json();
         const wsData = await wsRes.json();
 
-        const mappedOrgs = orgsData.map((org: any) => ({
+        const mappedOrgs = orgsData.map((org: { id: string; name: string }) => ({
           id: org.id,
           name: org.name,
           initials: getInitials(org.name),
@@ -90,16 +90,18 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         }));
 
         const wsByOrg: Record<string, Workspace[]> = {};
-        wsData.forEach((ws: any) => {
-          if (!wsByOrg[ws.organizationId]) wsByOrg[ws.organizationId] = [];
-          wsByOrg[ws.organizationId].push({
-            id: ws.id,
-            name: ws.name,
-            color: ws.color || "#4f7cff",
-            taskCount: 0,
-            memberCount: 1,
-          });
-        });
+        wsData.forEach(
+          (ws: { id: string; name: string; color: string | null; organizationId: string }) => {
+            if (!wsByOrg[ws.organizationId]) wsByOrg[ws.organizationId] = [];
+            wsByOrg[ws.organizationId].push({
+              id: ws.id,
+              name: ws.name,
+              color: ws.color || "#4f7cff",
+              taskCount: 0,
+              memberCount: 1,
+            });
+          }
+        );
 
         if (mappedOrgs.length > 0) {
           setRealOrganizations(mappedOrgs);
@@ -109,12 +111,12 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
           const pathOrgMatch = path.match(/^\/organization\/([^/]+)/);
           const pathOrgId = pathOrgMatch?.[1];
           const storedOrgId = readSelectedOrgId();
-          const firstOrgId = mappedOrgs[0].id as string;
+          const firstOrgId = mappedOrgs[0].id;
 
           let resolvedOrgId = pathOrgId ?? "";
-          if (!resolvedOrgId || !mappedOrgs.some((o: { id: string }) => o.id === resolvedOrgId)) {
+          if (!resolvedOrgId || !mappedOrgs.some((o: Organization) => o.id === resolvedOrgId)) {
             resolvedOrgId =
-              storedOrgId && mappedOrgs.some((o: { id: string }) => o.id === storedOrgId)
+              storedOrgId && mappedOrgs.some((o: Organization) => o.id === storedOrgId)
                 ? storedOrgId
                 : firstOrgId;
           }

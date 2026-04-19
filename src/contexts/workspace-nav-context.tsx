@@ -20,12 +20,12 @@ import {
 type WorkspaceNavContextValue = {
   /** Workspace id from URL when on `/workspace/...`, otherwise last persisted workspace for the selected org */
   workspaceIdForNav: string;
-  setNavWorkspaceId: (workspaceId: string) => void;
+  setNavWorkspaceId: (_workspaceId: string) => void;
   /**
    * Persists org, picks stored workspace for that org or the first in the list, persists it, and updates nav fallback.
    * @returns chosen workspace id (may be empty if there are no workspaces)
    */
-  syncWorkspaceSelection: (orgId: string, workspaces: readonly { id: string }[]) => string;
+  syncWorkspaceSelection: (_orgId: string, _workspaces: readonly { id: string }[]) => string;
 };
 
 const WorkspaceNavContext = createContext<WorkspaceNavContextValue | null>(null);

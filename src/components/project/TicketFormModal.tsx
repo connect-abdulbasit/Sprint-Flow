@@ -33,8 +33,8 @@ export interface TicketFormModalProps {
   initialStatus?: string;
   isOpen: boolean;
   onClose: () => void;
-  onSaved: (ticket: ProjectTicket) => void;
-  onDeleted?: (ticketId: string) => void;
+  onSaved: (_ticket: ProjectTicket) => void;
+  onDeleted?: (_ticketId: string) => void;
 }
 
 export default function TicketFormModal({

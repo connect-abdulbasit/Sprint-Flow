@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Hexagon, ArrowRight, Building } from "lucide-react";
+import { Upload, Hexagon, ArrowRight } from "lucide-react";
 
 export default function CreateWorkspacePage() {
   const router = useRouter();

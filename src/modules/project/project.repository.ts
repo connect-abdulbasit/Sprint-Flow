@@ -1,8 +1,7 @@
 import { db } from "@/lib/db";
-import { projectsTable, projectMembersTable } from "@/modules/project/project.schema";
-import { usersTable } from "@/modules/user/user.schema";
+import { projectsTable } from "@/modules/project/project.schema";
 import { workspaceMembersTable } from "@/modules/workspace/workspace.schema";
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export class ProjectRepository {
   async findByWorkspace(workspaceId: string) {
@@ -28,8 +27,8 @@ export class ProjectRepository {
       .from(workspaceMembersTable)
       .where(
         and(
-          eq(workspaceMembersTable.workspaceId, project.workspaceId),
-          eq(workspaceMembersTable.userId, userId)
+          eq(workspaceMembersTable.userId, userId),
+          eq(workspaceMembersTable.workspaceId, project.workspaceId)
         )
       )
       .execute();
@@ -49,20 +48,18 @@ export class ProjectRepository {
     workspaceId: string;
     createdBy: string;
   }) {
-    return db.transaction(async (tx: any) => {
-      const [project] = await tx
-        .insert(projectsTable)
-        .values({
-          name: data.name,
-          description: data.description,
-          workspaceId: data.workspaceId,
-          createdBy: data.createdBy,
-          status: "active",
-        })
-        .returning();
+    const [project] = await db
+      .insert(projectsTable)
+      .values({
+        name: data.name,
+        description: data.description,
+        workspaceId: data.workspaceId,
+        createdBy: data.createdBy,
+        status: "active",
+      })
+      .returning();
 
-      return project;
-    });
+    return project;
   }
 
   async update(id: string, data: { name?: string; description?: string }) {
@@ -76,23 +73,7 @@ export class ProjectRepository {
   }
 
   async delete(id: string) {
-    // Cascade deletes project_members automatically (FK constraint)
     await db.delete(projectsTable).where(eq(projectsTable.id, id)).execute();
-  }
-
-  async listMembersWithUsers(projectId: string) {
-    return db
-      .select({
-        userId: projectMembersTable.userId,
-        name: usersTable.name,
-        email: usersTable.email,
-        role: projectMembersTable.role,
-      })
-      .from(projectMembersTable)
-      .innerJoin(usersTable, eq(projectMembersTable.userId, usersTable.id))
-      .where(eq(projectMembersTable.projectId, projectId))
-      .orderBy(asc(usersTable.name))
-      .execute();
   }
 }
 

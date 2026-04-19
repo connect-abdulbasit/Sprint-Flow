@@ -83,6 +83,133 @@ export class WorkspaceController {
       );
     }
   }
+
+  // ── List Members ──────────────────────────────────────────
+
+  async listMembers(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id: workspaceId } = await params;
+      const members = await workspaceService.getWorkspaceMembers(user.id, workspaceId);
+      return NextResponse.json(members);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to list members";
+      console.error("List members error:", error);
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
+  // ── Send Invite ───────────────────────────────────────────
+
+  async sendInvite(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id: workspaceId } = await params;
+      const body = await req.json();
+      const email = String(body.email ?? "")
+        .trim()
+        .toLowerCase();
+      const role = (body.role === "admin" ? "admin" : "member") as "member" | "admin";
+
+      if (!email) {
+        return NextResponse.json({ error: "Email is required" }, { status: 400 });
+      }
+
+      const result = await workspaceService.sendInvite(user.id, {
+        workspaceId,
+        email,
+        role,
+      });
+
+      return NextResponse.json(result);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to send invite";
+      const status = message.includes("Forbidden") ? 403 : 400;
+      console.error("Send invite error:", error);
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
+  // ── Get Invite Details by Token ───────────────────────────
+
+  async getInviteByToken(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+    try {
+      const { token } = await params;
+      const invite = await workspaceService.getInviteByToken(token);
+
+      if (!invite) {
+        return NextResponse.json({ error: "Invitation not found." }, { status: 404 });
+      }
+
+      return NextResponse.json(invite);
+    } catch (error) {
+      console.error("Get invite error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to get invite" },
+        { status: 500 }
+      );
+    }
+  }
+
+  // ── Accept Invite ─────────────────────────────────────────
+
+  async acceptInvite(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { token } = await params;
+      const result = await workspaceService.acceptInvite(user.id, token);
+      return NextResponse.json(result);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to accept invite";
+      console.error("Accept invite error:", error);
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
+  // ── Reject Invite ─────────────────────────────────────────
+
+  async rejectInvite(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+    try {
+      const { token } = await params;
+      const result = await workspaceService.rejectInvite(token);
+      return NextResponse.json(result);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to reject invite";
+      console.error("Reject invite error:", error);
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
+  // ── List Workspace Invites ────────────────────────────────
+
+  async listInvites(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id: workspaceId } = await params;
+      const invites = await workspaceService.getWorkspaceInvites(user.id, workspaceId);
+      return NextResponse.json(invites);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to list invites";
+      console.error("List invites error:", error);
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
 }
 
 export const workspaceController = new WorkspaceController();

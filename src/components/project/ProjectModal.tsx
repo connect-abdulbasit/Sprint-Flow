@@ -8,7 +8,7 @@ interface ProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   /** Called with form data. Throw to keep the modal open and show an error. */
-  onSubmit: (data: { name: string; description: string }) => Promise<void>;
+  onSubmit: (_data: { name: string; description: string }) => Promise<void>;
   /** If provided, the modal opens in "Edit" mode with prefilled values. */
   projectToEdit?: Project | null;
 }

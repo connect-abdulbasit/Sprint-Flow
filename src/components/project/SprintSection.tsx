@@ -18,7 +18,7 @@ interface SprintSectionProps {
   sprint: SprintGroup;
   isBacklog?: boolean;
   onCreateTask?: () => void;
-  onTicketSelect?: (ticket: ProjectTicket) => void;
+  onTicketSelect?: (_ticket: ProjectTicket) => void;
 }
 
 export default function SprintSection({

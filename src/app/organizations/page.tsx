@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, Users, FolderKanban, ArrowRight } from "lucide-react";
+import { Plus, FolderKanban, ArrowRight } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+
+type Organization = {
+  id: string;
+  name: string;
+};
 
 function getInitials(name: string) {
   return name
@@ -16,7 +21,7 @@ function getInitials(name: string) {
 }
 
 export default function OrganizationsPage() {
-  const [orgs, setOrgs] = useState<any[]>([]);
+  const [orgs, setOrgs] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 

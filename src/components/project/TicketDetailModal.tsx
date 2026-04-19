@@ -98,8 +98,8 @@ export interface TicketDetailModalProps {
   members: ProjectMember[];
   isOpen: boolean;
   onClose: () => void;
-  onUpdated: (ticket: ProjectTicket) => void;
-  onDeleted: (ticketId: string) => void;
+  onUpdated: (_ticket: ProjectTicket) => void;
+  onDeleted: (_ticketId: string) => void;
 }
 
 export default function TicketDetailModal({

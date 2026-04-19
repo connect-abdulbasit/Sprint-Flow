@@ -42,7 +42,7 @@ export default function TicketItem({
   onSelect,
 }: {
   ticket: ProjectTicket;
-  onSelect?: (ticket: ProjectTicket) => void;
+  onSelect?: (_ticket: ProjectTicket) => void;
 }) {
   const priority =
     priorityConfig[ticket.priority as keyof typeof priorityConfig] ?? priorityConfig.medium;
