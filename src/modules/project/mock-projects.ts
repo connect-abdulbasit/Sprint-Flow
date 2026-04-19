@@ -14,7 +14,6 @@ export interface Project {
   icon: string;
   color: string;
   status: "active" | "on_hold" | "archived";
-  members: Member[];
   progress: number;
 }
 
@@ -54,7 +53,6 @@ export const MOCK_PROJECTS: Project[] = [
     icon: "LayoutDashboard",
     color: "#6366f1",
     status: "active",
-    members: MOCK_MEMBERS.slice(0, 3),
     progress: 72,
   },
   {
@@ -65,7 +63,6 @@ export const MOCK_PROJECTS: Project[] = [
     icon: "Smartphone",
     color: "#10b981",
     status: "active",
-    members: [MOCK_MEMBERS[0], MOCK_MEMBERS[3]],
     progress: 35,
   },
   {
@@ -76,7 +73,6 @@ export const MOCK_PROJECTS: Project[] = [
     icon: "Palette",
     color: "#ec4899",
     status: "on_hold",
-    members: [MOCK_MEMBERS[0], MOCK_MEMBERS[2]],
     progress: 90,
   },
 ];

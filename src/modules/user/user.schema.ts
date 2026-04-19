@@ -13,7 +13,7 @@ import {
   organizationMembersTable,
 } from "@/modules/organization/organization.schema";
 import { relations } from "drizzle-orm";
-import { projectMembersTable, projectsTable } from "@/modules/project/project.schema";
+import { projectsTable } from "@/modules/project/project.schema";
 import { tasksTable } from "@/modules/task/task.schema";
 import { commentsTable } from "@/modules/comment/comment.schema";
 import { attachmentsTable } from "@/modules/attachment/attachment.schema";
@@ -57,7 +57,6 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
   ownedOrganizations: many(organizationsTable, { relationName: "organization_owner" }),
   organizationMemberships: many(organizationMembersTable),
   workspaceMemberships: many(workspaceMembersTable),
-  projectMemberships: many(projectMembersTable),
   createdProjects: many(projectsTable),
   assignedTasks: many(tasksTable, { relationName: "task_assignee" }),
   reportedTasks: many(tasksTable, { relationName: "task_reporter" }),

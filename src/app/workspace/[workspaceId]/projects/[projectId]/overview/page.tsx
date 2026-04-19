@@ -92,7 +92,7 @@ export default function ProjectOverviewPage() {
             },
             {
               label: "Team Members",
-              value: `${project.members.length}`,
+              value: `${MOCK_MEMBERS.length}`,
               change: "All active",
               positive: true,
               icon: Users,

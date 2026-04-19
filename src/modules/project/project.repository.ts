@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { projectsTable, projectMembersTable } from "@/modules/project/project.schema";
+import { projectsTable } from "@/modules/project/project.schema";
 import { eq } from "drizzle-orm";
 
 export class ProjectRepository {
@@ -23,27 +23,18 @@ export class ProjectRepository {
     workspaceId: string;
     createdBy: string;
   }) {
-    return db.transaction(async (tx: any) => {
-      const [project] = await tx
-        .insert(projectsTable)
-        .values({
-          name: data.name,
-          description: data.description,
-          workspaceId: data.workspaceId,
-          createdBy: data.createdBy,
-          status: "active",
-        })
-        .returning();
+    const [project] = await db
+      .insert(projectsTable)
+      .values({
+        name: data.name,
+        description: data.description,
+        workspaceId: data.workspaceId,
+        createdBy: data.createdBy,
+        status: "active",
+      })
+      .returning();
 
-      // Auto-assign creator as project owner
-      await tx.insert(projectMembersTable).values({
-        projectId: project.id,
-        userId: data.createdBy,
-        role: "owner",
-      });
-
-      return project;
-    });
+    return project;
   }
 
   async update(id: string, data: { name?: string; description?: string }) {
@@ -57,7 +48,6 @@ export class ProjectRepository {
   }
 
   async delete(id: string) {
-    // Cascade deletes project_members automatically (FK constraint)
     await db.delete(projectsTable).where(eq(projectsTable.id, id)).execute();
   }
 }
