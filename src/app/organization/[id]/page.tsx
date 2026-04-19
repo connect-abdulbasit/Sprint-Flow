@@ -13,8 +13,8 @@ import {
   Settings,
   ArrowLeft,
   AlertCircle,
+  Info,
 } from "lucide-react";
-import InviteModal from "@/components/InviteModal";
 
 function getInitials(name: string) {
   return name
@@ -73,7 +73,7 @@ export default function OrganizationPage() {
   const [org, setOrg] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
 
   useEffect(() => {
     async function fetchOrg() {
@@ -125,138 +125,153 @@ export default function OrganizationPage() {
   }
 
   return (
-    <>
-      <div className="flex flex-col gap-8 pb-12">
-        <Link
-          href="/organizations"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted)] hover:text-[var(--color-muted2)] transition-colors w-fit"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          All organizations
-        </Link>
+    <div className="flex flex-col gap-8 pb-12">
+      <Link
+        href="/organizations"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted)] hover:text-[var(--color-muted2)] transition-colors w-fit"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" />
+        All organizations
+      </Link>
 
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-lg font-bold text-[#f0f0f5]">
-              {getInitials(org.name)}
-            </div>
-            <div>
-              <h1
-                className="text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-[#f0f0f5]"
-                style={{ fontFamily: "var(--font-syne)" }}
-              >
-                {org.name}
-              </h1>
-              <p className="text-sm text-[var(--color-muted)] mt-0.5">
-                {org.description || "Building something great."}
-              </p>
-            </div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-lg font-bold text-[#f0f0f5]">
+            {getInitials(org.name)}
           </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2.5 text-[var(--color-muted)] hover:text-[#f0f0f5] bg-[var(--color-surface)] border border-white/[0.06] rounded-xl transition-colors">
-              <Settings className="w-[18px] h-[18px]" />
-            </button>
+          <div>
+            <h1
+              className="text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-[#f0f0f5]"
+              style={{ fontFamily: "var(--font-syne)" }}
+            >
+              {org.name}
+            </h1>
+            <p className="text-sm text-[var(--color-muted)] mt-0.5">
+              {org.description || "Building something great."}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="p-2.5 text-[var(--color-muted)] hover:text-[#f0f0f5] bg-[var(--color-surface)] border border-white/[0.06] rounded-xl transition-colors">
+            <Settings className="w-[18px] h-[18px]" />
+          </button>
+
+          {/* Disabled invite button at org level with tooltip */}
+          <div className="relative">
             <button
-              onClick={() => setInviteOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-[var(--color-bg)] bg-[#f0f0f5] rounded-xl hover:bg-white transition-colors shadow-sm"
+              disabled
+              onMouseEnter={() => setTooltipVisible(true)}
+              onMouseLeave={() => setTooltipVisible(false)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-[var(--color-muted)] bg-[var(--color-surface)] border border-white/[0.06] rounded-xl cursor-not-allowed opacity-50"
+              aria-label="Invites are only permitted at the Workspace level"
             >
               <Plus className="w-4 h-4" />
               Invite
             </button>
+            {tooltipVisible && (
+              <div
+                className="absolute right-0 top-full mt-2 w-64 px-3.5 py-2.5 rounded-lg text-xs z-50"
+                style={{
+                  background: "rgba(24, 24, 31, 0.98)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  boxShadow: "0 8px 32px rgba(0, 0, 0, 0.5)",
+                }}
+              >
+                <div className="flex items-start gap-2">
+                  <Info className="w-3.5 h-3.5 text-[#4f7cff] shrink-0 mt-0.5" />
+                  <p className="text-[#9090a8] leading-relaxed">
+                    Invites are only permitted at the{" "}
+                    <span className="text-[#f0f0f5] font-medium">Workspace level</span>. Open a
+                    workspace to invite team members.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
+      </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          {stats.map((s) => (
+      <div className="grid grid-cols-3 gap-4">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="flex items-center gap-3.5 px-5 py-4 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06]"
+          >
             <div
-              key={s.label}
-              className="flex items-center gap-3.5 px-5 py-4 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06]"
+              className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `color-mix(in srgb, ${s.color} 12%, transparent)` }}
             >
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: `color-mix(in srgb, ${s.color} 12%, transparent)` }}
-              >
-                <s.icon className="w-[18px] h-[18px]" style={{ color: s.color }} />
+              <s.icon className="w-[18px] h-[18px]" style={{ color: s.color }} />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-[#f0f0f5] leading-none">{s.value}</p>
+              <p className="text-xs text-[var(--color-muted)] mt-1">{s.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
+            Workspaces
+          </h2>
+          <button className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 transition-colors">
+            <Plus className="w-3.5 h-3.5" />
+            New workspace
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {workspaces.map((ws) => (
+            <Link key={ws.id} href={`/workspace/${ws.id}/dashboard`} className="group block">
+              <div className="relative h-full flex flex-col p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5">
+                <div className="w-8 h-1 rounded-full mb-4" style={{ background: ws.color }} />
+                <h3 className="text-base font-bold text-[#f0f0f5] mb-1 group-hover:text-white transition-colors">
+                  {ws.name}
+                </h3>
+                <p className="text-xs text-[var(--color-muted)] mb-5">{ws.desc}</p>
+
+                <div className="mt-auto pt-4 border-t border-white/[0.05] flex items-center justify-between text-xs text-[var(--color-muted)]">
+                  <div className="flex items-center gap-3">
+                    <span>{ws.tasks} tasks</span>
+                    <span className="w-0.5 h-0.5 rounded-full bg-[var(--color-muted)]" />
+                    <span>{ws.members} members</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[var(--color-muted)] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-[#f0f0f5] leading-none">{s.value}</p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">{s.label}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
+            Members
+          </h2>
+          <button className="text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 transition-colors">
+            View all
+          </button>
+        </div>
+        <div className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] divide-y divide-white/[0.05] overflow-hidden">
+          {members.map((m) => (
+            <div
+              key={m.id}
+              className="group flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
+            >
+              <div className="w-9 h-9 rounded-full bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-xs font-bold text-[var(--color-muted2)] shrink-0">
+                {m.initials}
               </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-sm font-medium text-[#f0f0f5] truncate block">{m.name}</span>
+                <span className="text-xs text-[var(--color-muted)]">{m.role}</span>
+              </div>
+              <MoreHorizontal className="w-4 h-4 text-[var(--color-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer" />
             </div>
           ))}
         </div>
-
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
-              Workspaces
-            </h2>
-            <button className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 transition-colors">
-              <Plus className="w-3.5 h-3.5" />
-              New workspace
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {workspaces.map((ws) => (
-              <Link key={ws.id} href={`/workspace/${ws.id}/dashboard`} className="group block">
-                <div className="relative h-full flex flex-col p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5">
-                  <div className="w-8 h-1 rounded-full mb-4" style={{ background: ws.color }} />
-                  <h3 className="text-base font-bold text-[#f0f0f5] mb-1 group-hover:text-white transition-colors">
-                    {ws.name}
-                  </h3>
-                  <p className="text-xs text-[var(--color-muted)] mb-5">{ws.desc}</p>
-
-                  <div className="mt-auto pt-4 border-t border-white/[0.05] flex items-center justify-between text-xs text-[var(--color-muted)]">
-                    <div className="flex items-center gap-3">
-                      <span>{ws.tasks} tasks</span>
-                      <span className="w-0.5 h-0.5 rounded-full bg-[var(--color-muted)]" />
-                      <span>{ws.members} members</span>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-[var(--color-muted)] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
-              Members
-            </h2>
-            <button className="text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 transition-colors">
-              View all
-            </button>
-          </div>
-          <div className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] divide-y divide-white/[0.05] overflow-hidden">
-            {members.map((m) => (
-              <div
-                key={m.id}
-                className="group flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="w-9 h-9 rounded-full bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-xs font-bold text-[var(--color-muted2)] shrink-0">
-                  {m.initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-[#f0f0f5] truncate block">
-                    {m.name}
-                  </span>
-                  <span className="text-xs text-[var(--color-muted)]">{m.role}</span>
-                </div>
-                <MoreHorizontal className="w-4 h-4 text-[var(--color-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer" />
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <InviteModal
-        isOpen={inviteOpen}
-        onClose={() => setInviteOpen(false)}
-        organizationId={id}
-        organizationName={org.name}
-      />
-    </>
+      </section>
+    </div>
   );
 }

@@ -1,6 +1,16 @@
 "use client";
 
-import { Users, Plus, MoreHorizontal, Shield, Mail, Calendar, MessageSquare } from "lucide-react";
+import { useState } from "react";
+import {
+  Users,
+  Plus,
+  MoreHorizontal,
+  Shield,
+  Mail,
+  Calendar,
+  MessageSquare,
+  Info,
+} from "lucide-react";
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
 import { MOCK_MEMBERS } from "@/modules/project/mock-projects";
 
@@ -12,6 +22,8 @@ const roleColors: Record<string, string> = {
 };
 
 export default function ProjectMembersPage() {
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
       <ProjectPageHeader />
@@ -25,10 +37,29 @@ export default function ProjectMembersPage() {
               {MOCK_MEMBERS.length} members in this project
             </p>
           </div>
-          <button className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-white text-zinc-950 text-[12px] font-semibold rounded-lg transition-all active:scale-[0.98] shadow-sm">
-            <Plus className="w-3.5 h-3.5" />
-            Invite Member
-          </button>
+          <div className="relative">
+            <button
+              disabled
+              onMouseEnter={() => setTooltipVisible(true)}
+              onMouseLeave={() => setTooltipVisible(false)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-800 text-zinc-500 text-[12px] font-semibold rounded-lg cursor-not-allowed opacity-50"
+              aria-label="Invites are only permitted at the Workspace level"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Invite Member
+            </button>
+            {tooltipVisible && (
+              <div className="absolute right-0 top-full mt-2 w-56 px-3 py-2 rounded-lg text-xs z-50 bg-[#18181f] border border-white/10 shadow-xl">
+                <div className="flex items-start gap-2">
+                  <Info className="w-3.5 h-3.5 text-[#4f7cff] shrink-0 mt-0.5" />
+                  <p className="text-zinc-400 leading-relaxed">
+                    Invites are only permitted at the{" "}
+                    <span className="text-zinc-200 font-medium">Workspace level</span>.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Row */}
@@ -126,16 +157,17 @@ export default function ProjectMembersPage() {
           ))}
         </div>
 
-        {/* Invite Card */}
-        <div className="border border-dashed border-white/[0.06] rounded-xl flex items-center justify-center py-10 group hover:border-white/[0.12] hover:bg-white/[0.01] transition-all cursor-pointer">
+        {/* Invite Card — disabled at project level */}
+        <div className="border border-dashed border-white/[0.06] rounded-xl flex items-center justify-center py-10 opacity-50 cursor-not-allowed">
           <div className="flex flex-col items-center text-center">
-            <div className="w-10 h-10 rounded-xl bg-white/[0.02] border border-zinc-800/50 flex items-center justify-center text-zinc-600 group-hover:text-zinc-400 group-hover:scale-105 transition-all mb-3">
+            <div className="w-10 h-10 rounded-xl bg-white/[0.02] border border-zinc-800/50 flex items-center justify-center text-zinc-600 mb-3">
               <Users className="w-5 h-5" />
             </div>
-            <span className="text-[13px] font-medium text-zinc-500 group-hover:text-zinc-300 transition-colors">
-              Invite team members
-            </span>
-            <p className="text-[11px] text-zinc-600 mt-1">Add collaborators to this project</p>
+            <span className="text-[13px] font-medium text-zinc-500">Invite team members</span>
+            <p className="text-[11px] text-zinc-500 mt-1 flex items-center gap-1">
+              <Info className="w-3 h-3 text-[#4f7cff]" />
+              Invites are only available at the workspace level
+            </p>
           </div>
         </div>
 
