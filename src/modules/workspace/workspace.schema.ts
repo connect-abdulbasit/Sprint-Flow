@@ -55,6 +55,30 @@ export const workspaceMembersTable = pgTable(
   })
 );
 
+export const workspaceInvitesTable = pgTable(
+  "workspace_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspacesTable.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 255 }).notNull(),
+    role: workspaceRoleEnum("role").notNull().default("member"),
+    token: varchar("token", { length: 255 }).notNull(),
+    status: varchar("status", { length: 50 }).notNull().default("pending"),
+    invitedBy: uuid("invited_by")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdx: index("workspace_invites_ws_idx").on(t.workspaceId),
+    tokenIdx: index("workspace_invites_token_idx").on(t.token),
+    emailIdx: index("workspace_invites_email_idx").on(t.email),
+  })
+);
+
 export const workspaceRelations = relations(workspacesTable, ({ one, many }) => ({
   organization: one(organizationsTable, {
     fields: [workspacesTable.organizationId],
@@ -62,6 +86,7 @@ export const workspaceRelations = relations(workspacesTable, ({ one, many }) => 
   }),
   members: many(workspaceMembersTable),
   projects: many(projectsTable),
+  invites: many(workspaceInvitesTable),
 }));
 
 export const workspaceMembersRelations = relations(workspaceMembersTable, ({ one }) => ({
@@ -71,6 +96,17 @@ export const workspaceMembersRelations = relations(workspaceMembersTable, ({ one
   }),
   user: one(usersTable, {
     fields: [workspaceMembersTable.userId],
+    references: [usersTable.id],
+  }),
+}));
+
+export const workspaceInvitesRelations = relations(workspaceInvitesTable, ({ one }) => ({
+  workspace: one(workspacesTable, {
+    fields: [workspaceInvitesTable.workspaceId],
+    references: [workspacesTable.id],
+  }),
+  inviter: one(usersTable, {
+    fields: [workspaceInvitesTable.invitedBy],
     references: [usersTable.id],
   }),
 }));

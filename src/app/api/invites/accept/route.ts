@@ -1,8 +1,12 @@
+import { NextResponse } from "next/server";
+
 export const runtime = "nodejs";
 
-import { NextRequest } from "next/server";
-import { organizationController } from "@/modules/organization/organization.controller";
-
-export async function POST(req: NextRequest) {
-  return organizationController.acceptInvite(req);
+// Organization-level invite acceptance has been deprecated.
+// Use POST /api/invites/[token]/accept instead.
+export async function POST() {
+  return NextResponse.json(
+    { error: "Use POST /api/invites/[token]/accept to accept workspace invitations." },
+    { status: 400 }
+  );
 }
