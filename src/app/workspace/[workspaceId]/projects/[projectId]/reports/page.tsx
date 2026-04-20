@@ -1,12 +1,31 @@
 "use client";
+
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
-import { BarChart3, TrendingUp, Clock, CheckCircle2, Target } from "lucide-react";
-import { MOCK_TICKETS, MOCK_SPRINTS } from "@/modules/project/mock-projects";
+import { BarChart3, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { fetchTickets, type ProjectTicket } from "@/lib/projects-api";
 
 export default function ProjectReportsPage() {
-  const totalTickets = MOCK_TICKETS.length;
-  const doneTickets = MOCK_TICKETS.filter((t) => t.status === "done").length;
-  const inProgressTickets = MOCK_TICKETS.filter((t) => t.status === "in_progress").length;
+  const { projectId } = useParams();
+  const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
+  const [tickets, setTickets] = useState<ProjectTicket[]>([]);
+
+  useEffect(() => {
+    if (!pid) return;
+    fetchTickets(pid)
+      .then(setTickets)
+      .catch(() => setTickets([]));
+  }, [pid]);
+
+  const totalTickets = tickets.length;
+  const doneTickets = tickets.filter((t) => t.status === "done").length;
+  const inProgressTickets = tickets.filter((t) => t.status === "in_progress").length;
+  const storyPointsDone = tickets
+    .filter((t) => t.status === "done")
+    .reduce((a, t) => a + (t.storyPoints ?? 0), 0);
+
+  const pct = (n: number) => (totalTickets > 0 ? Math.round((n / totalTickets) * 100) : 0);
 
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
@@ -18,7 +37,6 @@ export default function ProjectReportsPage() {
           <p className="text-[12px] text-zinc-500 mt-0.5">Performance insights for your project</p>
         </div>
 
-        {/* Summary Cards */}
         <div className="grid grid-cols-4 gap-4">
           {[
             {
@@ -43,8 +61,8 @@ export default function ProjectReportsPage() {
               bg: "bg-amber-500/8",
             },
             {
-              label: "Avg Velocity",
-              value: "48 pts",
+              label: "Done story points",
+              value: storyPointsDone.toString(),
               icon: TrendingUp,
               color: "text-purple-400",
               bg: "bg-purple-500/8",
@@ -63,7 +81,6 @@ export default function ProjectReportsPage() {
           ))}
         </div>
 
-        {/* Task Distribution */}
         <div className="grid grid-cols-2 gap-6">
           <div className="bg-[#111115] border border-white/[0.05] rounded-xl p-6">
             <h3 className="text-[14px] font-semibold text-zinc-200 mb-6">Task Distribution</h3>
@@ -71,35 +88,28 @@ export default function ProjectReportsPage() {
               {[
                 {
                   label: "To Do",
-                  count: MOCK_TICKETS.filter((t) => t.status === "todo").length,
+                  count: tickets.filter((t) => t.status === "todo").length,
                   color: "bg-zinc-500",
-                  total: totalTickets,
                 },
-                {
-                  label: "In Progress",
-                  count: inProgressTickets,
-                  color: "bg-blue-500",
-                  total: totalTickets,
-                },
+                { label: "In Progress", count: inProgressTickets, color: "bg-blue-500" },
                 {
                   label: "In Review",
-                  count: MOCK_TICKETS.filter((t) => t.status === "review").length,
+                  count: tickets.filter((t) => t.status === "review").length,
                   color: "bg-purple-500",
-                  total: totalTickets,
                 },
-                { label: "Done", count: doneTickets, color: "bg-emerald-500", total: totalTickets },
+                { label: "Done", count: doneTickets, color: "bg-emerald-500" },
               ].map((item) => (
                 <div key={item.label} className="space-y-1.5">
                   <div className="flex justify-between text-[12px]">
                     <span className="text-zinc-400">{item.label}</span>
                     <span className="text-zinc-500">
-                      {item.count} tasks · {Math.round((item.count / item.total) * 100)}%
+                      {item.count} tasks · {pct(item.count)}%
                     </span>
                   </div>
                   <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
                     <div
                       className={`h-full ${item.color} rounded-full transition-all duration-700`}
-                      style={{ width: `${(item.count / item.total) * 100}%` }}
+                      style={{ width: `${pct(item.count)}%` }}
                     />
                   </div>
                 </div>
@@ -113,40 +123,36 @@ export default function ProjectReportsPage() {
               {[
                 {
                   label: "Urgent",
-                  count: MOCK_TICKETS.filter((t) => t.priority === "urgent").length,
+                  count: tickets.filter((t) => t.priority === "urgent").length,
                   color: "bg-red-500",
-                  total: totalTickets,
                 },
                 {
                   label: "High",
-                  count: MOCK_TICKETS.filter((t) => t.priority === "high").length,
+                  count: tickets.filter((t) => t.priority === "high").length,
                   color: "bg-amber-500",
-                  total: totalTickets,
                 },
                 {
                   label: "Medium",
-                  count: MOCK_TICKETS.filter((t) => t.priority === "medium").length,
+                  count: tickets.filter((t) => t.priority === "medium").length,
                   color: "bg-blue-500",
-                  total: totalTickets,
                 },
                 {
                   label: "Low",
-                  count: MOCK_TICKETS.filter((t) => t.priority === "low").length,
+                  count: tickets.filter((t) => t.priority === "low").length,
                   color: "bg-zinc-500",
-                  total: totalTickets,
                 },
               ].map((item) => (
                 <div key={item.label} className="space-y-1.5">
                   <div className="flex justify-between text-[12px]">
                     <span className="text-zinc-400">{item.label}</span>
                     <span className="text-zinc-500">
-                      {item.count} tasks · {Math.round((item.count / item.total) * 100)}%
+                      {item.count} tasks · {pct(item.count)}%
                     </span>
                   </div>
                   <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
                     <div
                       className={`h-full ${item.color} rounded-full transition-all duration-700`}
-                      style={{ width: `${(item.count / item.total) * 100}%` }}
+                      style={{ width: `${pct(item.count)}%` }}
                     />
                   </div>
                 </div>
@@ -155,35 +161,11 @@ export default function ProjectReportsPage() {
           </div>
         </div>
 
-        {/* Sprint History */}
         <div className="bg-[#111115] border border-white/[0.05] rounded-xl p-6">
-          <h3 className="text-[14px] font-semibold text-zinc-200 mb-6">Sprint History</h3>
-          <div className="space-y-1">
-            {MOCK_SPRINTS.map((sprint) => (
-              <div
-                key={sprint.id}
-                className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02] rounded-lg transition-all"
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${sprint.status === "active" ? "bg-emerald-500" : "bg-blue-500"}`}
-                />
-                <span className="text-[13px] font-medium text-zinc-200 flex-1">{sprint.name}</span>
-                <span className="text-[12px] text-zinc-500">{sprint.tickets.length} tasks</span>
-                <span className="text-[12px] text-zinc-500">
-                  {sprint.tickets.reduce((acc, t) => acc + (t.storyPoints || 0), 0)} pts
-                </span>
-                <span
-                  className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                    sprint.status === "active"
-                      ? "bg-emerald-500/10 text-emerald-400"
-                      : "bg-blue-500/10 text-blue-400"
-                  }`}
-                >
-                  {sprint.status}
-                </span>
-              </div>
-            ))}
-          </div>
+          <h3 className="text-[14px] font-semibold text-zinc-200 mb-2">Sprint History</h3>
+          <p className="text-[12px] text-zinc-600">
+            Sprint history will appear here when sprint records are available.
+          </p>
         </div>
 
         <div className="h-12" />

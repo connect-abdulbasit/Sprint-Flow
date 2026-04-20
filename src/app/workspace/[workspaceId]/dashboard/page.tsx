@@ -3,21 +3,15 @@
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard,
   CheckSquare,
   Clock,
-  Flame,
   Users,
-  TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
-  CalendarDays,
   ChevronRight,
   Activity,
   Zap,
-  Target,
   AlertCircle,
-  MoreHorizontal,
   Timer,
   Circle,
   Sparkles,

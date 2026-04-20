@@ -14,6 +14,7 @@ import {
   Trash2,
   Loader2,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 
 type Invitation = {
@@ -30,15 +31,15 @@ type Invitation = {
 type InviteModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  organizationId: string;
-  organizationName: string;
+  workspaceId: string;
+  workspaceName: string;
 };
 
 export default function InviteModal({
   isOpen,
   onClose,
-  organizationId,
-  organizationName,
+  workspaceId,
+  workspaceName,
 }: InviteModalProps) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"member" | "admin">("member");
@@ -57,8 +58,25 @@ export default function InviteModal({
     if (isOpen) {
       setClosing(false);
       setTimeout(() => inputRef.current?.focus(), 300);
+      fetchInvitations();
     }
-  }, [isOpen]);
+  }, [isOpen, workspaceId]);
+
+  const fetchInvitations = async () => {
+    if (!workspaceId) return;
+    setLoadingInvitations(true);
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}/invites`);
+      if (res.ok) {
+        const data = await res.json();
+        setInvitations(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // silently fail - invitations list is non-critical
+    } finally {
+      setLoadingInvitations(false);
+    }
+  };
 
   const handleClose = () => {
     setClosing(true);
@@ -79,13 +97,38 @@ export default function InviteModal({
     setError("");
     setLoading(true);
 
-    await new Promise((r) => setTimeout(r, 800));
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}/invites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, role }),
+      });
 
-    const fakeToken = crypto.randomUUID();
-    const link = `${window.location.origin}/invite/${fakeToken}`;
-    setInviteLink(link);
-    setSuccess(true);
-    setLoading(false);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to send invitation.");
+        setLoading(false);
+        return;
+      }
+
+      const link = `${window.location.origin}/invite/${data.token}`;
+      setInviteLink(link);
+      setSuccess(true);
+
+      if (data.alreadyPending) {
+        setError(
+          "An invitation was already pending for this email. The existing link has been shown."
+        );
+      }
+
+      // Refresh the invitations list
+      fetchInvitations();
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -96,6 +139,7 @@ export default function InviteModal({
 
   const handleRevoke = async (id: string) => {
     setRevokingId(id);
+    // For now, remove from UI (revoke API can be added later)
     await new Promise((r) => setTimeout(r, 400));
     setInvitations((prev) => prev.filter((inv) => inv.id !== id));
     setRevokingId(null);
@@ -203,7 +247,7 @@ export default function InviteModal({
                   >
                     Invite People
                   </h2>
-                  <p className="text-xs text-[#6b6b80] mt-0.5">to {organizationName}</p>
+                  <p className="text-xs text-[#6b6b80] mt-0.5">to {workspaceName}</p>
                 </div>
               </div>
               <button
@@ -302,7 +346,7 @@ export default function InviteModal({
 
                 {error && (
                   <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-red-500/[0.08] border border-red-500/20">
-                    <div className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
                     <p className="text-xs text-red-300">{error}</p>
                   </div>
                 )}

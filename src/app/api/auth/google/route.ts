@@ -10,7 +10,7 @@ if (!GOOGLE_CLIENT_ID) {
   throw new Error("Missing GOOGLE_CLIENT_ID environment variable");
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const state = globalThis.crypto.randomUUID();
 
   const params = new URLSearchParams({

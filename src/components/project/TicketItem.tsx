@@ -1,6 +1,7 @@
 "use client";
 
-import { Ticket } from "@/modules/project/mock-projects";
+import type { ProjectTicket } from "@/lib/projects-api";
+import { initialsFromName } from "@/lib/initials";
 import {
   CheckCircle2,
   Circle,
@@ -36,16 +37,33 @@ const statusConfig = {
   done: { icon: CheckCircle2, color: "text-emerald-400" },
 };
 
-export default function TicketItem({ ticket }: { ticket: Ticket }) {
-  const priority = priorityConfig[ticket.priority];
+export default function TicketItem({
+  ticket,
+  onSelect,
+}: {
+  ticket: ProjectTicket;
+  onSelect?: (_ticket: ProjectTicket) => void;
+}) {
+  const priority =
+    priorityConfig[ticket.priority as keyof typeof priorityConfig] ?? priorityConfig.medium;
   const type = typeConfig[ticket.type];
-  const status = statusConfig[ticket.status];
+  const status = statusConfig[ticket.status as keyof typeof statusConfig] ?? statusConfig.todo;
   const PriorityIcon = priority.icon;
   const TypeIcon = type.icon;
   const StatusIcon = status.icon;
 
   return (
-    <div className="group flex items-center gap-3 px-4 py-2 hover:bg-white/[0.03] border-b border-white/[0.03] transition-all cursor-pointer">
+    <div
+      className="group flex cursor-pointer items-center gap-3 border-b border-white/[0.03] px-4 py-2 transition-all hover:bg-white/[0.03]"
+      onClick={() => onSelect?.(ticket)}
+      onKeyDown={(e) => {
+        if (onSelect && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onSelect(ticket);
+        }
+      }}
+      tabIndex={onSelect ? 0 : undefined}
+    >
       {/* Status Icon */}
       <StatusIcon className={`w-4 h-4 shrink-0 ${status.color}`} />
 
@@ -74,7 +92,7 @@ export default function TicketItem({ ticket }: { ticket: Ticket }) {
       </div>
 
       {/* Story Points */}
-      {ticket.storyPoints ? (
+      {ticket.storyPoints !== null && ticket.storyPoints !== undefined ? (
         <div className="w-6 h-6 rounded bg-zinc-800/80 flex items-center justify-center text-[10px] font-medium text-zinc-500 shrink-0">
           {ticket.storyPoints}
         </div>
@@ -84,7 +102,7 @@ export default function TicketItem({ ticket }: { ticket: Ticket }) {
 
       {/* Assignee */}
       <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700/50 flex items-center justify-center text-[9px] font-semibold text-zinc-400 shrink-0">
-        {ticket.assignee?.initials || "—"}
+        {initialsFromName(ticket.assigneeName)}
       </div>
     </div>
   );
