@@ -83,6 +83,48 @@ export class WorkspaceController {
       );
     }
   }
+
+  async update(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const body = await req.json();
+      const updated = await workspaceService.updateWorkspace(user.id, id, {
+        name: body.name,
+        description: body.description,
+      });
+      return NextResponse.json(updated);
+    } catch (error) {
+      console.error("Update workspace error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to update workspace" },
+        { status: 500 }
+      );
+    }
+  }
+
+  async delete(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      await workspaceService.deleteWorkspace(user.id, id);
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      console.error("Delete workspace error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to delete workspace" },
+        { status: 500 }
+      );
+    }
+  }
 }
 
 export const workspaceController = new WorkspaceController();

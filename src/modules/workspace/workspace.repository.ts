@@ -47,6 +47,29 @@ export class WorkspaceRepository extends BaseRepository<any> {
       .execute();
     return results[0];
   }
+
+  async getWorkspacesByOrganizationId(organizationId: string) {
+    const results = await db
+      .select()
+      .from(workspacesTable)
+      .where(eq(workspacesTable.organizationId, organizationId))
+      .execute();
+    return results;
+  }
+
+  async updateWorkspace(id: string, data: Partial<typeof workspacesTable.$inferInsert>) {
+    const [workspace] = await db
+      .update(workspacesTable)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(workspacesTable.id, id))
+      .returning()
+      .execute();
+    return workspace;
+  }
+
+  async deleteWorkspace(id: string) {
+    await db.delete(workspacesTable).where(eq(workspacesTable.id, id)).execute();
+  }
 }
 
 export const workspaceRepository = new WorkspaceRepository();

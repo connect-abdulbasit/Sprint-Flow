@@ -88,6 +88,20 @@ export class OrganizationRepository extends BaseRepository<any> {
       .where(eq(organizationInvitesTable.id, inviteId))
       .execute();
   }
+
+  async updateOrganization(organizationId: string, data: Partial<typeof organizationsTable.$inferInsert>) {
+    const [organization] = await db
+      .update(organizationsTable)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(organizationsTable.id, organizationId))
+      .returning()
+      .execute();
+    return organization;
+  }
+
+  async deleteOrganization(organizationId: string) {
+    await db.delete(organizationsTable).where(eq(organizationsTable.id, organizationId)).execute();
+  }
 }
 
 export const organizationRepository = new OrganizationRepository();

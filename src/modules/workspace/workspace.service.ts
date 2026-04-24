@@ -37,6 +37,32 @@ export class WorkspaceService {
 
     return workspace;
   }
+
+  async updateWorkspace(userId: string, id: string, data: { name?: string; description?: string }) {
+    const member = await workspaceRepository.getMember(userId, id);
+    if (!member) {
+      throw new Error("Access denied");
+    }
+
+    const updateData: Partial<{ name: string; description: string }> = {};
+    if (data.name !== undefined) updateData.name = data.name.trim();
+    if (data.description !== undefined) updateData.description = data.description.trim();
+
+    if (Object.keys(updateData).length === 0) {
+      throw new Error("No fields to update");
+    }
+
+    return workspaceRepository.updateWorkspace(id, updateData);
+  }
+
+  async deleteWorkspace(userId: string, id: string) {
+    const member = await workspaceRepository.getMember(userId, id);
+    if (!member) {
+      throw new Error("Access denied");
+    }
+
+    return workspaceRepository.deleteWorkspace(id);
+  }
 }
 
 export const workspaceService = new WorkspaceService();

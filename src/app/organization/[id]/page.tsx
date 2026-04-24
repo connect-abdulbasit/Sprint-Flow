@@ -32,65 +32,57 @@ const members = [
   { id: 4, name: "Diana Prince", role: "UX Designer", initials: "DP" },
 ];
 
-const workspaces = [
-  {
-    id: "engineering",
-    name: "Engineering",
-    desc: "Core product development",
-    tasks: 42,
-    members: 12,
-    updated: "2 hours ago",
-    color: "var(--color-accent)",
-  },
-  {
-    id: "marketing",
-    name: "Marketing",
-    desc: "Campaigns and growth",
-    tasks: 18,
-    members: 6,
-    updated: "5 hours ago",
-    color: "var(--color-accent3)",
-  },
-  {
-    id: "design",
-    name: "Design System",
-    desc: "Components and design tokens",
-    tasks: 7,
-    members: 4,
-    updated: "1 day ago",
-    color: "var(--color-accent2)",
-  },
-];
+interface Workspace {
+  id: string;
+  name: string;
+  description: string | null;
+  slug: string;
+  organizationId: string;
+}
 
-const stats = [
-  { label: "Workspaces", value: "3", icon: FolderKanban, color: "var(--color-accent)" },
-  { label: "Members", value: "24", icon: Users, color: "var(--color-accent2)" },
-  { label: "Active Tasks", value: "67", icon: Activity, color: "var(--color-accent3)" },
-];
+const fallbackWorkspaces: Workspace[] = [];
+
+const COLORS = ["var(--color-accent)", "var(--color-accent3)", "var(--color-accent2)"];
+
+function getColor(index: number) {
+  return COLORS[index % COLORS.length];
+}
 
 export default function OrganizationPage() {
   const { id } = useParams<{ id: string }>();
   const [org, setOrg] = useState<any>(null);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
-    async function fetchOrg() {
+    async function fetchData() {
       try {
-        const res = await fetch(`/api/organizations/${id}`);
-        if (!res.ok) {
+        const [orgRes, wsRes] = await Promise.all([
+          fetch(`/api/organizations/${id}`),
+          fetch("/api/workspaces"),
+        ]);
+
+        if (!orgRes.ok) {
           throw new Error("Failed to load organization details");
         }
-        const data = await res.json();
-        setOrg(data);
+
+        const orgData = await orgRes.json();
+        setOrg(orgData);
+
+        if (wsRes.ok) {
+          const wsData = await wsRes.json();
+          const orgWorkspaces = wsData.filter((ws: any) => ws.organizationId === id);
+          setWorkspaces(orgWorkspaces);
+        }
       } catch (err) {
         setError((err as Error).message);
       } finally {
         setIsLoading(false);
       }
     }
-    if (id) fetchOrg();
+    if (id) fetchData();
   }, [id]);
 
   if (isLoading) {
@@ -153,9 +145,12 @@ export default function OrganizationPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2.5 text-[var(--color-muted)] hover:text-[#f0f0f5] bg-[var(--color-surface)] border border-white/[0.06] rounded-xl transition-colors">
+            <Link
+              href={`/organization/${id}/settings`}
+              className="p-2.5 text-[var(--color-muted)] hover:text-[#f0f0f5] bg-[var(--color-surface)] border border-white/[0.06] rounded-xl transition-colors"
+            >
               <Settings className="w-[18px] h-[18px]" />
-            </button>
+            </Link>
             <button
               onClick={() => setInviteOpen(true)}
               className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-[var(--color-bg)] bg-[#f0f0f5] rounded-xl hover:bg-white transition-colors shadow-sm"
@@ -167,7 +162,11 @@ export default function OrganizationPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-4">
-          {stats.map((s) => (
+          {[
+            { label: "Workspaces", value: String(workspaces.length), icon: FolderKanban, color: "var(--color-accent)" },
+            { label: "Members", value: "24", icon: Users, color: "var(--color-accent2)" },
+            { label: "Active Tasks", value: "67", icon: Activity, color: "var(--color-accent3)" },
+          ].map((s) => (
             <div
               key={s.label}
               className="flex items-center gap-3.5 px-5 py-4 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06]"
@@ -197,21 +196,16 @@ export default function OrganizationPage() {
             </button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {workspaces.map((ws) => (
+            {workspaces.map((ws, i) => (
               <Link key={ws.id} href={`/workspace/${ws.id}/dashboard`} className="group block">
                 <div className="relative h-full flex flex-col p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5">
-                  <div className="w-8 h-1 rounded-full mb-4" style={{ background: ws.color }} />
+                  <div className="w-8 h-1 rounded-full mb-4" style={{ background: getColor(i) }} />
                   <h3 className="text-base font-bold text-[#f0f0f5] mb-1 group-hover:text-white transition-colors">
                     {ws.name}
                   </h3>
-                  <p className="text-xs text-[var(--color-muted)] mb-5">{ws.desc}</p>
+                  <p className="text-xs text-[var(--color-muted)] mb-5">{ws.description || "No description"}</p>
 
-                  <div className="mt-auto pt-4 border-t border-white/[0.05] flex items-center justify-between text-xs text-[var(--color-muted)]">
-                    <div className="flex items-center gap-3">
-                      <span>{ws.tasks} tasks</span>
-                      <span className="w-0.5 h-0.5 rounded-full bg-[var(--color-muted)]" />
-                      <span>{ws.members} members</span>
-                    </div>
+                  <div className="mt-auto pt-4 border-t border-white/[0.05] flex items-center justify-end text-xs text-[var(--color-muted)]">
                     <ChevronRight className="w-4 h-4 text-[var(--color-muted)] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
                   </div>
                 </div>
