@@ -9,7 +9,9 @@ import {
   text,
   date,
   integer,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { customType } from "drizzle-orm/pg-core/columns/custom";
 import { projectsTable } from "@/modules/project/project.schema";
 import { sprintsTable } from "@/modules/sprint/sprint.schema";
 import { usersTable } from "@/modules/user/user.schema";
@@ -19,6 +21,20 @@ import { attachmentsTable } from "@/modules/attachment/attachment.schema";
 import { timeEntriesTable } from "@/modules/time_entry/time_entry.schema";
 
 export const taskTypeEnum = pgEnum("task_type", ["task", "bug", "feature", "improvement"]);
+
+/** Binary ticket image stored in Postgres `bytea` (node-pg returns `Buffer`). */
+export const pgBytea = customType<{ data: Buffer | null; driverData: Buffer | null }>({
+  dataType() {
+    return "bytea";
+  },
+  fromDriver(value) {
+    if (value === null || value === undefined) return null;
+    return Buffer.isBuffer(value) ? value : Buffer.from(value as Uint8Array);
+  },
+  toDriver(value) {
+    return value;
+  },
+});
 
 export const taskDependenciesTable = pgTable(
   "task_dependencies",
@@ -45,6 +61,8 @@ export const tasksTable = pgTable(
     projectId: uuid("project_id")
       .notNull()
       .references(() => projectsTable.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    /** Monotonic per project; used with project prefix for human-readable keys (e.g. SF-12). */
+    ticketNumber: integer("ticket_number").notNull(),
     sprintId: uuid("sprint_id").references(() => sprintsTable.id, {
       onDelete: "set null",
       onUpdate: "cascade",
@@ -58,11 +76,18 @@ export const tasksTable = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
+    /** Denormalized assignee display name; kept in sync when assignee changes. */
+    assigneeName: varchar("assignee_name", { length: 255 }),
     reporterId: uuid("reporter_id")
       .notNull()
       .references(() => usersTable.id, { onDelete: "restrict", onUpdate: "cascade" }),
+    /** Denormalized reporter display name (stable label even if profile changes). */
+    reporterName: varchar("reporter_name", { length: 255 }).notNull(),
     dueDate: date("due_date"),
     storyPoints: integer("story_points"),
+    /** Cover / inline image for the ticket body. */
+    image: pgBytea("image"),
+    imageMimeType: varchar("image_mime_type", { length: 128 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -71,6 +96,10 @@ export const tasksTable = pgTable(
     sprintIdx: index("tasks_sprint_idx").on(t.sprintId),
     assigneeIdx: index("tasks_assignee_idx").on(t.assigneeId),
     reporterIdx: index("tasks_reporter_idx").on(t.reporterId),
+    projectTicketNumUq: uniqueIndex("tasks_project_ticket_number_uq").on(
+      t.projectId,
+      t.ticketNumber
+    ),
   })
 );
 

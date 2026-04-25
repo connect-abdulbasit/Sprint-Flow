@@ -125,6 +125,243 @@ export class WorkspaceController {
       );
     }
   }
+
+  async listMembers(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id: workspaceId } = await params;
+      const members = await workspaceService.getWorkspaceMembers(user.id, workspaceId);
+      return NextResponse.json(members);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to list members";
+      console.error("List members error:", error);
+      const status = message.includes("Forbidden") ? 403 : 500;
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
+  async getPreferences(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const workspace = await workspaceService.getWorkspaceById(user.id, id);
+      if (!workspace) {
+        return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+      }
+      return NextResponse.json({
+        workspaceId: id,
+        defaultView: "board" as const,
+        statuses: ["To Do", "In Progress", "Done"],
+        labels: [] as string[],
+        tags: [] as string[],
+      });
+    } catch (error) {
+      console.error("Get preferences error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to get preferences" },
+        { status: 500 }
+      );
+    }
+  }
+
+  async updatePreferences(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const workspace = await workspaceService.getWorkspaceById(user.id, id);
+      if (!workspace) {
+        return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+      }
+      const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+      return NextResponse.json({
+        workspaceId: id,
+        defaultView: (body.defaultView as string) ?? "board",
+        statuses: (body.statuses as string[]) ?? ["To Do", "In Progress", "Done"],
+        labels: (body.labels as string[]) ?? [],
+        tags: (body.tags as string[]) ?? [],
+      });
+    } catch (error) {
+      console.error("Update preferences error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to update preferences" },
+        { status: 500 }
+      );
+    }
+  }
+
+  async getNotificationSettings(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const workspace = await workspaceService.getWorkspaceById(user.id, id);
+      if (!workspace) {
+        return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+      }
+      return NextResponse.json({
+        workspaceId: id,
+        taskAssigned: true,
+        taskCompleted: true,
+        memberJoined: true,
+        comments: true,
+        dueDateReminders: true,
+      });
+    } catch (error) {
+      console.error("Get notification settings error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to get notification settings" },
+        { status: 500 }
+      );
+    }
+  }
+
+  async updateNotificationSettings(
+    req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+  ) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const workspace = await workspaceService.getWorkspaceById(user.id, id);
+      if (!workspace) {
+        return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+      }
+      const body = (await req.json().catch(() => ({}))) as Record<string, boolean | undefined>;
+      return NextResponse.json({
+        workspaceId: id,
+        taskAssigned: body.taskAssigned ?? true,
+        taskCompleted: body.taskCompleted ?? true,
+        memberJoined: body.memberJoined ?? true,
+        comments: body.comments ?? true,
+        dueDateReminders: body.dueDateReminders ?? true,
+      });
+    } catch (error) {
+      console.error("Update notification settings error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to update notification settings" },
+        { status: 500 }
+      );
+    }
+  }
+
+  async sendInvite(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id: workspaceId } = await params;
+      const body = await req.json();
+      const email = String(body.email ?? "")
+        .trim()
+        .toLowerCase();
+      const role = (body.role === "admin" ? "admin" : "member") as "member" | "admin";
+
+      if (!email) {
+        return NextResponse.json({ error: "Email is required" }, { status: 400 });
+      }
+
+      const result = await workspaceService.sendInvite(user.id, {
+        workspaceId,
+        email,
+        role,
+      });
+
+      return NextResponse.json(result);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to send invite";
+      const status = message.includes("Forbidden") ? 403 : 400;
+      console.error("Send invite error:", error);
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
+  async listInvites(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id: workspaceId } = await params;
+      const invites = await workspaceService.getWorkspaceInvites(user.id, workspaceId);
+      return NextResponse.json(invites);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to list invites";
+      const status = message.includes("Forbidden") ? 403 : 400;
+      console.error("List invites error:", error);
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
+  async getInviteByToken(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+    try {
+      const { token } = await params;
+      const invite = await workspaceService.getInviteByToken(token);
+
+      if (!invite) {
+        return NextResponse.json({ error: "Invitation not found." }, { status: 404 });
+      }
+
+      return NextResponse.json(invite);
+    } catch (error) {
+      console.error("Get invite error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to get invite" },
+        { status: 500 }
+      );
+    }
+  }
+
+  async acceptInvite(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { token } = await params;
+      const result = await workspaceService.acceptInvite(user.id, token);
+      return NextResponse.json(result);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to accept invite";
+      const status = message.includes("expired") || message.includes("Invalid") ? 400 : 500;
+      console.error("Accept invite error:", error);
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
+  async rejectInvite(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+    try {
+      const { token } = await params;
+      const result = await workspaceService.rejectInvite(token);
+      return NextResponse.json(result);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to reject invite";
+      console.error("Reject invite error:", error);
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
 }
 
 export const workspaceController = new WorkspaceController();

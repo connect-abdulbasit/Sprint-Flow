@@ -3,6 +3,7 @@ import { tasksTable } from "@/modules/task/task.schema";
 import { usersTable } from "@/modules/user/user.schema";
 import { relations } from "drizzle-orm";
 
+/** Threaded discussion on a task (ticket); `task_id` is the ticket row in `tasks`. */
 export const commentsTable = pgTable(
   "comments",
   {

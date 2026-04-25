@@ -1,10 +1,37 @@
 "use client";
 
-import { Bell, Search, LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Bell, LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+
+const pageTitles: Record<string, string> = {
+  dashboard: "Dashboard",
+  notifications: "Notifications",
+  projects: "Projects",
+  team: "Team",
+  reports: "Reports",
+  settings: "Settings",
+  sprints: "Sprints",
+  board: "Board",
+  backlog: "Backlog",
+  "my-tasks": "My Tasks",
+  assigned: "Assigned",
+};
+
+function getPageTitle(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  const workspaceIndex = segments.indexOf("workspace");
+  const pageKey = segments[workspaceIndex + 2] ?? segments[workspaceIndex + 1];
+
+  if (!pageKey) return "Workspace";
+  return (
+    pageTitles[pageKey] ?? pageKey.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+  );
+}
 
 export default function Topbar() {
   const router = useRouter();
+  const pathname = usePathname();
+  const title = pathname ? getPageTitle(pathname) : "Workspace";
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -13,15 +40,8 @@ export default function Topbar() {
 
   return (
     <header className="h-20 flex items-center justify-between px-8 bg-transparent z-30">
-      <div className="flex items-center gap-4 flex-1">
-        <div className="relative w-full max-w-lg group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6b6b80] group-focus-within:text-[#4f7cff] transition-colors" />
-          <input
-            type="text"
-            placeholder="Search tasks, projects, or people... (Press '/')"
-            className="w-full pl-11 pr-4 py-2.5 bg-[#111118]/40 backdrop-blur-xl border border-white/[0.05] rounded-2xl text-sm focus:bg-[#111118]/80 focus:ring-1 focus:ring-[#4f7cff]/50 focus:border-[#4f7cff]/50 focus:outline-none placeholder-[#6b6b80] text-[#f0f0f5] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)] transition-all duration-300"
-          />
-        </div>
+      <div className="flex items-center gap-3">
+        <h1 className="text-xl font-semibold text-white">{title}</h1>
       </div>
 
       <div className="flex items-center gap-5">

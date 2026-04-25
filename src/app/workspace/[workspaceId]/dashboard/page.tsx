@@ -3,21 +3,15 @@
 import { useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard,
   CheckSquare,
   Clock,
-  Flame,
   Users,
-  TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
-  CalendarDays,
   ChevronRight,
   Activity,
   Zap,
-  Target,
   AlertCircle,
-  MoreHorizontal,
   Timer,
   Circle,
   Sparkles,
@@ -383,21 +377,20 @@ export default function DashboardPage() {
         className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
       >
         <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ background: ws.color, boxShadow: `0 0 8px ${ws.color}` }}
-            />
-            <span className="text-xs font-medium text-[var(--color-muted)]">
-              {ws.name} workspace
-            </span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3">
+              <div
+                className="w-2 h-2 rounded-full"
+                style={{ background: ws.color, boxShadow: `0 0 8px ${ws.color}` }}
+              />
+              <span className="text-xs font-medium text-[var(--color-muted)]">
+                {ws.name} workspace
+              </span>
+            </div>
+            <p className="text-sm text-[var(--color-muted)]">
+              Your workspace dashboard with sprint metrics and team updates.
+            </p>
           </div>
-          <h1
-            className="text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-[#f0f0f5]"
-            style={{ fontFamily: "var(--font-syne)" }}
-          >
-            Dashboard
-          </h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm">

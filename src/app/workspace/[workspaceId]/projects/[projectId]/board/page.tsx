@@ -1,25 +1,26 @@
 "use client";
 
-import { MOCK_TICKETS, MOCK_PROJECTS, Ticket } from "@/modules/project/mock-projects";
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
+import TicketDetailModal from "@/components/project/TicketDetailModal";
+import TicketFormModal from "@/components/project/TicketFormModal";
+import { Plus, GripVertical, Circle, Loader2, Eye, CheckCircle2 } from "lucide-react";
+import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
-  MoreHorizontal,
-  Plus,
-  GripVertical,
-  Circle,
-  Loader2,
-  Eye,
-  CheckCircle2,
-} from "lucide-react";
-import { useParams } from "next/navigation";
-import { useState, useRef, useCallback } from "react";
+  fetchWorkspaceMembers,
+  fetchTickets,
+  updateTicket,
+  type ProjectMember,
+  type ProjectTicket,
+} from "@/lib/projects-api";
+import { initialsFromName } from "@/lib/initials";
 
 const columns = [
   { id: "todo", title: "To Do", icon: Circle, dotColor: "bg-zinc-500" },
   { id: "in_progress", title: "In Progress", icon: Loader2, dotColor: "bg-blue-500" },
   { id: "review", title: "In Review", icon: Eye, dotColor: "bg-purple-500" },
   { id: "done", title: "Done", icon: CheckCircle2, dotColor: "bg-emerald-500" },
-];
+] as const;
 
 const priorityColors: Record<string, string> = {
   urgent: "bg-red-500/10 text-red-400 border-red-500/10",
@@ -35,30 +36,104 @@ const typeColors: Record<string, string> = {
   improvement: "bg-emerald-500/10 text-emerald-400",
 };
 
-export default function ProjectBoardPage() {
-  const { projectId } = useParams();
-  const project = MOCK_PROJECTS.find((p) => p.id === projectId) || MOCK_PROJECTS[0];
+type ColumnId = (typeof columns)[number]["id"];
 
-  const [tickets, setTickets] = useState<Ticket[]>(() => [...MOCK_TICKETS]);
+export default function ProjectBoardPage() {
+  const { workspaceId, projectId } = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const wid = typeof workspaceId === "string" ? workspaceId : (workspaceId?.[0] ?? "");
+  const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
+
+  const [tickets, setTickets] = useState<ProjectTicket[]>([]);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createInitialStatus, setCreateInitialStatus] = useState<string>("todo");
+
+  const [detailTicketId, setDetailTicketId] = useState<string | null>(null);
+  const [detailPreview, setDetailPreview] = useState<ProjectTicket | null>(null);
+
   const [draggedTicketId, setDraggedTicketId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
   const dragCounterRef = useRef<Record<string, number>>({});
 
+  const loadData = useCallback(() => {
+    if (!pid || !wid) return;
+    Promise.all([fetchTickets(pid), fetchWorkspaceMembers(wid)])
+      .then(([t, m]) => {
+        setTickets(t);
+        setMembers(m);
+        setLoadError(null);
+      })
+      .catch(() => setLoadError("Could not load board"));
+  }, [pid, wid]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setDetailTicketId(null);
+      setDetailPreview(null);
+      setCreateInitialStatus("todo");
+      setCreateModalOpen(true);
+    }
+  }, [searchParams]);
+
+  const closeCreateModal = useCallback(() => {
+    setCreateModalOpen(false);
+    router.replace(pathname);
+  }, [router, pathname]);
+
+  const openCreate = useCallback((status: string = "todo") => {
+    setDetailTicketId(null);
+    setDetailPreview(null);
+    setCreateInitialStatus(status);
+    setCreateModalOpen(true);
+  }, []);
+
+  const openDetail = useCallback((ticket: ProjectTicket) => {
+    setCreateModalOpen(false);
+    setDetailTicketId(ticket.id);
+    setDetailPreview(ticket);
+  }, []);
+
+  const closeDetail = useCallback(() => {
+    setDetailTicketId(null);
+    setDetailPreview(null);
+  }, []);
+
+  const handleTicketSaved = useCallback((ticket: ProjectTicket) => {
+    setTickets((prev) => {
+      const idx = prev.findIndex((t) => t.id === ticket.id);
+      if (idx === -1) return [...prev, ticket];
+      const next = [...prev];
+      next[idx] = ticket;
+      return next;
+    });
+    setDetailPreview(ticket);
+  }, []);
+
+  const handleTicketDeleted = useCallback(
+    (ticketId: string) => {
+      setTickets((prev) => prev.filter((t) => t.id !== ticketId));
+      closeDetail();
+    },
+    [closeDetail]
+  );
+
   const handleDragStart = useCallback((e: React.DragEvent, ticketId: string) => {
     setDraggedTicketId(ticketId);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", ticketId);
-
-    const el = e.currentTarget as HTMLElement;
-    requestAnimationFrame(() => {
-      el.style.opacity = "0.4";
-    });
   }, []);
 
-  const handleDragEnd = useCallback((e: React.DragEvent) => {
-    const el = e.currentTarget as HTMLElement;
-    el.style.opacity = "1";
+  const handleDragEnd = useCallback(() => {
     setDraggedTicketId(null);
     setDragOverColumn(null);
     setDropTargetIndex(null);
@@ -67,17 +142,12 @@ export default function ProjectBoardPage() {
 
   const handleColumnDragEnter = useCallback((e: React.DragEvent, columnId: string) => {
     e.preventDefault();
-    if (!dragCounterRef.current[columnId]) {
-      dragCounterRef.current[columnId] = 0;
-    }
-    dragCounterRef.current[columnId]++;
+    dragCounterRef.current[columnId] = (dragCounterRef.current[columnId] ?? 0) + 1;
     setDragOverColumn(columnId);
   }, []);
 
   const handleColumnDragLeave = useCallback((columnId: string) => {
-    if (dragCounterRef.current[columnId]) {
-      dragCounterRef.current[columnId]--;
-    }
+    dragCounterRef.current[columnId] = (dragCounterRef.current[columnId] ?? 1) - 1;
     if (dragCounterRef.current[columnId] === 0) {
       setDragOverColumn((prev) => (prev === columnId ? null : prev));
     }
@@ -90,35 +160,32 @@ export default function ProjectBoardPage() {
 
   const handleCardDragOver = useCallback((e: React.DragEvent, index: number) => {
     e.preventDefault();
-    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const midY = rect.top + rect.height / 2;
     setDropTargetIndex(e.clientY < midY ? index : index + 1);
   }, []);
 
   const handleDrop = useCallback(
-    (e: React.DragEvent, columnId: string) => {
+    async (e: React.DragEvent, columnId: ColumnId) => {
       e.preventDefault();
       const ticketId = e.dataTransfer.getData("text/plain");
-      if (!ticketId) return;
+      if (!ticketId || !pid) return;
 
-      setTickets((prev) => {
-        const updated = prev.map((t) =>
-          t.id === ticketId ? { ...t, status: columnId as Ticket["status"] } : t
-        );
-
+      const prev = tickets;
+      setTickets((cur) => {
+        const updated = cur.map((t) => (t.id === ticketId ? { ...t, status: columnId } : t));
         if (dropTargetIndex !== null) {
-          const movedTicket = updated.find((t) => t.id === ticketId);
-          if (movedTicket) {
-            const withoutMoved = updated.filter((t) => t.id !== ticketId);
-            const columnTickets = withoutMoved.filter((t) => t.status === columnId);
-            const otherTickets = withoutMoved.filter((t) => t.status !== columnId);
-            const clampedIndex = Math.min(dropTargetIndex, columnTickets.length);
-            columnTickets.splice(clampedIndex, 0, movedTicket);
-            return [...otherTickets, ...columnTickets];
+          const moved = updated.find((t) => t.id === ticketId);
+          if (moved) {
+            const without = updated.filter((t) => t.id !== ticketId);
+            const inCol = without.filter((t) => t.status === columnId);
+            const rest = without.filter((t) => t.status !== columnId);
+            const idx = Math.min(dropTargetIndex, inCol.length);
+            inCol.splice(idx, 0, moved);
+            return [...rest, ...inCol];
           }
         }
-
         return updated;
       });
 
@@ -126,13 +193,51 @@ export default function ProjectBoardPage() {
       setDragOverColumn(null);
       setDropTargetIndex(null);
       dragCounterRef.current = {};
+
+      try {
+        await updateTicket(pid, ticketId, { status: columnId });
+      } catch {
+        setTickets(prev);
+      }
     },
-    [dropTargetIndex]
+    [dropTargetIndex, pid, tickets]
   );
 
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
       <ProjectPageHeader />
+
+      {loadError && (
+        <div className="px-10 py-2 text-[12px] text-amber-400/90 bg-amber-500/5 border-b border-amber-500/10">
+          {loadError}
+        </div>
+      )}
+
+      {createModalOpen && (
+        <TicketFormModal
+          projectId={pid}
+          members={members}
+          mode="create"
+          ticket={null}
+          initialStatus={createInitialStatus}
+          isOpen={createModalOpen}
+          onClose={closeCreateModal}
+          onSaved={handleTicketSaved}
+        />
+      )}
+
+      {detailTicketId && (
+        <TicketDetailModal
+          projectId={pid}
+          ticketId={detailTicketId}
+          preview={detailPreview}
+          members={members}
+          isOpen={Boolean(detailTicketId)}
+          onClose={closeDetail}
+          onUpdated={handleTicketSaved}
+          onDeleted={handleTicketDeleted}
+        />
+      )}
 
       <div className="flex-1 overflow-x-auto p-6 flex gap-4 custom-scrollbar">
         {columns.map((column) => {
@@ -141,7 +246,6 @@ export default function ProjectBoardPage() {
 
           return (
             <div key={column.id} className="flex flex-col w-[300px] shrink-0 group/col">
-              {/* Column Header */}
               <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${column.dotColor}`} />
@@ -150,17 +254,16 @@ export default function ProjectBoardPage() {
                     {columnTickets.length}
                   </span>
                 </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover/col:opacity-100 transition-opacity">
-                  <button className="p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-md transition-all">
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                  <button className="p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-md transition-all">
-                    <MoreHorizontal className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => openCreate(column.id)}
+                  className="p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-md transition-all opacity-0 group-hover/col:opacity-100"
+                  aria-label={`Add ticket to ${column.title}`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              {/* Column Drop Zone */}
               <div
                 className={`flex-1 space-y-2 overflow-y-auto custom-scrollbar rounded-xl p-2 border transition-all duration-200 min-h-[120px] ${
                   isOver
@@ -170,11 +273,10 @@ export default function ProjectBoardPage() {
                 onDragEnter={(e) => handleColumnDragEnter(e, column.id)}
                 onDragLeave={() => handleColumnDragLeave(column.id)}
                 onDragOver={handleColumnDragOver}
-                onDrop={(e) => handleDrop(e, column.id)}
+                onDrop={(e) => void handleDrop(e, column.id)}
               >
                 {columnTickets.map((ticket, index) => (
                   <div key={ticket.id}>
-                    {/* Drop indicator line */}
                     {isOver && dropTargetIndex === index && (
                       <div className="h-0.5 bg-blue-500 rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
                     )}
@@ -183,62 +285,68 @@ export default function ProjectBoardPage() {
                       onDragStart={(e) => handleDragStart(e, ticket.id)}
                       onDragEnd={handleDragEnd}
                       onDragOver={(e) => handleCardDragOver(e, index)}
-                      className={`group/card relative bg-[#111115] border border-white/[0.05] rounded-lg p-3.5 shadow-sm hover:border-white/[0.1] hover:bg-[#141418] transition-all cursor-grab active:cursor-grabbing select-none ${
+                      onDrop={(e) => void handleDrop(e, column.id)}
+                      onClick={() => openDetail(ticket)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openDetail(ticket);
+                        }
+                      }}
+                      tabIndex={0}
+                      className={`group/card relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#111115] p-3.5 pr-10 shadow-sm transition-all select-none hover:border-white/[0.1] hover:bg-[#141418] active:cursor-grabbing ${
                         draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
                       }`}
                     >
-                      {/* Drag Handle */}
-                      <div className="absolute top-3 right-3 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                        <GripVertical className="w-3.5 h-3.5 text-zinc-700" />
+                      <div
+                        className="pointer-events-none absolute top-2.5 right-2.5 text-zinc-600"
+                        aria-hidden
+                      >
+                        <GripVertical className="h-3.5 w-3.5" />
                       </div>
 
-                      {/* Type & Priority Row */}
-                      <div className="flex items-center gap-2 mb-2.5">
+                      <div className="mb-2.5 flex flex-wrap items-center gap-2">
                         <span
-                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded capitalize ${typeColors[ticket.type] || typeColors.task}`}
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-medium capitalize ${typeColors[ticket.type] || typeColors.task}`}
                         >
                           {ticket.type}
                         </span>
                         <span
-                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded border capitalize ${priorityColors[ticket.priority]}`}
+                          className={`rounded border px-1.5 py-0.5 text-[10px] font-medium capitalize ${priorityColors[ticket.priority] || priorityColors.medium}`}
                         >
                           {ticket.priority}
                         </span>
                       </div>
 
-                      {/* Ticket Key */}
-                      <div className="text-[11px] font-mono text-zinc-600 mb-1">{ticket.key}</div>
+                      <div className="mb-1 font-mono text-[11px] text-zinc-600">{ticket.key}</div>
 
-                      {/* Title */}
-                      <h4 className="text-[13px] font-medium text-zinc-300 mb-4 leading-snug group-hover/card:text-zinc-100 transition-colors">
+                      <h4 className="mb-4 text-[13px] font-medium leading-snug text-zinc-300 group-hover/card:text-zinc-100">
                         {ticket.title}
                       </h4>
 
-                      {/* Footer */}
                       <div className="flex items-center justify-between">
-                        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700/50 flex items-center justify-center text-[9px] font-semibold text-zinc-400">
-                          {ticket.assignee?.initials || "?"}
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700/50 bg-zinc-800 text-[9px] font-semibold text-zinc-400">
+                          {initialsFromName(ticket.assigneeName)}
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          {ticket.storyPoints && (
-                            <div className="px-1.5 py-0.5 rounded bg-zinc-800/80 text-[10px] font-medium text-zinc-500">
-                              {ticket.storyPoints} pts
-                            </div>
-                          )}
-                        </div>
+                        {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
+                          <div className="rounded bg-zinc-800/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+                            {ticket.storyPoints} pts
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 ))}
 
-                {/* Drop indicator at end of column */}
                 {isOver && dropTargetIndex === columnTickets.length && (
                   <div className="h-0.5 bg-blue-500 rounded-full mx-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
                 )}
 
-                {/* Add Card Button */}
-                <button className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-zinc-600 text-[12px] font-medium hover:text-zinc-400 hover:bg-white/[0.02] transition-all border border-dashed border-transparent hover:border-white/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => openCreate(column.id)}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-transparent py-2.5 text-[12px] font-medium text-zinc-600 transition-all hover:border-white/[0.06] hover:bg-white/[0.02] hover:text-zinc-400"
+                >
                   <Plus className="w-3.5 h-3.5" />
                   Add task
                 </button>
@@ -247,14 +355,11 @@ export default function ProjectBoardPage() {
           );
         })}
 
-        {/* Add Column Button */}
-        <div className="w-[300px] shrink-0 border border-dashed border-white/[0.04] rounded-xl flex flex-col items-center justify-center group/add hover:border-white/[0.1] hover:bg-white/[0.01] transition-all cursor-pointer">
-          <div className="w-8 h-8 rounded-lg bg-white/[0.02] flex items-center justify-center text-zinc-600 group-hover/add:text-zinc-400 group-hover/add:scale-105 transition-all mb-2 border border-zinc-800/50">
-            <Plus className="w-4 h-4" />
+        <div className="flex w-[300px] shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.04] transition-all hover:border-white/[0.1] hover:bg-white/[0.01]">
+          <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800/50 bg-white/[0.02] text-zinc-600">
+            <Plus className="h-4 w-4" />
           </div>
-          <span className="text-[12px] font-medium text-zinc-600 group-hover/add:text-zinc-400 transition-colors">
-            Add column
-          </span>
+          <span className="text-[12px] font-medium text-zinc-600">Add column</span>
         </div>
       </div>
     </div>
