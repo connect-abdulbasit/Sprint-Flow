@@ -1,25 +1,54 @@
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 
-interface DeleteConfirmDialogProps {
+export interface DeleteConfirmDialogProps {
   isOpen: boolean;
-  projectName: string;
+  /** Exact name the user must type (e.g. project or workspace name). Comparison trims both sides. */
+  nameToConfirm: string;
+  /** Lowercase noun for copy, e.g. "project", "workspace", "organization" */
+  resourceLabel: string;
   onClose: () => void;
   onConfirm: () => Promise<void>;
+  /** Shown above the action buttons when the last confirm attempt failed */
+  error?: string | null;
 }
 
 export default function DeleteConfirmDialog({
   isOpen,
-  projectName,
+  nameToConfirm,
+  resourceLabel,
   onClose,
   onConfirm,
+  error = null,
 }: DeleteConfirmDialogProps) {
   const [deleting, setDeleting] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [typed, setTyped] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Escape key closes
+  const expected = nameToConfirm.trim();
+  const matches = expected.length > 0 && typed.trim() === expected;
+  const titleCased = resourceLabel.charAt(0).toUpperCase() + resourceLabel.slice(1);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setTyped("");
+    const t = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(t);
+  }, [isOpen]);
+
+  const handleClose = useCallback(() => {
+    if (deleting) return;
+    setTyped("");
+    setClosing(true);
+    setTimeout(() => {
+      onClose();
+      setClosing(false);
+    }, 200);
+  }, [deleting, onClose]);
+
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
@@ -27,28 +56,22 @@ export default function DeleteConfirmDialog({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  });
-
-  const handleClose = () => {
-    if (deleting) return;
-    setClosing(true);
-    setTimeout(() => {
-      onClose();
-      setClosing(false);
-    }, 200);
-  };
+  }, [isOpen, deleting, handleClose]);
 
   const handleConfirm = async (e: FormEvent) => {
     e.preventDefault();
+    if (!matches || deleting) return;
     setDeleting(true);
+    let succeeded = false;
     try {
       await onConfirm();
-      handleClose();
+      succeeded = true;
     } catch {
-      // Error handling managed by parent hook
+      // Parent sets `error` and rethrows; keep dialog open
     } finally {
       setDeleting(false);
     }
+    if (succeeded) handleClose();
   };
 
   if (!isOpen && !closing) return null;
@@ -76,7 +99,7 @@ export default function DeleteConfirmDialog({
       `}</style>
 
       <div
-        className={`fixed inset-0 z-[1001] flex items-center justify-center p-4 ${backdropClass}`}
+        className={`fixed inset-0 z-[1001] flex items-center justify-center p-4 ${backdropClass} cursor-default`}
         onClick={handleClose}
         role="presentation"
       >
@@ -85,29 +108,62 @@ export default function DeleteConfirmDialog({
         <div
           role="alertdialog"
           aria-modal="true"
-          aria-label="Delete project confirmation"
+          aria-label={`Delete ${resourceLabel} confirmation`}
           aria-describedby="delete-dialog-desc"
-          className={`relative w-full max-w-sm rounded-2xl overflow-hidden bg-[#0c0c0f] border border-red-500/20 shadow-2xl ${animClass}`}
+          className={`relative w-full max-w-md rounded-2xl overflow-hidden bg-[#0c0c0f] border border-red-500/20 shadow-2xl ${animClass}`}
           onClick={(e) => e.stopPropagation()}
         >
-          <form onSubmit={handleConfirm} className="p-8 text-center">
-            {/* Icon */}
+          <form onSubmit={handleConfirm} className="p-8 text-left">
             <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-5">
               <AlertTriangle className="w-6 h-6 text-red-400" />
             </div>
 
-            <h2 className="text-lg font-semibold text-zinc-100 mb-2">Delete project?</h2>
-            <p id="delete-dialog-desc" className="text-[13px] text-zinc-400 leading-relaxed mb-8">
-              Are you sure you want to delete{" "}
-              <span className="font-semibold text-zinc-200">{projectName}</span>? This action is
-              permanent and cannot be undone.
+            <h2 className="text-lg font-semibold text-zinc-100 mb-2 text-center">
+              Delete this {resourceLabel}?
+            </h2>
+            <p
+              id="delete-dialog-desc"
+              className="text-[13px] text-zinc-400 leading-relaxed mb-6 text-center"
+            >
+              This will permanently delete the {resourceLabel} and related data. This cannot be
+              undone.
             </p>
 
-            <div className="flex flex-col gap-2.5">
+            <div className="space-y-2 mb-2">
+              <label
+                htmlFor="delete-confirm-name"
+                className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500"
+              >
+                Type{" "}
+                <span className="text-zinc-300 font-mono font-semibold normal-case">
+                  {nameToConfirm}
+                </span>{" "}
+                to confirm
+              </label>
+              <input
+                ref={inputRef}
+                id="delete-confirm-name"
+                type="text"
+                autoComplete="off"
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                disabled={deleting}
+                placeholder={expected || titleCased}
+                className="w-full bg-[#0f0f12] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-red-500/40 focus:ring-1 focus:ring-red-500/20 transition-all font-mono disabled:opacity-50"
+              />
+            </div>
+
+            {error ? (
+              <p role="alert" className="text-[13px] text-red-400 mb-4 leading-snug">
+                {error}
+              </p>
+            ) : null}
+
+            <div className="flex flex-col gap-2.5 mt-6">
               <button
                 type="submit"
-                disabled={deleting}
-                className="w-full py-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 font-semibold text-[14px] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={deleting || !matches}
+                className="w-full py-2.5 rounded-lg bg-red-600/90 hover:bg-red-600 text-white font-semibold text-[14px] transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
               >
                 {deleting ? (
                   <>
@@ -115,14 +171,14 @@ export default function DeleteConfirmDialog({
                     Deleting…
                   </>
                 ) : (
-                  "Yes, delete project"
+                  `I understand, delete this ${resourceLabel}`
                 )}
               </button>
               <button
                 type="button"
                 onClick={handleClose}
                 disabled={deleting}
-                className="w-full py-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] text-zinc-400 hover:text-zinc-200 font-medium text-[14px] transition-all disabled:opacity-50"
+                className="w-full py-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] text-zinc-400 hover:text-zinc-200 font-medium text-[14px] transition-all disabled:opacity-50 cursor-pointer"
               >
                 Cancel
               </button>
