@@ -1,6 +1,7 @@
 import { authRepository } from "@/modules/auth/auth.repository";
 import { projectRepository } from "@/modules/project/project.repository";
 import { taskRepository, type TaskInsert, type TaskRow } from "@/modules/task/task.repository";
+import { activityService } from "@/modules/activity/activity.service";
 import { ticketKey } from "@/lib/ticket-key";
 
 export function parseImagePayload(imageBase64: unknown, imageMimeType: unknown) {
@@ -181,6 +182,16 @@ export class TaskService {
     };
 
     const created = await taskRepository.createWithNextTicketNumber(insert);
+
+    await activityService.logActivity({
+      workspaceId: project.workspaceId,
+      userId,
+      action: "created",
+      entityType: "task",
+      entityId: created.id,
+      entityName: created.title,
+    });
+
     return serializeTicket(created, project.name);
   }
 
@@ -259,6 +270,34 @@ export class TaskService {
     if (!updated) {
       throw new Error("Ticket not found");
     }
+
+    // Log activity: completed
+    if (body.status === "done" && existing.status !== "done") {
+      await activityService.logActivity({
+        workspaceId: project.workspaceId,
+        userId,
+        action: "completed",
+        entityType: "task",
+        entityId: updated.id,
+        entityName: updated.title,
+      });
+    }
+
+    // Log activity: assigned
+    if (
+      body.assigneeId !== undefined &&
+      body.assigneeId !== existing.assigneeId
+    ) {
+      await activityService.logActivity({
+        workspaceId: project.workspaceId,
+        userId,
+        action: "assigned",
+        entityType: "task",
+        entityId: updated.id,
+        entityName: updated.title,
+      });
+    }
+
     return serializeTicket(updated, project.name);
   }
 
