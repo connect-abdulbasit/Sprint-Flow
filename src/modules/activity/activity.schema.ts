@@ -35,3 +35,33 @@ export const activityLogsRelations = relations(activityLogsTable, ({ one }) => (
     references: [projectsTable.id],
   }),
 }));
+
+/* ── Workspace-scoped activities table ───────────────────────────── */
+
+export const activitiesTable = pgTable(
+  "activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    action: varchar("action", { length: 64 }).notNull(),
+    entityType: varchar("entity_type", { length: 64 }).notNull(),
+    entityId: varchar("entity_id", { length: 255 }).notNull(),
+    entityName: varchar("entity_name", { length: 500 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({
+    workspaceIdx: index("activities_workspace_idx").on(t.workspaceId),
+    userIdx: index("activities_user_idx").on(t.userId),
+    entityIdx: index("activities_entity_idx").on(t.entityType, t.entityId),
+  })
+);
+
+export const activitiesRelations = relations(activitiesTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [activitiesTable.userId],
+    references: [usersTable.id],
+  }),
+}));

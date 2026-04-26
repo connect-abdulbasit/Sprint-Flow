@@ -57,24 +57,6 @@ export class ProjectController {
     }
   }
 
-  async listMembers(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const user = await getCurrentUser(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    try {
-      const { id } = await params;
-      const members = await projectService.listProjectMembers(user.id, id);
-      return NextResponse.json(members);
-    } catch (error) {
-      const message = (error as Error)?.message ?? "Failed to list members";
-      const status = message.includes("denied") || message.includes("not found") ? 403 : 500;
-      console.error("List project members error:", error);
-      return NextResponse.json({ error: message }, { status });
-    }
-  }
-
   async get(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const user = await getCurrentUser(req);
     if (!user) {

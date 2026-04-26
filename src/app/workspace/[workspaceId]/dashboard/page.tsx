@@ -119,58 +119,44 @@ const recentTasks = [
   },
 ];
 
-const activityFeed = [
-  {
-    id: 1,
-    user: "Alice Johnson",
-    initials: "AJ",
-    action: "completed",
-    target: "ENG-421",
-    detail: "Implement OAuth2 flow",
-    time: "2h ago",
-    color: "#00d4aa",
-  },
-  {
-    id: 2,
-    user: "Bob Smith",
-    initials: "BS",
-    action: "started working on",
-    target: "ENG-419",
-    detail: "Fix memory leak",
-    time: "4h ago",
-    color: "#4f7cff",
-  },
-  {
-    id: 3,
-    user: "Charlie Davis",
-    initials: "CD",
-    action: "commented on",
-    target: "ENG-418",
-    detail: "Add pagination",
-    time: "6h ago",
-    color: "#a259ff",
-  },
-  {
-    id: 4,
-    user: "Diana Prince",
-    initials: "DP",
-    action: "created",
-    target: "ENG-416",
-    detail: "Design system tokens",
-    time: "1d ago",
-    color: "#ff9f43",
-  },
-  {
-    id: 5,
-    user: "Alice Johnson",
-    initials: "AJ",
-    action: "moved to review",
-    target: "ENG-415",
-    detail: "E2E tests",
-    time: "1d ago",
-    color: "#00d4aa",
-  },
-];
+const ACTIVITY_COLORS = ["#4f7cff", "#a259ff", "#00d4aa", "#ff9f43", "#ff4f7c", "#00b4d8"];
+
+function getInitials(name: string | null | undefined) {
+  if (!name) return "??";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function timeAgo(date: Date | string): string {
+  const d = new Date(date);
+  const now = Date.now();
+  const diff = now - d.getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  if (seconds < 60) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function getActivityMiddleText(entityType: string, action: string): string {
+  switch (entityType) {
+    case "project":
+      return `${action} project`;
+    case "sprint":
+      return `${action} sprint`;
+    case "member":
+      return `${action} workspace`;
+    case "task":
+      return `${action} task`;
+    default:
+      return action;
+  }
+}
 
 const burndownPoints = [32, 30, 28, 26, 23, 20, 17, 14, 11, 9, 8, 8, 8];
 const idealPoints = [32, 29.7, 27.4, 25.1, 22.8, 20.5, 18.2, 15.9, 13.6, 11.3, 9, 6.7, 4.4];
@@ -342,9 +328,19 @@ function ProgressRing({
   );
 }
 
+type ActivityItem = {
+  id: string;
+  userName: string;
+  action: string;
+  entityType: string;
+  entityName: string;
+  createdAt: string;
+};
+
 export default function DashboardPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const [workspace, setWorkspace] = useState<{ name: string; color: string } | null>(null);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -365,7 +361,20 @@ export default function DashboardPage() {
       }
     }
 
+    async function fetchActivities() {
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceId}/activities`);
+        if (res.ok) {
+          const data = await res.json();
+          setActivities(data ?? []);
+        }
+      } catch (err) {
+        console.error("Error fetching activities:", err);
+      }
+    }
+
     fetchWorkspace();
+    fetchActivities();
   }, [workspaceId]);
 
   const ws = workspace ?? WORKSPACE_INFO[workspaceId] ?? { name: workspaceId, color: "#4f7cff" };
@@ -614,34 +623,49 @@ export default function DashboardPage() {
               <Sparkles className="w-3.5 h-3.5 text-[var(--color-accent)]" />
             </div>
             <div className="px-5 py-3 space-y-4 max-h-[240px] overflow-auto">
-              {activityFeed.slice(0, 4).map((item, i) => (
-                <div key={item.id} className="flex gap-3">
-                  <div className="relative flex flex-col items-center">
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
-                      style={{
-                        background: `color-mix(in srgb, ${item.color} 15%, transparent)`,
-                        color: item.color,
-                      }}
-                    >
-                      {item.initials}
+              {activities.length === 0 ? (
+                <p className="text-xs text-[var(--color-muted)] py-2">No activity yet</p>
+              ) : (
+                activities.slice(0, 5).map((item, i) => {
+                  const initials = getInitials(item.userName);
+                  const firstName = item.userName?.split(" ")[0] ?? "Unknown";
+                  const color = ACTIVITY_COLORS[i % ACTIVITY_COLORS.length];
+                  return (
+                    <div key={item.id} className="flex gap-3">
+                      <div className="relative flex flex-col items-center">
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
+                          style={{
+                            background: `color-mix(in srgb, ${color} 15%, transparent)`,
+                            color: color,
+                          }}
+                        >
+                          {initials}
+                        </div>
+                        {i < Math.min(activities.length, 5) - 1 && (
+                          <div className="w-px flex-1 bg-white/[0.05] mt-1" />
+                        )}
+                      </div>
+                      <div className="pb-3">
+                        <p className="text-xs text-[var(--color-muted2)] leading-relaxed">
+                          <span className="font-semibold text-[#f0f0f5]">
+                            {firstName}
+                          </span>{" "}
+                          {getActivityMiddleText(item.entityType, item.action)}{" "}
+                          {item.entityType !== "member" && (
+                            <span className="font-medium text-[#f0f0f5]">
+                              {item.entityName}
+                            </span>
+                          )}
+                        </p>
+                        <span className="text-[10px] text-[var(--color-muted)]">
+                          {timeAgo(item.createdAt)}
+                        </span>
+                      </div>
                     </div>
-                    {i < activityFeed.slice(0, 4).length - 1 && (
-                      <div className="w-px flex-1 bg-white/[0.05] mt-1" />
-                    )}
-                  </div>
-                  <div className="pb-3">
-                    <p className="text-xs text-[var(--color-muted2)] leading-relaxed">
-                      <span className="font-semibold text-[#f0f0f5]">
-                        {item.user.split(" ")[0]}
-                      </span>{" "}
-                      {item.action}{" "}
-                      <span className="font-medium text-[#f0f0f5]">{item.target}</span>
-                    </p>
-                    <span className="text-[10px] text-[var(--color-muted)]">{item.time}</span>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -699,3 +723,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

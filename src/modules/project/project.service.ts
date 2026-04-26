@@ -1,6 +1,6 @@
 import { projectRepository } from "./project.repository";
 import { workspaceService } from "@/modules/workspace/workspace.service";
-import { workspaceRepository } from "@/modules/workspace/workspace.repository";
+import { activityService } from "@/modules/activity/activity.service";
 
 export class ProjectService {
   async getWorkspaceProjects(userId: string, workspaceId: string) {
@@ -21,11 +21,22 @@ export class ProjectService {
     if (!workspace) {
       throw new Error("Workspace not found or access denied");
     }
-    return projectRepository.create({
+    const project = await projectRepository.create({
       ...payload,
       workspaceId: workspace.id,
       createdBy: userId,
     });
+
+    await activityService.logActivity({
+      workspaceId: payload.workspaceId,
+      userId,
+      action: "created",
+      entityType: "project",
+      entityId: project.id,
+      entityName: project.name,
+    });
+
+    return project;
   }
 
   async updateProject(
@@ -45,19 +56,21 @@ export class ProjectService {
     if (!project) {
       throw new Error("Project not found");
     }
+
+    await activityService.logActivity({
+      workspaceId: project.workspaceId,
+      userId,
+      action: "deleted",
+      entityType: "project",
+      entityId: project.id,
+      entityName: project.name,
+    });
+
     await projectRepository.delete(projectId);
   }
 
   async getProjectForMember(userId: string, projectId: string) {
     return projectRepository.getProjectIfMember(userId, projectId);
-  }
-
-  async listProjectMembers(userId: string, projectId: string) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
-      throw new Error("Project not found or access denied");
-    }
-    return workspaceRepository.listMembersWithUsers(project.workspaceId);
   }
 }
 

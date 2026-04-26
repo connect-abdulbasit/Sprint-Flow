@@ -3,6 +3,24 @@ import { workspaceController } from "@/modules/workspace/workspace.controller";
 
 export const runtime = "nodejs";
 
-export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
   return workspaceController.getById(req, context);
 }
+
+export async function PATCH(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return workspaceController.update(req, context);
+}
+
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return workspaceController.delete(req, context);
+}
+

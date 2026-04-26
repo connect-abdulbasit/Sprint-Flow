@@ -192,8 +192,8 @@ export interface ProjectMember {
   role: string;
 }
 
-export async function fetchProjectMembers(projectId: string): Promise<ProjectMember[]> {
-  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/members`);
+export async function fetchWorkspaceMembers(workspaceId: string): Promise<ProjectMember[]> {
+  const res = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/members`);
   return handleResponse<ProjectMember[]>(res);
 }
 

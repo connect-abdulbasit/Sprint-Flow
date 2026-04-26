@@ -1,4 +1,5 @@
 import { organizationRepository } from "./organization.repository";
+import { workspaceRepository } from "@/modules/workspace/workspace.repository";
 import { workspaceService } from "@/modules/workspace/workspace.service";
 import crypto from "crypto";
 
@@ -71,6 +72,41 @@ export class OrganizationService {
 
     await organizationRepository.updateInviteStatus(invite.id, "accepted");
     return { success: true, message: "Successfully joined organization" };
+  }
+
+  async updateOrganization(userId: string, orgId: string, data: { name?: string; description?: string }) {
+    const member = await organizationRepository.getMember(userId, orgId);
+    if (!member || !["owner", "admin"].includes(member.role)) {
+      throw new Error("Forbidden: Not authorized to update organization");
+    }
+
+    const updateData: Partial<{ name: string; description: string }> = {};
+    if (data.name !== undefined) updateData.name = data.name.trim();
+    if (data.description !== undefined) updateData.description = data.description.trim();
+
+    if (Object.keys(updateData).length === 0) {
+      throw new Error("No fields to update");
+    }
+
+    return organizationRepository.updateOrganization(orgId, updateData);
+  }
+
+  async deleteOrganization(userId: string, orgId: string) {
+    const member = await organizationRepository.getMember(userId, orgId);
+    if (!member || member.role !== "owner") {
+      throw new Error("Forbidden: Only the owner can delete the organization");
+    }
+
+    // Delete related workspaces first (cascades to workspace_members, prefs, notif_settings)
+    const workspaces = await workspaceRepository.getWorkspacesByOrganizationId(orgId);
+    for (const ws of workspaces) {
+      await workspaceRepository.deleteWorkspace(ws.id);
+    }
+
+    // Delete organization (cascades to organization_members, organization_invites)
+    await organizationRepository.deleteOrganization(orgId);
+
+    return { success: true };
   }
 }
 

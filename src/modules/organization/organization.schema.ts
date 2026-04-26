@@ -6,6 +6,7 @@ import {
   primaryKey,
   index,
   varchar,
+  text,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "@/modules/user/user.schema";
@@ -40,6 +41,7 @@ export const organizationsTable = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: varchar("name", { length: 255 }).notNull(),
+    description: text("description"),
     ownerId: uuid("owner_id")
       .notNull()
       .references((): AnyPgColumn => usersTable.id, { onDelete: "restrict", onUpdate: "cascade" }),

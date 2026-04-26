@@ -8,14 +8,15 @@ import { Calendar, Rocket, Layers } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
-  fetchProjectMembers,
+  fetchWorkspaceMembers,
   fetchTickets,
   type ProjectMember,
   type ProjectTicket,
 } from "@/lib/projects-api";
 
 export default function ProjectBacklogPage() {
-  const { projectId } = useParams();
+  const { workspaceId, projectId } = useParams();
+  const wid = typeof workspaceId === "string" ? workspaceId : (workspaceId?.[0] ?? "");
   const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
   const [tickets, setTickets] = useState<ProjectTicket[]>([]);
   const [members, setMembers] = useState<ProjectMember[]>([]);
@@ -24,14 +25,17 @@ export default function ProjectBacklogPage() {
   const [detailPreview, setDetailPreview] = useState<ProjectTicket | null>(null);
 
   const load = useCallback(() => {
-    if (!pid) return;
-    Promise.all([fetchTickets(pid), fetchProjectMembers(pid)])
+    if (!pid || !wid) return;
+    Promise.all([fetchTickets(pid), fetchWorkspaceMembers(wid)])
       .then(([t, m]) => {
         setTickets(t);
         setMembers(m);
       })
-      .catch(() => setTickets([]));
-  }, [pid]);
+      .catch(() => {
+        setTickets([]);
+        setMembers([]);
+      });
+  }, [pid, wid]);
 
   useEffect(() => {
     load();

@@ -7,7 +7,7 @@ import { Plus, GripVertical, Circle, Loader2, Eye, CheckCircle2 } from "lucide-r
 import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
-  fetchProjectMembers,
+  fetchWorkspaceMembers,
   fetchTickets,
   updateTicket,
   type ProjectMember,
@@ -39,10 +39,11 @@ const typeColors: Record<string, string> = {
 type ColumnId = (typeof columns)[number]["id"];
 
 export default function ProjectBoardPage() {
-  const { projectId } = useParams();
+  const { workspaceId, projectId } = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const wid = typeof workspaceId === "string" ? workspaceId : (workspaceId?.[0] ?? "");
   const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
 
   const [tickets, setTickets] = useState<ProjectTicket[]>([]);
@@ -61,15 +62,15 @@ export default function ProjectBoardPage() {
   const dragCounterRef = useRef<Record<string, number>>({});
 
   const loadData = useCallback(() => {
-    if (!pid) return;
-    Promise.all([fetchTickets(pid), fetchProjectMembers(pid)])
+    if (!pid || !wid) return;
+    Promise.all([fetchTickets(pid), fetchWorkspaceMembers(wid)])
       .then(([t, m]) => {
         setTickets(t);
         setMembers(m);
         setLoadError(null);
       })
       .catch(() => setLoadError("Could not load board"));
-  }, [pid]);
+  }, [pid, wid]);
 
   useEffect(() => {
     loadData();
