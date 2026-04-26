@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import type { BoardColumnConfig } from "@/lib/board-columns";
 import { projectsTable } from "@/modules/project/project.schema";
 import { workspaceMembersTable } from "@/modules/workspace/workspace.schema";
 import { and, eq } from "drizzle-orm";
@@ -62,7 +63,14 @@ export class ProjectRepository {
     return project;
   }
 
-  async update(id: string, data: { name?: string; description?: string }) {
+  async update(
+    id: string,
+    data: {
+      name?: string;
+      description?: string | null;
+      boardColumns?: BoardColumnConfig[] | null;
+    }
+  ) {
     const [updated] = await db
       .update(projectsTable)
       .set({ ...data, updatedAt: new Date() })

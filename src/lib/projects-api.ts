@@ -5,6 +5,12 @@
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+export interface BoardColumnConfig {
+  id: string;
+  title: string;
+  dotColor?: string;
+}
+
 export interface Project {
   id: string;
   workspaceId: string;
@@ -12,6 +18,8 @@ export interface Project {
   description: string | null;
   status: string;
   createdBy: string;
+  /** Kanban columns; present on single-project GET (defaults applied server-side). */
+  boardColumns?: BoardColumnConfig[];
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +33,7 @@ export interface CreateProjectPayload {
 export interface UpdateProjectPayload {
   name?: string;
   description?: string;
+  boardColumns?: BoardColumnConfig[];
 }
 
 // ─── Error helper ────────────────────────────────────────────────────────────
@@ -109,14 +118,43 @@ export interface ProjectTicket {
   updatedAt: string;
 }
 
-/** UI grouping for backlog / sprint sections (sprint API can populate this later). */
+export type SprintLifecycleStatus = "planning" | "active" | "completed";
+
+export interface ProjectSprint {
+  id: string;
+  projectId: string;
+  name: string;
+  goal: string | null;
+  startDate: string;
+  endDate: string;
+  status: SprintLifecycleStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** UI grouping for backlog / sprint sections. */
 export interface SprintGroup {
   id: string;
   name: string;
-  status: "active" | "planning" | "completed";
+  goal?: string | null;
+  status: SprintLifecycleStatus;
   startDate?: string;
   endDate?: string;
   tickets: ProjectTicket[];
+}
+
+export interface CreateSprintPayload {
+  name: string;
+  goal?: string | null;
+  startDate: string;
+  endDate: string;
+}
+
+export interface UpdateSprintPayload {
+  name?: string;
+  goal?: string | null;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface CreateTicketPayload {
@@ -203,4 +241,61 @@ export async function deleteTicket(projectId: string, ticketId: string): Promise
     { method: "DELETE" }
   );
   await handleResponse<void>(res);
+}
+
+export async function fetchSprints(projectId: string): Promise<ProjectSprint[]> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/sprints`);
+  return handleResponse<ProjectSprint[]>(res);
+}
+
+export async function createSprint(
+  projectId: string,
+  payload: CreateSprintPayload
+): Promise<ProjectSprint> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/sprints`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<ProjectSprint>(res);
+}
+
+export async function updateSprint(
+  projectId: string,
+  sprintId: string,
+  payload: UpdateSprintPayload
+): Promise<ProjectSprint> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/sprints/${encodeURIComponent(sprintId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  return handleResponse<ProjectSprint>(res);
+}
+
+export async function deleteSprint(projectId: string, sprintId: string): Promise<void> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/sprints/${encodeURIComponent(sprintId)}`,
+    { method: "DELETE" }
+  );
+  await handleResponse<void>(res);
+}
+
+export async function startSprint(projectId: string, sprintId: string): Promise<ProjectSprint> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/sprints/${encodeURIComponent(sprintId)}/start`,
+    { method: "POST" }
+  );
+  return handleResponse<ProjectSprint>(res);
+}
+
+export async function completeSprint(projectId: string, sprintId: string): Promise<ProjectSprint> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/sprints/${encodeURIComponent(sprintId)}/complete`,
+    { method: "POST" }
+  );
+  return handleResponse<ProjectSprint>(res);
 }

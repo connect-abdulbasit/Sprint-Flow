@@ -1,6 +1,7 @@
 import { projectRepository } from "./project.repository";
 import { workspaceService } from "@/modules/workspace/workspace.service";
 import { activityService } from "@/modules/activity/activity.service";
+import { parseBoardColumnsPayload } from "@/lib/board-columns";
 
 export class ProjectService {
   async getWorkspaceProjects(userId: string, workspaceId: string) {
@@ -42,13 +43,33 @@ export class ProjectService {
   async updateProject(
     userId: string,
     projectId: string,
-    payload: { name?: string; description?: string }
-  ) {
-    const project = await projectRepository.findById(projectId);
-    if (!project) {
-      throw new Error("Project not found");
+    payload: {
+      name?: string;
+      description?: string | null;
+      boardColumns?: unknown;
     }
-    return projectRepository.update(projectId, payload);
+  ) {
+    const project = await projectRepository.getProjectIfMember(userId, projectId);
+    if (!project) {
+      throw new Error("Project not found or access denied");
+    }
+    const patch: Parameters<typeof projectRepository.update>[1] = {};
+    if (payload.name !== undefined) {
+      const n = String(payload.name).trim();
+      if (!n) throw new Error("name cannot be empty");
+      patch.name = n;
+    }
+    if (payload.description !== undefined) {
+      patch.description = payload.description === null ? null : String(payload.description);
+    }
+    if (payload.boardColumns !== undefined) {
+      patch.boardColumns = parseBoardColumnsPayload(payload.boardColumns);
+    }
+    if (Object.keys(patch).length === 0) {
+      return project;
+    }
+    const updated = await projectRepository.update(projectId, patch);
+    return updated ?? project;
   }
 
   async deleteProject(userId: string, projectId: string) {

@@ -1,5 +1,6 @@
 import { authRepository } from "@/modules/auth/auth.repository";
 import { projectRepository } from "@/modules/project/project.repository";
+import { sprintRepository } from "@/modules/sprint/sprint.repository";
 import { taskRepository, type TaskInsert, type TaskRow } from "@/modules/task/task.repository";
 import { activityService } from "@/modules/activity/activity.service";
 import { ticketKey } from "@/lib/ticket-key";
@@ -121,6 +122,17 @@ export class TaskService {
     return { buffer: row.image, mimeType: row.imageMimeType };
   }
 
+  private async assertSprintAssignable(projectId: string, sprintId: string | null | undefined) {
+    if (sprintId === undefined || sprintId === null) return;
+    const sprint = await sprintRepository.findByIdAndProject(sprintId, projectId);
+    if (!sprint) {
+      throw new Error("Sprint not found or does not belong to this project");
+    }
+    if (sprint.status === "completed") {
+      throw new Error("Cannot assign tickets to a completed sprint");
+    }
+  }
+
   private async resolveAssignee(projectId: string, assigneeId: string | null) {
     if (assigneeId === null) {
       return { assigneeId: null, assigneeName: null as string | null };
@@ -158,6 +170,7 @@ export class TaskService {
       throw new Error("Project not found or access denied");
     }
     const assignee = await this.resolveAssignee(projectId, body.assigneeId ?? null);
+    await this.assertSprintAssignable(projectId, body.sprintId ?? null);
     const imageFields =
       body.imageBase64 !== undefined
         ? parseImagePayload(body.imageBase64, body.imageMimeType)
@@ -234,7 +247,10 @@ export class TaskService {
     if (body.type !== undefined) patch.type = body.type;
     if (body.priority !== undefined) patch.priority = body.priority;
     if (body.status !== undefined) patch.status = body.status;
-    if (body.sprintId !== undefined) patch.sprintId = body.sprintId;
+    if (body.sprintId !== undefined) {
+      await this.assertSprintAssignable(projectId, body.sprintId);
+      patch.sprintId = body.sprintId;
+    }
     if (body.dueDate !== undefined) patch.dueDate = body.dueDate;
     if (body.storyPoints !== undefined) patch.storyPoints = body.storyPoints;
 
@@ -284,10 +300,7 @@ export class TaskService {
     }
 
     // Log activity: assigned
-    if (
-      body.assigneeId !== undefined &&
-      body.assigneeId !== existing.assigneeId
-    ) {
+    if (body.assigneeId !== undefined && body.assigneeId !== existing.assigneeId) {
       await activityService.logActivity({
         workspaceId: project.workspaceId,
         userId,
