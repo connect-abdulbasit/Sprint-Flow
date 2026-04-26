@@ -1,8 +1,9 @@
 import { db } from "@/lib/db";
 import type { BoardColumnConfig } from "@/lib/board-columns";
 import { projectsTable } from "@/modules/project/project.schema";
+import { taskDependenciesTable, tasksTable } from "@/modules/task/task.schema";
 import { workspaceMembersTable } from "@/modules/workspace/workspace.schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 
 export class ProjectRepository {
   async findByWorkspace(workspaceId: string) {
@@ -80,8 +81,32 @@ export class ProjectRepository {
     return updated ?? null;
   }
 
+  /**
+   * Removes the project and all dependent data. Task dependency rows must be
+   * cleared first because `depends_on_task_id` uses ON DELETE RESTRICT and
+   * would otherwise block cascading task deletes when tickets reference each other.
+   */
   async delete(id: string) {
-    await db.delete(projectsTable).where(eq(projectsTable.id, id)).execute();
+    await db.transaction(async (tx) => {
+      const taskRows = await tx
+        .select({ id: tasksTable.id })
+        .from(tasksTable)
+        .where(eq(tasksTable.projectId, id))
+        .execute();
+      const taskIds = taskRows.map((r) => r.id);
+      if (taskIds.length > 0) {
+        await tx
+          .delete(taskDependenciesTable)
+          .where(
+            or(
+              inArray(taskDependenciesTable.taskId, taskIds),
+              inArray(taskDependenciesTable.dependsOnTaskId, taskIds)
+            )
+          )
+          .execute();
+      }
+      await tx.delete(projectsTable).where(eq(projectsTable.id, id)).execute();
+    });
   }
 }
 

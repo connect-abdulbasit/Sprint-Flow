@@ -73,9 +73,9 @@ export class ProjectService {
   }
 
   async deleteProject(userId: string, projectId: string) {
-    const project = await projectRepository.findById(projectId);
+    const project = await projectRepository.getProjectIfMember(userId, projectId);
     if (!project) {
-      throw new Error("Project not found");
+      throw new Error("Project not found or access denied");
     }
 
     await activityService.logActivity({

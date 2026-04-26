@@ -158,11 +158,12 @@ export class ProjectController {
       await projectService.deleteProject(user.id, id);
       return new NextResponse(null, { status: 204 });
     } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to delete project";
       console.error("Delete project error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to delete project" },
-        { status: 500 }
-      );
+      if (message.includes("access denied") || message.includes("not found")) {
+        return NextResponse.json({ error: message }, { status: 404 });
+      }
+      return NextResponse.json({ error: message }, { status: 500 });
     }
   }
 }
