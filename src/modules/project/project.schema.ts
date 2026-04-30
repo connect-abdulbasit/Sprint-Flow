@@ -1,4 +1,5 @@
-import { pgTable, uuid, timestamp, index, varchar, text } from "drizzle-orm/pg-core";
+import { pgTable, uuid, timestamp, index, varchar, text, jsonb } from "drizzle-orm/pg-core";
+import type { BoardColumnConfig } from "@/lib/board-columns";
 import { usersTable } from "@/modules/user/user.schema";
 import { workspacesTable } from "@/modules/workspace/workspace.schema";
 import { relations } from "drizzle-orm";
@@ -19,6 +20,8 @@ export const projectsTable = pgTable(
       .notNull()
       .references(() => usersTable.id, { onDelete: "restrict", onUpdate: "cascade" }),
     status: varchar("status", { length: 64 }).notNull(),
+    /** Kanban columns for the project board; null = use app defaults until customized. */
+    boardColumns: jsonb("board_columns").$type<BoardColumnConfig[] | null>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

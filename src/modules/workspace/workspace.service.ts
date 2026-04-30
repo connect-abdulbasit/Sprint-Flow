@@ -2,7 +2,9 @@ import { workspaceRepository } from "./workspace.repository";
 import { db } from "@/lib/db";
 import { workspaceMembersTable, workspaceInvitesTable } from "@/db";
 import { organizationMembersTable } from "@/modules/organization/organization.schema";
-import { eq } from "drizzle-orm";
+import { activityService } from "@/modules/activity/activity.service";
+import { authRepository } from "@/modules/auth/auth.repository";
+import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
 
 export class WorkspaceService {
@@ -41,6 +43,32 @@ export class WorkspaceService {
     }
 
     return workspace;
+  }
+
+  async updateWorkspace(userId: string, id: string, data: { name?: string; description?: string }) {
+    const member = await workspaceRepository.getMember(userId, id);
+    if (!member) {
+      throw new Error("Access denied");
+    }
+
+    const updateData: Partial<{ name: string; description: string }> = {};
+    if (data.name !== undefined) updateData.name = data.name.trim();
+    if (data.description !== undefined) updateData.description = data.description.trim();
+
+    if (Object.keys(updateData).length === 0) {
+      throw new Error("No fields to update");
+    }
+
+    return workspaceRepository.updateWorkspace(id, updateData);
+  }
+
+  async deleteWorkspace(userId: string, id: string) {
+    const member = await workspaceRepository.getMember(userId, id);
+    if (!member) {
+      throw new Error("Access denied");
+    }
+
+    return workspaceRepository.deleteWorkspace(id);
   }
 
   // ── Members ────────────────────────────────────────────────
@@ -233,12 +261,61 @@ export class WorkspaceService {
         .execute();
     });
 
+    const user = await authRepository.findUserById(userId);
+
+    await activityService.logActivity({
+      workspaceId: inviteRow.workspaceId,
+      userId,
+      action: "joined",
+      entityType: "member",
+      entityId: userId,
+      entityName: user?.name ?? "Unknown",
+    });
+
     return {
       success: true,
       message: "Successfully joined workspace.",
       workspaceId: inviteRow.workspaceId,
       organizationId: workspace.organizationId,
     };
+  }
+
+  async removeMember(callerUserId: string, workspaceId: string, targetUserId: string) {
+    // Verify caller is admin
+    const caller = await workspaceRepository.getMember(callerUserId, workspaceId);
+    if (!caller || caller.role !== "admin") {
+      throw new Error("Forbidden: Only workspace admins can remove members.");
+    }
+
+    // Prevent self-removal if you're the only admin
+    const members = await workspaceRepository.getWorkspaceMembers(workspaceId);
+    const admins = members.filter((m) => m.membership.role === "admin");
+    if (targetUserId === callerUserId && admins.length <= 1) {
+      throw new Error("You cannot remove yourself as the only admin.");
+    }
+
+    const targetUser = await authRepository.findUserById(targetUserId);
+
+    await db
+      .delete(workspaceMembersTable)
+      .where(
+        and(
+          eq(workspaceMembersTable.workspaceId, workspaceId),
+          eq(workspaceMembersTable.userId, targetUserId)
+        )
+      )
+      .execute();
+
+    await activityService.logActivity({
+      workspaceId,
+      userId: targetUserId,
+      action: "left",
+      entityType: "member",
+      entityId: targetUserId,
+      entityName: targetUser?.name ?? "Unknown",
+    });
+
+    return { success: true, message: "Member removed successfully." };
   }
 
   // ── Invite: Reject ────────────────────────────────────────

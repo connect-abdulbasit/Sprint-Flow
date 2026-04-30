@@ -1,6 +1,7 @@
 import { projectRepository } from "./project.repository";
 import { workspaceService } from "@/modules/workspace/workspace.service";
-import { workspaceRepository } from "@/modules/workspace/workspace.repository";
+import { activityService } from "@/modules/activity/activity.service";
+import { parseBoardColumnsPayload } from "@/lib/board-columns";
 
 export class ProjectService {
   async getWorkspaceProjects(userId: string, workspaceId: string) {
@@ -21,43 +22,76 @@ export class ProjectService {
     if (!workspace) {
       throw new Error("Workspace not found or access denied");
     }
-    return projectRepository.create({
+    const project = await projectRepository.create({
       ...payload,
       workspaceId: workspace.id,
       createdBy: userId,
     });
+
+    await activityService.logActivity({
+      workspaceId: payload.workspaceId,
+      userId,
+      action: "created",
+      entityType: "project",
+      entityId: project.id,
+      entityName: project.name,
+    });
+
+    return project;
   }
 
   async updateProject(
     userId: string,
     projectId: string,
-    payload: { name?: string; description?: string }
-  ) {
-    const project = await projectRepository.findById(projectId);
-    if (!project) {
-      throw new Error("Project not found");
+    payload: {
+      name?: string;
+      description?: string | null;
+      boardColumns?: unknown;
     }
-    return projectRepository.update(projectId, payload);
+  ) {
+    const project = await projectRepository.getProjectIfMember(userId, projectId);
+    if (!project) {
+      throw new Error("Project not found or access denied");
+    }
+    const patch: Parameters<typeof projectRepository.update>[1] = {};
+    if (payload.name !== undefined) {
+      const n = String(payload.name).trim();
+      if (!n) throw new Error("name cannot be empty");
+      patch.name = n;
+    }
+    if (payload.description !== undefined) {
+      patch.description = payload.description === null ? null : String(payload.description);
+    }
+    if (payload.boardColumns !== undefined) {
+      patch.boardColumns = parseBoardColumnsPayload(payload.boardColumns);
+    }
+    if (Object.keys(patch).length === 0) {
+      return project;
+    }
+    const updated = await projectRepository.update(projectId, patch);
+    return updated ?? project;
   }
 
   async deleteProject(userId: string, projectId: string) {
-    const project = await projectRepository.findById(projectId);
+    const project = await projectRepository.getProjectIfMember(userId, projectId);
     if (!project) {
-      throw new Error("Project not found");
+      throw new Error("Project not found or access denied");
     }
+
+    await activityService.logActivity({
+      workspaceId: project.workspaceId,
+      userId,
+      action: "deleted",
+      entityType: "project",
+      entityId: project.id,
+      entityName: project.name,
+    });
+
     await projectRepository.delete(projectId);
   }
 
   async getProjectForMember(userId: string, projectId: string) {
     return projectRepository.getProjectIfMember(userId, projectId);
-  }
-
-  async listProjectMembers(userId: string, projectId: string) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
-      throw new Error("Project not found or access denied");
-    }
-    return workspaceRepository.listMembersWithUsers(project.workspaceId);
   }
 }
 

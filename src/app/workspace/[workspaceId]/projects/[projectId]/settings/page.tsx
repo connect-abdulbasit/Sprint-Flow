@@ -1,22 +1,27 @@
 "use client";
 
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
-import { Settings, Palette, Bell, Trash2, ShieldAlert, Save, Info } from "lucide-react";
-import { useParams } from "next/navigation";
+import DeleteConfirmDialog from "@/components/project/DeleteConfirmDialog";
+import { Settings, Trash2, ShieldAlert, Save, Info } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { fetchProject, type Project } from "@/lib/projects-api";
+import { deleteProject, fetchProject, type Project } from "@/lib/projects-api";
 import { projectKeyPrefix } from "@/lib/ticket-key";
 
 export default function ProjectSettingsPage() {
-  const { projectId } = useParams();
+  const router = useRouter();
+  const params = useParams();
+  const projectId = params.projectId;
+  const workspaceId = params.workspaceId;
   const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
+  const wid = typeof workspaceId === "string" ? workspaceId : (workspaceId?.[0] ?? "");
   const [project, setProject] = useState<Project | null>(null);
   const [activeSection, setActiveSection] = useState("general");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const sections = {
     general: useRef<HTMLDivElement>(null),
-    appearance: useRef<HTMLDivElement>(null),
-    notifications: useRef<HTMLDivElement>(null),
     danger: useRef<HTMLDivElement>(null),
   };
 
@@ -48,8 +53,7 @@ export default function ProjectSettingsPage() {
     <div className="flex flex-col h-full bg-[#09090b]">
       <ProjectPageHeader />
 
-      <div className="flex-1 flex overflow-hidden">
-        {/* Settings Sidebar Navigation */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
         <aside className="w-[280px] shrink-0 border-r border-white/[0.04] bg-[#0c0c0f]/40 hidden lg:flex flex-col p-6">
           <div className="mb-8">
             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-4 px-3">
@@ -57,15 +61,14 @@ export default function ProjectSettingsPage() {
             </h2>
             <nav className="space-y-1">
               {[
-                { id: "general", label: "General", icon: Settings },
-                { id: "appearance", label: "Appearance", icon: Palette },
-                { id: "notifications", label: "Notifications", icon: Bell },
-                { id: "danger", label: "Danger Zone", icon: ShieldAlert, danger: true },
+                { id: "general" as const, label: "General", icon: Settings },
+                { id: "danger" as const, label: "Danger Zone", icon: ShieldAlert, danger: true },
               ].map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => scrollToSection(item.id as keyof typeof sections)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all group ${
+                  type="button"
+                  onClick={() => scrollToSection(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all group cursor-pointer ${
                     activeSection === item.id
                       ? "bg-white/[0.06] text-white"
                       : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
@@ -100,10 +103,8 @@ export default function ProjectSettingsPage() {
           </div>
         </aside>
 
-        {/* Settings Content area */}
         <main className="flex-1 overflow-y-auto custom-scrollbar px-6 py-10 sm:px-12 lg:px-20">
           <div className="max-w-4xl mx-auto space-y-16 pb-24">
-            {/* General Section */}
             <section ref={sections.general} className="space-y-8 animate-fade-up">
               <div className="flex items-end justify-between border-b border-white/[0.04] pb-6">
                 <div>
@@ -112,7 +113,10 @@ export default function ProjectSettingsPage() {
                     Fundamental settings for your project identity.
                   </p>
                 </div>
-                <button className="flex items-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 rounded-xl text-[13px] font-semibold transition-all active:scale-95 shadow-lg shadow-white/5">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 rounded-xl text-[13px] font-semibold transition-all active:scale-95 shadow-lg shadow-white/5 cursor-pointer"
+                >
                   <Save className="w-4 h-4" />
                   Save Changes
                 </button>
@@ -181,97 +185,7 @@ export default function ProjectSettingsPage() {
               </div>
             </section>
 
-            {/* Appearance Section */}
-            <section ref={sections.appearance} className="space-y-8 pt-8">
-              <div className="border-b border-white/[0.04] pb-6">
-                <h2 className="text-2xl font-bold text-zinc-100 tracking-tight">Appearance</h2>
-                <p className="text-[14px] text-zinc-500 mt-1">
-                  Personalize the look and feel of your project space.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="space-y-1">
-                  <h3 className="text-[14px] font-semibold text-zinc-200">Theme Color</h3>
-                  <p className="text-[12px] text-zinc-500 leading-relaxed">
-                    Select an accent color for project navigations and highlights.
-                  </p>
-                </div>
-                <div className="md:col-span-2">
-                  <div className="flex flex-wrap gap-4">
-                    {[
-                      { name: "Indigo", color: "bg-indigo-500", selected: true },
-                      { name: "Blue", color: "bg-blue-500" },
-                      { name: "Emerald", color: "bg-emerald-500" },
-                      { name: "Rose", color: "bg-rose-500" },
-                      { name: "Amber", color: "bg-amber-500" },
-                      { name: "Purple", color: "bg-purple-500" },
-                    ].map((theme) => (
-                      <button
-                        key={theme.name}
-                        className={`group p-1.5 rounded-full border-2 transition-all ${
-                          theme.selected
-                            ? "border-white/20"
-                            : "border-transparent hover:border-white/10"
-                        }`}
-                      >
-                        <div
-                          className={`w-8 h-8 rounded-full ${theme.color} shadow-lg shadow-black/20`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Notifications Section */}
-            <section ref={sections.notifications} className="space-y-8 pt-8">
-              <div className="border-b border-white/[0.04] pb-6">
-                <h2 className="text-2xl font-bold text-zinc-100 tracking-tight">Notifications</h2>
-                <p className="text-[14px] text-zinc-500 mt-1">
-                  Control how and when you get updated about project changes.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="space-y-1">
-                  <h3 className="text-[14px] font-semibold text-zinc-200">Channels</h3>
-                  <p className="text-[12px] text-zinc-500 leading-relaxed">
-                    Manage integrations and automated message delivery.
-                  </p>
-                </div>
-                <div className="md:col-span-2 divide-y divide-white/[0.04]">
-                  {[
-                    "Email notifications for task updates",
-                    "Slack integration alerts",
-                    "Weekly digest summary",
-                    "Real-time push notifications",
-                  ].map((item, idx) => (
-                    <div
-                      key={item}
-                      className="flex items-center justify-between py-4 first:pt-0 last:pb-0"
-                    >
-                      <span className="text-[14px] text-zinc-300 font-medium">{item}</span>
-                      <button
-                        className={`w-10 h-5.5 rounded-full relative transition-colors duration-200 outline-none ${
-                          idx === 0 || idx === 3 ? "bg-blue-600" : "bg-zinc-800"
-                        }`}
-                      >
-                        <div
-                          className={`absolute top-1 w-3.5 h-3.5 rounded-full bg-white transition-all transform ${
-                            idx === 0 || idx === 3 ? "translate-x-5.5" : "translate-x-1"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            {/* Danger Zone */}
-            <section ref={sections.danger} className="space-y-8 pt-8 animate-pulse-subtle">
+            <section ref={sections.danger} className="space-y-8 pt-8">
               <div className="border-b border-red-500/10 pb-6 text-red-400">
                 <h2 className="text-2xl font-bold tracking-tight">Danger Zone</h2>
                 <p className="text-[14px] text-red-500/60 mt-1">
@@ -290,13 +204,45 @@ export default function ProjectSettingsPage() {
                 </div>
                 <button
                   type="button"
-                  className="px-6 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[13px] font-bold rounded-xl border border-red-500/20 transition-all flex items-center gap-2"
+                  disabled={!pid}
+                  onClick={() => {
+                    setDeleteError(null);
+                    setDeleteDialogOpen(true);
+                  }}
+                  className="shrink-0 px-6 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[13px] font-bold rounded-xl border border-red-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete Project
                 </button>
               </div>
             </section>
+
+            <DeleteConfirmDialog
+              isOpen={deleteDialogOpen}
+              nameToConfirm={project?.name ?? ""}
+              resourceLabel="project"
+              error={deleteError}
+              onClose={() => {
+                setDeleteDialogOpen(false);
+                setDeleteError(null);
+              }}
+              onConfirm={async () => {
+                if (!pid || !wid) {
+                  setDeleteError("Missing workspace or project.");
+                  throw new Error("Missing ids");
+                }
+                try {
+                  await deleteProject(pid);
+                  setDeleteError(null);
+                  router.push(`/workspace/${wid}/projects`);
+                  router.refresh();
+                } catch (e) {
+                  const message = e instanceof Error ? e.message : "Failed to delete project";
+                  setDeleteError(message);
+                  throw e;
+                }
+              }}
+            />
 
             <div className="h-20" />
           </div>

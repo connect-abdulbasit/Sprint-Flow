@@ -1,6 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { normalizeBoardColumns } from "@/lib/board-columns";
 import { projectService } from "./project.service";
+
+function serializeProject(project: {
+  id: string;
+  workspaceId: string;
+  name: string;
+  description: string | null;
+  createdBy: string;
+  status: string;
+  boardColumns: unknown;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}) {
+  return {
+    ...project,
+    boardColumns: normalizeBoardColumns(project.boardColumns),
+    createdAt:
+      typeof project.createdAt === "string" ? project.createdAt : project.createdAt.toISOString(),
+    updatedAt:
+      typeof project.updatedAt === "string" ? project.updatedAt : project.updatedAt.toISOString(),
+  };
+}
+
+function projectUpdateErrorStatus(message: string) {
+  if (message.includes("access denied") || message.includes("not found")) return 403;
+  if (
+    message.includes("Board") ||
+    message.includes("column") ||
+    message.includes("cannot be empty") ||
+    message.includes("name cannot")
+  ) {
+    return 400;
+  }
+  return 500;
+}
 
 export class ProjectController {
   async list(req: NextRequest) {
@@ -17,7 +52,9 @@ export class ProjectController {
       }
 
       const projects = await projectService.getWorkspaceProjects(user.id, workspaceId);
-      return NextResponse.json(projects);
+      return NextResponse.json(
+        projects.map((p) => serializeProject(p as Parameters<typeof serializeProject>[0]))
+      );
     } catch (error) {
       console.error("List projects error:", error);
       return NextResponse.json(
@@ -47,31 +84,18 @@ export class ProjectController {
         description: body.description,
         workspaceId,
       });
-      return NextResponse.json(project, { status: 201 });
+      return NextResponse.json(
+        serializeProject(project as Parameters<typeof serializeProject>[0]),
+        {
+          status: 201,
+        }
+      );
     } catch (error) {
       console.error("Create project error:", error);
       return NextResponse.json(
         { error: (error as Error)?.message ?? "Failed to create project" },
         { status: 500 }
       );
-    }
-  }
-
-  async listMembers(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const user = await getCurrentUser(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    try {
-      const { id } = await params;
-      const members = await projectService.listProjectMembers(user.id, id);
-      return NextResponse.json(members);
-    } catch (error) {
-      const message = (error as Error)?.message ?? "Failed to list members";
-      const status = message.includes("denied") || message.includes("not found") ? 403 : 500;
-      console.error("List project members error:", error);
-      return NextResponse.json({ error: message }, { status });
     }
   }
 
@@ -87,7 +111,7 @@ export class ProjectController {
       if (!project) {
         return NextResponse.json({ error: "Project not found or access denied" }, { status: 404 });
       }
-      return NextResponse.json(project);
+      return NextResponse.json(serializeProject(project));
     } catch (error) {
       console.error("Get project error:", error);
       return NextResponse.json(
@@ -110,14 +134,16 @@ export class ProjectController {
       const updated = await projectService.updateProject(user.id, id, {
         name: body.name,
         description: body.description,
+        boardColumns: body.boardColumns,
       });
-      return NextResponse.json(updated);
+      if (!updated) {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 });
+      }
+      return NextResponse.json(serializeProject(updated));
     } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to update project";
       console.error("Update project error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to update project" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: message }, { status: projectUpdateErrorStatus(message) });
     }
   }
 
@@ -132,11 +158,12 @@ export class ProjectController {
       await projectService.deleteProject(user.id, id);
       return new NextResponse(null, { status: 204 });
     } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to delete project";
       console.error("Delete project error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to delete project" },
-        { status: 500 }
-      );
+      if (message.includes("access denied") || message.includes("not found")) {
+        return NextResponse.json({ error: message }, { status: 404 });
+      }
+      return NextResponse.json({ error: message }, { status: 500 });
     }
   }
 }

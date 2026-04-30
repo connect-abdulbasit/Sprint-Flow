@@ -15,14 +15,14 @@ export class OrganizationController {
 
       const workspaceData = body.workspaceName
         ? {
-            name: String(body.workspaceName).trim(),
-            slug: String(
-              body.workspaceSlug || body.workspaceName.toLowerCase().replace(/\s+/g, "-")
-            ).trim(),
-            description: body.workspaceDescription
-              ? String(body.workspaceDescription).trim()
-              : undefined,
-          }
+          name: String(body.workspaceName).trim(),
+          slug: String(
+            body.workspaceSlug || body.workspaceName.toLowerCase().replace(/\s+/g, "-")
+          ).trim(),
+          description: body.workspaceDescription
+            ? String(body.workspaceDescription).trim()
+            : undefined,
+        }
         : undefined;
 
       if (!name) {
@@ -131,6 +131,43 @@ export class OrganizationController {
         { error: (error as Error)?.message ?? "Failed to accept invite" },
         { status: 500 }
       );
+    }
+  }
+
+  async update(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const body = await req.json();
+      const updated = await organizationService.updateOrganization(user.id, id, body);
+      return NextResponse.json(updated);
+    } catch (error) {
+      console.error("Update organization error:", error);
+      const message = (error as Error)?.message ?? "Failed to update organization";
+      const status = message.includes("Forbidden") ? 403 : 500;
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
+  async delete(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const result = await organizationService.deleteOrganization(user.id, id);
+      return NextResponse.json(result);
+    } catch (error) {
+      console.error("Delete organization error:", error);
+      const message = (error as Error)?.message ?? "Failed to delete organization";
+      const status = message.includes("Forbidden") ? 403 : 500;
+      return NextResponse.json({ error: message }, { status });
     }
   }
 }

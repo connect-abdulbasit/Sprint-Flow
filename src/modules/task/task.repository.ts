@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { tasksTable } from "@/modules/task/task.schema";
-import { and, eq, max } from "drizzle-orm";
+import { taskDependenciesTable, tasksTable } from "@/modules/task/task.schema";
+import { and, eq, max, or } from "drizzle-orm";
 
 export type TaskInsert = typeof tasksTable.$inferInsert;
 export type TaskRow = typeof tasksTable.$inferSelect;
@@ -85,7 +85,15 @@ export class TaskRepository {
   }
 
   async delete(id: string) {
-    await db.delete(tasksTable).where(eq(tasksTable.id, id)).execute();
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(taskDependenciesTable)
+        .where(
+          or(eq(taskDependenciesTable.taskId, id), eq(taskDependenciesTable.dependsOnTaskId, id))
+        )
+        .execute();
+      await tx.delete(tasksTable).where(eq(tasksTable.id, id)).execute();
+    });
   }
 
   async findByIdAndProject(taskId: string, projectId: string) {

@@ -1,45 +1,159 @@
 "use client";
 
-import SprintSection from "@/components/project/SprintSection";
+import SprintSection, { type TicketMoveOption } from "@/components/project/SprintSection";
+import CreateSprintModal from "@/components/project/CreateSprintModal";
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
 import TicketDetailModal from "@/components/project/TicketDetailModal";
 import TicketFormModal from "@/components/project/TicketFormModal";
+import AlertDialog from "@/components/ui/AlertDialog";
 import { Calendar, Rocket, Layers } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  fetchProjectMembers,
+  fetchWorkspaceMembers,
   fetchTickets,
+  fetchSprints,
+  fetchProject,
+  updateTicket,
+  startSprint,
+  completeSprint,
+  deleteSprint,
+  type Project,
   type ProjectMember,
+  type ProjectSprint,
   type ProjectTicket,
+  type SprintGroup,
 } from "@/lib/projects-api";
+import { normalizeBoardColumns, statusOptionsFromColumns } from "@/lib/board-columns";
+
+function buildSprintPickerOptions(sprints: ProjectSprint[], currentSprintId: string | null) {
+  const opts: { id: string | null; name: string }[] = [{ id: null, name: "Backlog" }];
+  for (const s of sprints) {
+    if (s.status === "planning" || s.status === "active") {
+      opts.push({ id: s.id, name: s.name });
+    }
+  }
+  if (currentSprintId && !opts.some((o) => o.id === currentSprintId)) {
+    const cur = sprints.find((x) => x.id === currentSprintId);
+    opts.push({
+      id: currentSprintId,
+      name: cur ? `${cur.name} (completed)` : "Sprint",
+    });
+  }
+  return opts;
+}
+
+function sortSprintsForBoard(list: ProjectSprint[]) {
+  const rank = (s: ProjectSprint) => (s.status === "active" ? 0 : s.status === "planning" ? 1 : 2);
+  return [...list].sort((a, b) => {
+    const dr = rank(a) - rank(b);
+    if (dr !== 0) return dr;
+    if (a.status === "completed" && b.status === "completed") {
+      return b.endDate.localeCompare(a.endDate);
+    }
+    return a.startDate.localeCompare(b.startDate);
+  });
+}
 
 export default function ProjectBacklogPage() {
-  const { projectId } = useParams();
+  const { workspaceId, projectId } = useParams();
+  const wid = typeof workspaceId === "string" ? workspaceId : (workspaceId?.[0] ?? "");
   const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
   const [tickets, setTickets] = useState<ProjectTicket[]>([]);
+  const [sprints, setSprints] = useState<ProjectSprint[]>([]);
   const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createDefaultSprintId, setCreateDefaultSprintId] = useState<string | null>(null);
+  const [sprintModalOpen, setSprintModalOpen] = useState(false);
   const [detailTicketId, setDetailTicketId] = useState<string | null>(null);
   const [detailPreview, setDetailPreview] = useState<ProjectTicket | null>(null);
+  const [actionAlert, setActionAlert] = useState<{ title: string; message: string } | null>(null);
 
   const load = useCallback(() => {
-    if (!pid) return;
-    Promise.all([fetchTickets(pid), fetchProjectMembers(pid)])
-      .then(([t, m]) => {
+    if (!pid || !wid) return;
+    Promise.all([
+      fetchTickets(pid),
+      fetchSprints(pid),
+      fetchWorkspaceMembers(wid),
+      fetchProject(pid),
+    ])
+      .then(([t, sp, m, p]) => {
         setTickets(t);
+        setSprints(sp);
         setMembers(m);
+        setProject(p);
       })
-      .catch(() => setTickets([]));
-  }, [pid]);
+      .catch(() => {
+        setTickets([]);
+        setSprints([]);
+        setMembers([]);
+        setProject(null);
+      });
+  }, [pid, wid]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const openCreate = useCallback(() => {
+  const orderedSprints = useMemo(() => sortSprintsForBoard(sprints), [sprints]);
+
+  const statusFormOptions = useMemo(
+    () => statusOptionsFromColumns(normalizeBoardColumns(project?.boardColumns ?? null)),
+    [project?.boardColumns]
+  );
+
+  const defaultTicketStatus = useMemo(
+    () => normalizeBoardColumns(project?.boardColumns ?? null)[0]?.id ?? "todo",
+    [project?.boardColumns]
+  );
+
+  const backlogTickets = useMemo(() => tickets.filter((t) => t.sprintId === null), [tickets]);
+
+  const sprintGroups: SprintGroup[] = useMemo(
+    () =>
+      orderedSprints.map((s) => ({
+        id: s.id,
+        name: s.name,
+        goal: s.goal,
+        status: s.status,
+        startDate: s.startDate,
+        endDate: s.endDate,
+        tickets: tickets.filter((t) => t.sprintId === s.id),
+      })),
+    [tickets, orderedSprints]
+  );
+
+  const activePlanningSprints = useMemo(
+    () => sprints.filter((s) => s.status === "planning" || s.status === "active"),
+    [sprints]
+  );
+
+  const sprintPickerForForm = useMemo(
+    () => activePlanningSprints.map((s) => ({ id: s.id, name: s.name })),
+    [activePlanningSprints]
+  );
+
+  const moveOptionsForBacklogTicket = useCallback((): TicketMoveOption[] => {
+    return activePlanningSprints.map((s) => ({ sprintId: s.id, label: s.name }));
+  }, [activePlanningSprints]);
+
+  const moveOptionsForSprintTicket = useCallback(
+    (sprintId: string): TicketMoveOption[] => {
+      const opts: TicketMoveOption[] = [{ sprintId: null, label: "Backlog" }];
+      for (const s of activePlanningSprints) {
+        if (s.id !== sprintId) opts.push({ sprintId: s.id, label: s.name });
+      }
+      return opts;
+    },
+    [activePlanningSprints]
+  );
+
+  const openCreate = useCallback((defaultSprintId: string | null = null) => {
     setDetailTicketId(null);
     setDetailPreview(null);
+    setCreateDefaultSprintId(defaultSprintId);
     setCreateModalOpen(true);
   }, []);
 
@@ -73,15 +187,93 @@ export default function ProjectBacklogPage() {
     [closeDetail]
   );
 
-  const backlog = {
+  const handleMoveTicket = useCallback(
+    async (ticketId: string, sprintId: string | null) => {
+      try {
+        const updated = await updateTicket(pid, ticketId, { sprintId });
+        handleSaved(updated);
+      } catch {
+        load();
+      }
+    },
+    [pid, handleSaved, load]
+  );
+
+  const handleStartSprint = useCallback(
+    async (sprintId: string) => {
+      try {
+        await startSprint(pid, sprintId);
+        await load();
+      } catch (e) {
+        setActionAlert({
+          title: "Could not start sprint",
+          message: e instanceof Error ? e.message : "Something went wrong.",
+        });
+      }
+    },
+    [pid, load]
+  );
+
+  const handleCompleteSprint = useCallback(
+    async (sprintId: string) => {
+      try {
+        await completeSprint(pid, sprintId);
+        await load();
+      } catch (e) {
+        setActionAlert({
+          title: "Could not complete sprint",
+          message: e instanceof Error ? e.message : "Something went wrong.",
+        });
+      }
+    },
+    [pid, load]
+  );
+
+  const handleDeleteSprint = useCallback(
+    async (sprintId: string) => {
+      try {
+        await deleteSprint(pid, sprintId);
+        await load();
+      } catch (e) {
+        setActionAlert({
+          title: "Could not delete sprint",
+          message: e instanceof Error ? e.message : "Something went wrong.",
+        });
+      }
+    },
+    [pid, load]
+  );
+
+  const detailSprintId =
+    detailPreview?.sprintId ?? tickets.find((t) => t.id === detailTicketId)?.sprintId ?? null;
+
+  const sprintPickerOptions = useMemo(
+    () => buildSprintPickerOptions(sprints, detailSprintId),
+    [sprints, detailSprintId]
+  );
+
+  const planningAndActive = sprintGroups.filter(
+    (g) => g.status === "planning" || g.status === "active"
+  );
+  const completedGroups = sprintGroups.filter((g) => g.status === "completed");
+
+  const backlog: SprintGroup = {
     id: "backlog",
     name: "Backlog",
-    status: "planning" as const,
-    tickets,
+    status: "planning",
+    tickets: backlogTickets,
   };
 
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
+      <AlertDialog
+        isOpen={actionAlert !== null}
+        onClose={() => setActionAlert(null)}
+        title={actionAlert?.title ?? ""}
+        message={actionAlert?.message ?? ""}
+        variant="error"
+      />
+
       <ProjectPageHeader />
 
       {createModalOpen && (
@@ -90,10 +282,22 @@ export default function ProjectBacklogPage() {
           members={members}
           mode="create"
           ticket={null}
-          initialStatus="todo"
+          initialStatus={defaultTicketStatus}
+          sprintPickerSprints={sprintPickerForForm}
+          defaultSprintId={createDefaultSprintId}
+          statusOptions={statusFormOptions}
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
           onSaved={handleSaved}
+        />
+      )}
+
+      {sprintModalOpen && (
+        <CreateSprintModal
+          projectId={pid}
+          isOpen={sprintModalOpen}
+          onClose={() => setSprintModalOpen(false)}
+          onCreated={() => void load()}
         />
       )}
 
@@ -103,6 +307,8 @@ export default function ProjectBacklogPage() {
           ticketId={detailTicketId}
           preview={detailPreview}
           members={members}
+          sprintPickerOptions={sprintPickerOptions}
+          statusOptions={statusFormOptions}
           isOpen={Boolean(detailTicketId)}
           onClose={closeDetail}
           onUpdated={handleSaved}
@@ -113,44 +319,67 @@ export default function ProjectBacklogPage() {
       <div className="flex-1 overflow-y-auto px-10 py-8 space-y-6 custom-scrollbar">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[15px] font-semibold text-zinc-200">Sprint Roadmap</h2>
+            <h2 className="text-[15px] font-semibold text-zinc-200">Sprint roadmap</h2>
             <p className="text-[12px] text-zinc-500 mt-0.5">
-              Planned sprints will appear here when sprint data is available
+              Plan sprints, move work from the backlog, start the sprint, then complete it when done
+              — same flow as Jira.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <Link
+              href={`/workspace/${wid}/projects/${pid}/sprints`}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-[12px] font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05] transition-all"
             >
               <Calendar className="w-3.5 h-3.5" />
               Timeline
-            </button>
+            </Link>
             <button
               type="button"
+              onClick={() => setSprintModalOpen(true)}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-500/10 border border-blue-500/15 rounded-lg text-[12px] font-medium text-blue-400 hover:bg-blue-500/15 transition-all"
             >
               <Rocket className="w-3.5 h-3.5" />
-              New Sprint
+              New sprint
             </button>
           </div>
         </div>
 
-        <div className="rounded-lg border border-white/[0.05] bg-[#111115]/30 px-4 py-6 text-center text-[13px] text-zinc-500">
-          No planned sprints in the database yet.
-        </div>
+        {planningAndActive.length === 0 ? (
+          <div className="rounded-lg border border-white/[0.05] bg-[#111115]/30 px-4 py-6 text-center text-[13px] text-zinc-500">
+            No planned or active sprints yet. Create a sprint, drag work in from the backlog (use
+            Move), then press Start when the team commits.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {planningAndActive.map((group) => (
+              <SprintSection
+                key={group.id}
+                sprint={group}
+                onCreateTask={() => openCreate(group.id)}
+                onTicketSelect={openDetail}
+                onStartSprint={handleStartSprint}
+                onCompleteSprint={handleCompleteSprint}
+                onDeleteSprint={handleDeleteSprint}
+                ticketMoveOptions={moveOptionsForSprintTicket(group.id)}
+                onMoveTicket={handleMoveTicket}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="pt-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-[15px] font-semibold text-zinc-200">Backlog</h2>
               <p className="text-[12px] text-zinc-500 mt-0.5">
-                {tickets.length} unplanned {tickets.length === 1 ? "task" : "tasks"}
+                {backlogTickets.length} unscheduled{" "}
+                {backlogTickets.length === 1 ? "ticket" : "tickets"}
               </p>
             </div>
             <button
               type="button"
               className="text-[11px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
+              disabled
             >
               Archived
             </button>
@@ -159,10 +388,34 @@ export default function ProjectBacklogPage() {
           <SprintSection
             sprint={backlog}
             isBacklog
-            onCreateTask={openCreate}
+            onCreateTask={() => openCreate(null)}
             onTicketSelect={openDetail}
+            ticketMoveOptions={moveOptionsForBacklogTicket()}
+            onMoveTicket={handleMoveTicket}
           />
         </div>
+
+        {completedGroups.length > 0 && (
+          <div className="pt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-px flex-1 bg-white/[0.03]" />
+              <span className="text-[11px] font-medium text-zinc-500">Completed sprints</span>
+              <div className="h-px flex-1 bg-white/[0.03]" />
+            </div>
+            <div className="space-y-3 opacity-90">
+              {completedGroups.map((group) => (
+                <SprintSection
+                  key={group.id}
+                  sprint={group}
+                  onCreateTask={() => openCreate(null)}
+                  onTicketSelect={openDetail}
+                  ticketMoveOptions={moveOptionsForSprintTicket(group.id)}
+                  onMoveTicket={handleMoveTicket}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col items-center justify-center py-12 opacity-30">
           <Layers className="w-6 h-6 text-zinc-600 mb-2" />

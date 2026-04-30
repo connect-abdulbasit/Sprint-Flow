@@ -71,10 +71,12 @@ export default function OrganizationPage() {
           fetch(`/api/organizations/${id}`),
           fetch("/api/workspaces"),
         ]);
+
         if (!orgRes.ok) {
           throw new Error("Failed to load organization details");
         }
-        const orgData = await orgRes.json();
+
+        const orgData = (await orgRes.json()) as Organization;
         setOrg(orgData);
 
         if (wsRes.ok) {
@@ -144,27 +146,31 @@ export default function OrganizationPage() {
       </Link>
 
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-lg font-bold text-[#f0f0f5]">
+        <div className="flex items-center gap-4 min-w-0">
+          <div className="w-14 h-14 rounded-2xl bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-lg font-bold text-[#f0f0f5] shrink-0">
             {getInitials(org.name)}
           </div>
-          <div>
-            <h1
-              className="text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-[#f0f0f5]"
-              style={{ fontFamily: "var(--font-syne)" }}
+          <div className="flex items-start gap-3 min-w-0">
+            <div className="min-w-0">
+              <h1
+                className="text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-[#f0f0f5]"
+                style={{ fontFamily: "var(--font-syne)" }}
+              >
+                {org.name}
+              </h1>
+              <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                {org.description || "Building something great."}
+              </p>
+            </div>
+            <Link
+              href={`/organization/${id}/settings`}
+              className="p-2.5 text-[var(--color-muted)] hover:text-[#f0f0f5] bg-[var(--color-surface)] border border-white/[0.06] rounded-xl transition-colors shrink-0"
             >
-              {org.name}
-            </h1>
-            <p className="text-sm text-[var(--color-muted)] mt-0.5">
-              {org.description || "Building something great."}
-            </p>
+              <Settings className="w-[18px] h-[18px]" />
+            </Link>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="p-2.5 text-[var(--color-muted)] hover:text-[#f0f0f5] bg-[var(--color-surface)] border border-white/[0.06] rounded-xl transition-colors">
-            <Settings className="w-[18px] h-[18px]" />
-          </button>
-
+        <div className="flex items-center gap-2 shrink-0">
           <div className="relative">
             <button
               disabled
@@ -224,7 +230,10 @@ export default function OrganizationPage() {
           <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
             Workspaces
           </h2>
-          <button className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 transition-colors">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 transition-colors"
+          >
             <Plus className="w-3.5 h-3.5" />
             New workspace
           </button>
@@ -271,7 +280,10 @@ export default function OrganizationPage() {
           <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
             Members
           </h2>
-          <button className="text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 transition-colors">
+          <button
+            type="button"
+            className="text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 transition-colors"
+          >
             View all
           </button>
         </div>
