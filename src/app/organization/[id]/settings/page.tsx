@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Info,
 } from "lucide-react";
+import { SettingsFormSkeleton, Skeleton } from "@/components/ui/skeleton";
 
 interface Organization {
   id: string;
@@ -135,9 +136,68 @@ export default function OrganizationSettings() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full bg-[#09090b] items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-10 h-10 text-blue-400 animate-spin mb-4" />
-        <p className="text-sm text-zinc-500 font-medium">Loading settings…</p>
+      <div className="flex flex-col h-full bg-[#09090b] min-h-0">
+        <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-5 bg-[#0c0c0f]/60 backdrop-blur-xl">
+          <Link
+            href="/organizations"
+            className="inline-flex items-center gap-1 text-[12px] font-medium text-zinc-500 hover:text-blue-400 transition-colors cursor-pointer"
+          >
+            <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+            All organizations
+          </Link>
+          <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-3">
+            Organization settings
+          </h1>
+          <Skeleton className="mt-2 h-[13px] w-48 max-w-full rounded" />
+        </header>
+
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          <aside className="w-[280px] shrink-0 border-r border-white/[0.04] bg-[#0c0c0f]/40 hidden lg:flex flex-col p-6">
+            <div className="mb-8">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-4 px-3">
+                Organization
+              </h2>
+              <nav className="space-y-1">
+                {[
+                  { id: "general" as const, label: "General", icon: Settings },
+                  { id: "danger" as const, label: "Danger Zone", icon: ShieldAlert, danger: true },
+                ].map((item) => (
+                  <div
+                    key={item.id}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium ${
+                      item.id === "general" ? "bg-white/[0.06] text-white" : "text-zinc-500"
+                    }`}
+                  >
+                    <item.icon
+                      className={`w-4 h-4 ${
+                        item.id === "general"
+                          ? item.danger
+                            ? "text-red-400"
+                            : "text-blue-400"
+                          : "text-zinc-600"
+                      }`}
+                    />
+                    {item.label}
+                  </div>
+                ))}
+              </nav>
+            </div>
+
+            <div className="mt-auto p-4 rounded-2xl bg-gradient-to-br from-blue-500/5 to-purple-500/5 border border-white/[0.04]">
+              <div className="flex items-center gap-2 text-blue-400 mb-2">
+                <Info className="w-3.5 h-3.5" />
+                <span className="text-[11px] font-bold uppercase tracking-wider">Tip</span>
+              </div>
+              <p className="text-[12px] text-zinc-500 leading-relaxed">
+                Organizations group workspaces and billing for your company.
+              </p>
+            </div>
+          </aside>
+
+          <main className="flex-1 overflow-y-auto custom-scrollbar px-6 py-10 sm:px-12 lg:px-20">
+            <SettingsFormSkeleton variant="organization" />
+          </main>
+        </div>
       </div>
     );
   }

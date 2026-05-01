@@ -16,6 +16,7 @@ import {
   Inbox,
   ShieldCheck,
 } from "lucide-react";
+import { NotificationListSkeleton, Skeleton } from "@/components/ui/skeleton";
 
 type NotificationItem = {
   id: string;
@@ -135,11 +136,19 @@ export default function NotificationsPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
           <div className="rounded-3xl border border-[#2a2a38] bg-[#111118]/70 p-4 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.7)]">
             <p className="text-xs uppercase tracking-[0.2em] text-[#7c7c92]">Unread</p>
-            <p className="mt-3 text-3xl font-semibold text-white">{unreadCount}</p>
+            {loading ? (
+              <Skeleton className="mt-3 h-9 w-16 rounded-lg" />
+            ) : (
+              <p className="mt-3 text-3xl font-semibold text-white">{unreadCount}</p>
+            )}
           </div>
           <div className="rounded-3xl border border-[#2a2a38] bg-[#111118]/70 p-4 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.7)]">
             <p className="text-xs uppercase tracking-[0.2em] text-[#7c7c92]">Total</p>
-            <p className="mt-3 text-3xl font-semibold text-white">{notifications.length}</p>
+            {loading ? (
+              <Skeleton className="mt-3 h-9 w-16 rounded-lg" />
+            ) : (
+              <p className="mt-3 text-3xl font-semibold text-white">{notifications.length}</p>
+            )}
           </div>
         </div>
       </div>
@@ -163,9 +172,7 @@ export default function NotificationsPage() {
           </div>
 
           {loading ? (
-            <div className="rounded-3xl border border-dashed border-[#3a3a4e] bg-[#141423]/80 p-8 text-center text-sm text-[var(--color-muted)]">
-              Loading notifications...
-            </div>
+            <NotificationListSkeleton rows={6} />
           ) : error ? (
             <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-8 text-center text-sm text-red-200">
               {error}

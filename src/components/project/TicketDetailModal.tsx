@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import {
   Bug,
   CircleDot,
+  Clock,
   Link2,
   ListTodo,
   Loader2,
@@ -15,7 +16,9 @@ import {
   X,
 } from "lucide-react";
 import {
+  createTimeEntry,
   deleteTicket,
+  deleteTimeEntry,
   fetchTicket,
   updateTicket,
   ticketImageUrl,
@@ -27,9 +30,9 @@ import {
 import { initialsFromName } from "@/lib/initials";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { DEFAULT_STATUS_FORM_OPTIONS } from "@/lib/board-columns";
+import { TICKET_PRIORITY_LABELS, TICKET_PRIORITIES } from "@/lib/ticket-priority";
 
 const TYPES: TicketType[] = ["task", "bug", "feature", "improvement"];
-const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 
 const STATUS_LABEL: Record<string, string> = {
   todo: "To do",
@@ -50,6 +53,120 @@ function readFileAsDataUrl(file: File): Promise<string> {
 function dueDateToInput(d: string | null | undefined): string {
   if (!d) return "";
   return d.length >= 10 ? d.slice(0, 10) : d;
+}
+
+/** Human-readable duration from decimal hours (e.g. 1.5 → "1h 30m"). */
+function formatHoursParts(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return "0m";
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+function formatEntryTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function isSafeRichTextUrl(url: string): boolean {
+  return /^(https?:\/\/|data:image\/)/i.test(url.trim());
+}
+
+function renderInlineRichText(text: string, keyPrefix: string) {
+  const nodes: React.ReactNode[] = [];
+  const tokenRegex =
+    /!\[([^\]]*)\]\(([^)]+)\)|\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*/g;
+  let cursor = 0;
+  let index = 0;
+  for (const match of text.matchAll(tokenRegex)) {
+    if (match.index === undefined) continue;
+    if (match.index > cursor) nodes.push(text.slice(cursor, match.index));
+    if (match[1] !== undefined && match[2] !== undefined) {
+      const alt = match[1];
+      const src = match[2].trim();
+      if (isSafeRichTextUrl(src)) {
+        nodes.push(
+          <img
+            key={`${keyPrefix}-img-${index++}`}
+            src={src}
+            alt={alt || "Inline"}
+            className="my-2 max-h-44 rounded-md border border-white/[0.08]"
+          />
+        );
+      } else {
+        nodes.push(match[0]);
+      }
+    } else if (match[3] !== undefined && match[4] !== undefined) {
+      const label = match[3];
+      const href = match[4].trim();
+      if (isSafeRichTextUrl(href)) {
+        nodes.push(
+          <a
+            key={`${keyPrefix}-link-${index++}`}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue-300 underline underline-offset-2 hover:text-blue-200"
+          >
+            {label}
+          </a>
+        );
+      } else {
+        nodes.push(label);
+      }
+    } else if (match[5] !== undefined) {
+      nodes.push(
+        <strong key={`${keyPrefix}-strong-${index++}`} className="font-semibold text-zinc-100">
+          {match[5]}
+        </strong>
+      );
+    } else if (match[6] !== undefined) {
+      nodes.push(
+        <em key={`${keyPrefix}-em-${index++}`} className="italic text-zinc-200">
+          {match[6]}
+        </em>
+      );
+    } else {
+      nodes.push(match[0]);
+    }
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length) nodes.push(text.slice(cursor));
+  return nodes;
+}
+
+function renderRichTextDescription(text: string) {
+  const lines = text.split("\n");
+  return lines.map((line, idx) => {
+    const checkboxMatch = line.match(/^\s*-\s\[( |x|X)\]\s+(.*)$/);
+    if (checkboxMatch) {
+      const checked = checkboxMatch[1].toLowerCase() === "x";
+      const content = checkboxMatch[2];
+      return (
+        <label key={`cb-${idx}`} className="mb-1 flex items-start gap-2 text-[14px] text-zinc-300">
+          <input type="checkbox" checked={checked} readOnly className="mt-0.5" />
+          <span className="min-w-0">{renderInlineRichText(content, `cb-${idx}`)}</span>
+        </label>
+      );
+    }
+    if (!line.trim()) return <div key={`sp-${idx}`} className="h-3" />;
+    return (
+      <p
+        key={`p-${idx}`}
+        className="mb-1 whitespace-pre-wrap text-[14px] leading-relaxed text-zinc-300"
+      >
+        {renderInlineRichText(line, `p-${idx}`)}
+      </p>
+    );
+  });
 }
 
 function TypeGlyph({ type }: { type: TicketType }) {
@@ -91,6 +208,44 @@ function SidebarField({ label, children }: { label: string; children: React.Reac
   );
 }
 
+function TicketDetailSkeleton() {
+  return (
+    <div className="flex min-h-[280px] flex-1 flex-col lg:min-h-0 lg:flex-row">
+      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6 lg:max-w-none">
+        <div className="flex items-center gap-2">
+          <div className="h-6 w-6 shrink-0 animate-pulse rounded bg-zinc-800/90" />
+          <div className="h-4 w-24 animate-pulse rounded bg-zinc-800/80" />
+        </div>
+        <div className="mt-4 h-9 w-[88%] max-w-xl animate-pulse rounded-md bg-zinc-800/90" />
+        <div className="mt-3 h-9 w-[62%] max-w-lg animate-pulse rounded-md bg-zinc-800/70" />
+        <div className="mt-6 flex gap-1 border-b border-white/[0.06] pb-3">
+          <div className="h-8 w-8 animate-pulse rounded bg-zinc-800/70" />
+          <div className="h-8 w-8 animate-pulse rounded bg-zinc-800/70" />
+          <div className="h-8 w-8 animate-pulse rounded bg-zinc-800/70" />
+        </div>
+        <div className="mt-6 space-y-3">
+          <div className="h-4 w-28 animate-pulse rounded bg-zinc-800/70" />
+          <div className="h-40 w-full animate-pulse rounded-lg bg-zinc-800/60" />
+        </div>
+        <div className="mt-8 border-t border-white/[0.06] pt-6">
+          <div className="mb-3 h-4 w-24 animate-pulse rounded bg-zinc-800/70" />
+          <div className="h-[72px] w-full animate-pulse rounded-lg border border-dashed border-white/[0.06] bg-zinc-900/40" />
+        </div>
+      </div>
+      <aside className="custom-scrollbar shrink-0 border-t border-white/[0.06] bg-[#080809] px-4 py-5 lg:w-[300px] lg:border-l lg:border-t-0 lg:py-6">
+        <div className="space-y-1">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="border-b border-white/[0.06] py-3 last:border-0">
+              <div className="h-3 w-16 animate-pulse rounded bg-zinc-800/70" />
+              <div className="mt-2 h-10 w-full animate-pulse rounded-md bg-zinc-800/80" />
+            </div>
+          ))}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 export interface TicketDetailModalProps {
   projectId: string;
   ticketId: string | null;
@@ -101,6 +256,8 @@ export interface TicketDetailModalProps {
   sprintPickerOptions?: { id: string | null; name: string }[];
   /** Project board columns as status options; defaults when omitted. */
   statusOptions?: { value: string; label: string }[];
+  /** Other tickets in this project — used to pick prerequisites (“do these first”). */
+  linkableTickets?: ProjectTicket[];
   isOpen: boolean;
   onClose: () => void;
   onUpdated: (_ticket: ProjectTicket) => void;
@@ -110,10 +267,11 @@ export interface TicketDetailModalProps {
 export default function TicketDetailModal({
   projectId,
   ticketId,
-  preview,
+  preview: _preview,
   members,
   sprintPickerOptions,
   statusOptions,
+  linkableTickets = [],
   isOpen,
   onClose,
   onUpdated,
@@ -134,12 +292,23 @@ export default function TicketDetailModal({
   const [ticketSprintId, setTicketSprintId] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [clearImage, setClearImage] = useState(false);
+  /** Prerequisite ticket ids (“this ticket waits on these”). */
+  const [dependsOnIds, setDependsOnIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pendingDeleteEntryId, setPendingDeleteEntryId] = useState<string | null>(null);
+  const [logHours, setLogHours] = useState("");
+  const [logNote, setLogNote] = useState("");
+  const [logSubmitting, setLogSubmitting] = useState(false);
+  const [timeLogError, setTimeLogError] = useState<string | null>(null);
+  const [deletingTimeEntryId, setDeletingTimeEntryId] = useState<string | null>(null);
+  const [descriptionToolError, setDescriptionToolError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inlineImageInputRef = useRef<HTMLInputElement>(null);
+  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -166,25 +335,30 @@ export default function TicketDetailModal({
     setTicketSprintId(d.sprintId ?? "");
     setImageFile(null);
     setClearImage(false);
+    setDependsOnIds(d.dependsOn?.map((x) => x.id) ?? []);
     setFormError(null);
   }, []);
-
-  useEffect(() => {
-    if (!isOpen || detail) return;
-    if (preview) setTicketSprintId(preview.sprintId ?? "");
-  }, [isOpen, detail, preview]);
 
   useEffect(() => {
     if (isOpen) setDeleteConfirmOpen(false);
   }, [isOpen, ticketId]);
 
   useEffect(() => {
+    setLogHours("");
+    setLogNote("");
+    setPendingDeleteEntryId(null);
+    setTimeLogError(null);
+  }, [ticketId]);
+
+  useEffect(() => {
     if (!isOpen || !ticketId || !projectId) {
       setDetail(null);
       setLoadError(null);
+      setLoading(false);
       return;
     }
     let cancelled = false;
+    setDetail(null);
     setLoading(true);
     setLoadError(null);
     fetchTicket(projectId, ticketId, false)
@@ -205,17 +379,17 @@ export default function TicketDetailModal({
     };
   }, [isOpen, ticketId, projectId, syncFormFromDetail]);
 
-  const display = detail ?? preview;
   const canEdit = Boolean(detail && !loading);
+  const showSkeleton = Boolean(loading && !detail);
 
   const statusSelectOptions = useMemo(() => {
     const base = statusOptions?.length ? statusOptions : DEFAULT_STATUS_FORM_OPTIONS;
-    const st = detail?.status ?? preview?.status;
+    const st = detail?.status;
     if (st && !base.some((b) => b.value === st)) {
       return [...base, { value: st, label: st.replace(/_/g, " ") }];
     }
     return base;
-  }, [statusOptions, detail?.status, preview?.status]);
+  }, [statusOptions, detail?.status]);
 
   const resolveStatusLabel = useCallback(
     (id: string) => {
@@ -224,6 +398,15 @@ export default function TicketDetailModal({
     },
     [statusSelectOptions]
   );
+
+  const sortedIds = useCallback((ids: string[]) => [...ids].sort(), []);
+
+  const linkPickerOptions = useMemo(() => {
+    if (!ticketId) return [];
+    return linkableTickets
+      .filter((t) => t.id !== ticketId)
+      .sort((a, b) => a.ticketNumber - b.ticketNumber);
+  }, [linkableTickets, ticketId]);
 
   const dirty = useMemo(() => {
     if (!detail) return false;
@@ -248,7 +431,9 @@ export default function TicketDetailModal({
       dueCurrent !== dueOriginal ||
       sprintDirty ||
       imageFile !== null ||
-      clearImage
+      clearImage ||
+      JSON.stringify(sortedIds(dependsOnIds)) !==
+        JSON.stringify(sortedIds(detail.dependsOn?.map((d) => d.id) ?? []))
     );
   }, [
     detail,
@@ -264,10 +449,158 @@ export default function TicketDetailModal({
     sprintPickerOptions,
     imageFile,
     clearImage,
+    dependsOnIds,
+    sortedIds,
   ]);
 
   const handleDiscard = () => {
     if (detail) syncFormFromDetail(detail);
+  };
+
+  const updateDescriptionSelection = useCallback(
+    (
+      transform: (
+        _source: string,
+        _start: number,
+        _end: number
+      ) => { next: string; cursorStart: number; cursorEnd: number }
+    ) => {
+      const input = descriptionInputRef.current;
+      const source = description;
+      const start = input?.selectionStart ?? source.length;
+      const end = input?.selectionEnd ?? source.length;
+      const { next, cursorStart, cursorEnd } = transform(source, start, end);
+      setDescription(next);
+      setDescriptionToolError(null);
+      requestAnimationFrame(() => {
+        const current = descriptionInputRef.current;
+        if (!current) return;
+        current.focus();
+        current.setSelectionRange(cursorStart, cursorEnd);
+      });
+    },
+    [description]
+  );
+
+  const wrapSelection = useCallback(
+    (prefix: string, suffix: string, placeholder: string) => {
+      updateDescriptionSelection((source, start, end) => {
+        const selected = source.slice(start, end) || placeholder;
+        const next = `${source.slice(0, start)}${prefix}${selected}${suffix}${source.slice(end)}`;
+        const cursorStart = start + prefix.length;
+        const cursorEnd = cursorStart + selected.length;
+        return { next, cursorStart, cursorEnd };
+      });
+    },
+    [updateDescriptionSelection]
+  );
+
+  const insertCheckboxLine = useCallback(() => {
+    updateDescriptionSelection((source, start, _end) => {
+      const lineStart = source.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+      const next = `${source.slice(0, lineStart)}- [ ] ${source.slice(lineStart)}`;
+      const cursor = lineStart + 6;
+      return { next, cursorStart: cursor, cursorEnd: cursor };
+    });
+  }, [updateDescriptionSelection]);
+
+  const insertLink = useCallback(() => {
+    const input = descriptionInputRef.current;
+    const selected = input ? description.slice(input.selectionStart, input.selectionEnd) : "";
+    const linkText = window.prompt("Link text", selected || "link");
+    if (!linkText) return;
+    const url = window.prompt("URL", "https://");
+    if (!url) return;
+    wrapSelection("", "", `[${linkText}](${url.trim()})`);
+  }, [description, wrapSelection]);
+
+  const insertInlineImage = useCallback(async () => {
+    const file = inlineImageInputRef.current?.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setDescriptionToolError("Please choose an image file.");
+      return;
+    }
+    if (file.size > 300 * 1024) {
+      setDescriptionToolError("Keep inline images small (max 300KB).");
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      updateDescriptionSelection((source, start, end) => {
+        const snippet = `![${file.name.replace(/\.[^.]+$/, "")}](${dataUrl})`;
+        const next = `${source.slice(0, start)}${snippet}${source.slice(end)}`;
+        const cursor = start + snippet.length;
+        return { next, cursorStart: cursor, cursorEnd: cursor };
+      });
+    } catch {
+      setDescriptionToolError("Could not read the selected image.");
+    } finally {
+      if (inlineImageInputRef.current) inlineImageInputRef.current.value = "";
+    }
+  }, [updateDescriptionSelection]);
+
+  const handleLogTime = async () => {
+    if (!ticketId || !detail) return;
+    const raw = logHours.trim().replace(",", ".");
+    if (!raw) {
+      setTimeLogError("Enter how many hours you spent (e.g. 1.5 or 0.25).");
+      return;
+    }
+    const hours = Number(raw);
+    if (!Number.isFinite(hours) || hours <= 0) {
+      setTimeLogError("Enter a valid number of hours (e.g. 1.5 or 0.25).");
+      return;
+    }
+    setTimeLogError(null);
+    setLogSubmitting(true);
+    try {
+      const result = await createTimeEntry(projectId, ticketId, {
+        hours,
+        description: logNote.trim() || null,
+      });
+      const next: ProjectTicketDetail = {
+        ...detail,
+        timeEntries: [result.entry, ...(detail.timeEntries ?? [])],
+        totalLoggedHours: result.totalLoggedHours,
+      };
+      setDetail(next);
+      setLogHours("");
+      setLogNote("");
+      onUpdated(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not log time";
+      const missingTable =
+        /time_entries/i.test(msg) && /(does not exist|relation|Failed query)/i.test(msg);
+      setTimeLogError(
+        missingTable
+          ? "Time logging isn’t set up yet. In the project directory run: npm run db:push"
+          : msg
+      );
+    } finally {
+      setLogSubmitting(false);
+    }
+  };
+
+  const executeDeleteTimeEntry = async () => {
+    if (!ticketId || !detail || !pendingDeleteEntryId) return;
+    const entryId = pendingDeleteEntryId;
+    setDeletingTimeEntryId(entryId);
+    setTimeLogError(null);
+    try {
+      const { totalLoggedHours } = await deleteTimeEntry(projectId, ticketId, entryId);
+      const next: ProjectTicketDetail = {
+        ...detail,
+        timeEntries: (detail.timeEntries ?? []).filter((e) => e.id !== entryId),
+        totalLoggedHours,
+      };
+      setDetail(next);
+      onUpdated(next);
+    } catch (err) {
+      setTimeLogError(err instanceof Error ? err.message : "Could not remove time entry");
+    } finally {
+      setDeletingTimeEntryId(null);
+    }
   };
 
   const handleSave = async (e?: FormEvent) => {
@@ -309,6 +642,7 @@ export default function TicketDetailModal({
           ? { sprintId: ticketSprintId === "" ? null : ticketSprintId }
           : {}),
         ...(imageBase64 !== undefined ? { imageBase64, imageMimeType } : {}),
+        dependsOnTaskIds: dependsOnIds,
       });
       setDetail(updated);
       syncFormFromDetail(updated);
@@ -338,7 +672,7 @@ export default function TicketDetailModal({
   if (!isOpen || !ticketId) return null;
 
   const imgSrc =
-    display && display.hasImage && !clearImage ? ticketImageUrl(projectId, ticketId) : null;
+    detail && detail.hasImage && !clearImage ? ticketImageUrl(projectId, ticketId) : null;
   const showPendingImage = Boolean(imagePreviewUrl);
 
   return (
@@ -354,7 +688,6 @@ export default function TicketDetailModal({
           aria-labelledby="ticket-detail-title"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Top bar — Jira-style global actions */}
           <div className="flex shrink-0 items-center justify-end gap-1 border-b border-white/[0.06] px-3 py-2 sm:px-4">
             <details className="relative group">
               <summary className="flex cursor-pointer list-none items-center justify-center rounded-md p-2 text-zinc-500 marker:hidden hover:bg-white/[0.06] hover:text-zinc-300 [&::-webkit-details-marker]:hidden">
@@ -387,32 +720,24 @@ export default function TicketDetailModal({
             </button>
           </div>
 
-          {loadError && !display && (
-            <div className="border-b border-red-500/20 bg-red-500/10 px-6 py-3 text-sm text-red-200">
-              {loadError}
+          {showSkeleton ? (
+            <TicketDetailSkeleton />
+          ) : !detail && loadError ? (
+            <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+              <p className="text-sm text-red-200">{loadError}</p>
+              <p className="mt-2 max-w-sm text-[12px] text-zinc-500">
+                Close this dialog and try again, or pick another ticket from the board.
+              </p>
             </div>
-          )}
-
-          <div className="flex min-h-[280px] flex-1 flex-col lg:min-h-0 lg:flex-row">
-            {/* Main column */}
-            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6 lg:max-w-none">
-              {loading && !display ? (
-                <div className="flex h-48 items-center justify-center gap-2 text-zinc-500">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Loading ticket…
-                </div>
-              ) : display ? (
+          ) : detail ? (
+            <div className="flex min-h-[280px] flex-1 flex-col lg:min-h-0 lg:flex-row">
+              {/* Main column */}
+              <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6 lg:max-w-none">
                 <>
-                  {loadError && (
-                    <div className="mb-4 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-200">
-                      {loadError} — showing cached data.
-                    </div>
-                  )}
-
                   <div className="flex items-center gap-2">
-                    <TypeGlyph type={display.type} />
+                    <TypeGlyph type={detail.type} />
                     <span className="font-mono text-[13px] font-medium text-zinc-500">
-                      {display.key}
+                      {detail.key}
                     </span>
                   </div>
 
@@ -429,7 +754,7 @@ export default function TicketDetailModal({
                       id="ticket-detail-title"
                       className="mt-3 text-2xl font-semibold leading-snug tracking-tight text-zinc-100 sm:text-[26px]"
                     >
-                      {display.title}
+                      {detail.title}
                     </h1>
                   )}
 
@@ -446,6 +771,31 @@ export default function TicketDetailModal({
                         e.target.value = "";
                       }}
                     />
+                    <input
+                      ref={inlineImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={() => void insertInlineImage()}
+                    />
+                    <button
+                      type="button"
+                      disabled={!canEdit}
+                      onClick={() => wrapSelection("**", "**", "bold text")}
+                      className="inline-flex h-8 min-w-[34px] items-center justify-center rounded px-2 text-[12px] font-semibold text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      title="Bold"
+                    >
+                      B
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canEdit}
+                      onClick={() => wrapSelection("*", "*", "italic text")}
+                      className="inline-flex h-8 min-w-[34px] items-center justify-center rounded px-2 text-[12px] italic text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      title="Italic"
+                    >
+                      I
+                    </button>
                     <button
                       type="button"
                       disabled={!canEdit}
@@ -457,19 +807,30 @@ export default function TicketDetailModal({
                     </button>
                     <button
                       type="button"
-                      disabled
-                      className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-600"
-                      title="Checklists (soon)"
+                      disabled={!canEdit}
+                      onClick={insertCheckboxLine}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      title="Checklist item"
                     >
                       <ListTodo className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
-                      disabled
-                      className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-600"
-                      title="Links (soon)"
+                      disabled={!canEdit}
+                      onClick={insertLink}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      title="Insert link"
                     >
                       <Link2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canEdit}
+                      onClick={() => inlineImageInputRef.current?.click()}
+                      className="inline-flex h-8 min-w-[44px] items-center justify-center rounded px-2 text-[11px] text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      title="Insert inline image"
+                    >
+                      Img
                     </button>
                   </div>
 
@@ -520,17 +881,23 @@ export default function TicketDetailModal({
                   <div className="mt-6">
                     <h2 className="mb-2 text-[13px] font-semibold text-zinc-300">Description</h2>
                     {canEdit ? (
-                      <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        rows={12}
-                        placeholder="Add a description…"
-                        className="min-h-[180px] w-full resize-y rounded-lg border border-white/[0.08] bg-[#0f0f12] px-4 py-3 text-[15px] leading-relaxed text-zinc-200 placeholder:text-zinc-600 focus:border-blue-500/35 focus:outline-none"
-                      />
+                      <>
+                        <textarea
+                          ref={descriptionInputRef}
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          rows={12}
+                          placeholder="Add a description…"
+                          className="min-h-[180px] w-full resize-y rounded-lg border border-white/[0.08] bg-[#0f0f12] px-4 py-3 text-[15px] leading-relaxed text-zinc-200 placeholder:text-zinc-600 focus:border-blue-500/35 focus:outline-none"
+                        />
+                        {descriptionToolError ? (
+                          <p className="mt-2 text-[12px] text-red-300">{descriptionToolError}</p>
+                        ) : null}
+                      </>
                     ) : (
                       <div className="rounded-lg border border-white/[0.06] bg-[#0f0f12] px-4 py-3 text-[15px] leading-relaxed text-zinc-300">
-                        {display.description?.trim() ? (
-                          <p className="whitespace-pre-wrap">{display.description}</p>
+                        {detail.description?.trim() ? (
+                          <div>{renderRichTextDescription(detail.description)}</div>
                         ) : (
                           <p className="text-zinc-600">No description provided.</p>
                         )}
@@ -565,185 +932,386 @@ export default function TicketDetailModal({
                     </div>
                   )}
                 </>
-              ) : null}
-            </div>
+              </div>
 
-            {/* Sidebar */}
-            <aside className="custom-scrollbar shrink-0 border-t border-white/[0.06] bg-[#080809] px-4 py-5 lg:w-[300px] lg:border-l lg:border-t-0 lg:py-6">
-              {!display ? (
-                <div className="space-y-3 py-4">
-                  <div className="h-10 animate-pulse rounded bg-zinc-800/80" />
-                  <div className="h-10 animate-pulse rounded bg-zinc-800/80" />
-                  <div className="h-10 animate-pulse rounded bg-zinc-800/80" />
-                </div>
-              ) : (
-                <>
-                  <SidebarField label="Status">
-                    {canEdit ? (
-                      <select
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                        className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] font-medium text-zinc-200 focus:border-blue-500/40 focus:outline-none"
-                      >
-                        {statusSelectOptions.map((s) => (
-                          <option key={s.value} value={s.value}>
-                            {s.label}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <p className="text-[14px] font-medium capitalize text-zinc-200">
-                        {resolveStatusLabel(display.status)}
-                      </p>
-                    )}
-                  </SidebarField>
-
-                  {sprintPickerOptions && sprintPickerOptions.length > 0 && (
-                    <SidebarField label="Sprint">
+              {/* Sidebar */}
+              <aside className="custom-scrollbar min-h-0 shrink-0 overflow-y-auto border-t border-white/[0.06] bg-[#080809] px-4 py-5 lg:w-[300px] lg:border-l lg:border-t-0 lg:py-6">
+                {detail ? (
+                  <>
+                    <SidebarField label="Status">
                       {canEdit ? (
                         <select
-                          value={ticketSprintId}
-                          onChange={(e) => setTicketSprintId(e.target.value)}
-                          className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                          value={status}
+                          onChange={(e) => setStatus(e.target.value)}
+                          className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] font-medium text-zinc-200 focus:border-blue-500/40 focus:outline-none"
                         >
-                          {sprintPickerOptions.map((o) => (
-                            <option key={o.id === null ? "backlog" : o.id} value={o.id ?? ""}>
-                              {o.name}
+                          {statusSelectOptions.map((s) => (
+                            <option key={s.value} value={s.value}>
+                              {s.label}
                             </option>
                           ))}
                         </select>
                       ) : (
-                        <p className="text-[14px] text-zinc-300">
-                          {sprintPickerOptions.find((o) => o.id === display.sprintId)?.name ??
-                            (display.sprintId ? "Sprint" : "Backlog")}
+                        <p className="text-[14px] font-medium capitalize text-zinc-200">
+                          {resolveStatusLabel(detail.status)}
                         </p>
                       )}
                     </SidebarField>
-                  )}
 
-                  <SidebarField label="Assignee">
-                    {canEdit ? (
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-zinc-800 text-[11px] font-semibold text-zinc-300">
-                          {initialsFromName(
-                            assigneeId ? members.find((m) => m.userId === assigneeId)?.name : null
-                          )}
+                    {sprintPickerOptions && sprintPickerOptions.length > 0 && (
+                      <SidebarField label="Sprint">
+                        {canEdit ? (
+                          <select
+                            value={ticketSprintId}
+                            onChange={(e) => setTicketSprintId(e.target.value)}
+                            className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                          >
+                            {sprintPickerOptions.map((o) => (
+                              <option key={o.id === null ? "backlog" : o.id} value={o.id ?? ""}>
+                                {o.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="text-[14px] text-zinc-300">
+                            {sprintPickerOptions.find((o) => o.id === detail.sprintId)?.name ??
+                              (detail.sprintId ? "Sprint" : "Backlog")}
+                          </p>
+                        )}
+                      </SidebarField>
+                    )}
+
+                    <SidebarField label="Assignee">
+                      {canEdit ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-zinc-800 text-[11px] font-semibold text-zinc-300">
+                            {initialsFromName(
+                              assigneeId ? members.find((m) => m.userId === assigneeId)?.name : null
+                            )}
+                          </div>
+                          <select
+                            value={assigneeId}
+                            onChange={(e) => setAssigneeId(e.target.value)}
+                            className="min-w-0 flex-1 cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-2 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                          >
+                            <option value="">Unassigned</option>
+                            {members.map((m) => (
+                              <option key={m.userId} value={m.userId}>
+                                {m.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-zinc-800 text-[11px] font-semibold text-zinc-300">
+                            {initialsFromName(detail.assigneeName)}
+                          </div>
+                          <span className="text-[14px] text-zinc-200">
+                            {detail.assigneeName ?? "Unassigned"}
+                          </span>
+                        </div>
+                      )}
+                    </SidebarField>
+
+                    <SidebarField label="Reporter">
+                      <p className="text-[14px] text-zinc-300">{detail.reporterName}</p>
+                    </SidebarField>
+
+                    <SidebarField label="Priority">
+                      {canEdit ? (
                         <select
-                          value={assigneeId}
-                          onChange={(e) => setAssigneeId(e.target.value)}
-                          className="min-w-0 flex-1 cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-2 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                          value={priority}
+                          onChange={(e) => setPriority(e.target.value)}
+                          className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] capitalize text-zinc-200 focus:border-blue-500/40 focus:outline-none"
                         >
-                          <option value="">Unassigned</option>
-                          {members.map((m) => (
-                            <option key={m.userId} value={m.userId}>
-                              {m.name}
+                          {TICKET_PRIORITIES.map((p) => (
+                            <option key={p} value={p}>
+                              {TICKET_PRIORITY_LABELS[p]}
                             </option>
                           ))}
                         </select>
-                      </div>
-                    ) : (
+                      ) : (
+                        <p className="text-[14px] capitalize text-zinc-300">{detail.priority}</p>
+                      )}
+                    </SidebarField>
+
+                    <SidebarField label="Type">
+                      {canEdit ? (
+                        <select
+                          value={type}
+                          onChange={(e) => setType(e.target.value as TicketType)}
+                          className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] capitalize text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                        >
+                          {TYPES.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-[14px] capitalize text-zinc-300">{detail.type}</p>
+                      )}
+                    </SidebarField>
+
+                    <SidebarField label="Time log">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-zinc-800 text-[11px] font-semibold text-zinc-300">
-                          {initialsFromName(display.assigneeName)}
-                        </div>
-                        <span className="text-[14px] text-zinc-200">
-                          {display.assigneeName ?? "Unassigned"}
-                        </span>
+                        <Clock className="h-4 w-4 text-zinc-500" aria-hidden />
+                        <p className="text-[13px] text-zinc-400">
+                          Total{" "}
+                          <span className="font-medium text-emerald-300">
+                            {formatHoursParts(detail.totalLoggedHours ?? 0)}
+                          </span>
+                        </p>
                       </div>
-                    )}
-                  </SidebarField>
+                      {canEdit ? (
+                        <>
+                          <div className="mt-2 flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const current = Number(logHours.replace(",", "."));
+                                const safe = Number.isFinite(current) && current > 0 ? current : 1;
+                                const next = Math.max(0.25, Math.round((safe - 0.25) * 4) / 4);
+                                setLogHours(String(next));
+                                setTimeLogError(null);
+                              }}
+                              className="rounded-md border border-white/[0.12] px-2 py-1 text-[12px] text-zinc-300 hover:bg-white/[0.05]"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="range"
+                              min={0.25}
+                              max={12}
+                              step={0.25}
+                              value={
+                                Number.isFinite(Number(logHours.replace(",", "."))) &&
+                                Number(logHours.replace(",", ".")) >= 0.25
+                                  ? Number(logHours.replace(",", "."))
+                                  : 1
+                              }
+                              onChange={(e) => {
+                                setLogHours(e.target.value);
+                                setTimeLogError(null);
+                              }}
+                              className="h-2 w-full cursor-pointer accent-blue-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const current = Number(logHours.replace(",", "."));
+                                const safe = Number.isFinite(current) && current > 0 ? current : 1;
+                                const next = Math.min(12, Math.round((safe + 0.25) * 4) / 4);
+                                setLogHours(String(next));
+                                setTimeLogError(null);
+                              }}
+                              className="rounded-md border border-white/[0.12] px-2 py-1 text-[12px] text-zinc-300 hover:bg-white/[0.05]"
+                            >
+                              +
+                            </button>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              autoComplete="off"
+                              value={logHours}
+                              onChange={(e) => {
+                                setLogHours(e.target.value);
+                                setTimeLogError(null);
+                              }}
+                              placeholder="Hours"
+                              className="min-w-0 flex-1 rounded-md border border-white/[0.1] bg-zinc-900/90 px-2.5 py-1.5 text-[12px] text-zinc-200 placeholder:text-zinc-600 focus:border-blue-500/40 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              disabled={logSubmitting || !logHours.trim()}
+                              onClick={() => void handleLogTime()}
+                              className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/20 px-2.5 py-1.5 text-[12px] font-medium text-blue-300 hover:bg-blue-500/30 disabled:opacity-40"
+                            >
+                              {logSubmitting && <Loader2 className="h-3 w-3 animate-spin" />}
+                              Add
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={logNote}
+                            onChange={(e) => setLogNote(e.target.value)}
+                            placeholder="Optional note"
+                            className="mt-2 w-full rounded-md border border-white/[0.08] bg-zinc-900/70 px-2.5 py-1.5 text-[12px] text-zinc-300 placeholder:text-zinc-600 focus:border-blue-500/35 focus:outline-none"
+                          />
+                          {timeLogError ? (
+                            <p className="mt-2 text-[11px] text-red-300">{timeLogError}</p>
+                          ) : (
+                            <p className="mt-2 text-[11px] text-zinc-600">
+                              Adjust from the bar or type exact hours.
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-[12px] text-zinc-500">
+                          You can view logged entries below.
+                        </p>
+                      )}
+                      {(detail.timeEntries?.length ?? 0) > 0 ? (
+                        <ul className="mt-2 space-y-1.5">
+                          {(detail.timeEntries ?? []).slice(0, 3).map((entry) => (
+                            <li
+                              key={entry.id}
+                              className="flex items-center justify-between gap-2 rounded-md border border-white/[0.06] bg-zinc-900/40 px-2 py-1.5"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-[12px] text-zinc-300">
+                                  {entry.userName}
+                                </p>
+                                <p className="text-[10px] text-zinc-600">
+                                  {formatEntryTimestamp(entry.createdAt)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-[11px] font-medium text-emerald-300">
+                                  {formatHoursParts(entry.hours)}
+                                </span>
+                                {entry.canDelete ? (
+                                  <button
+                                    type="button"
+                                    title="Remove log"
+                                    disabled={deletingTimeEntryId === entry.id}
+                                    onClick={() => setPendingDeleteEntryId(entry.id)}
+                                    className="rounded p-1 text-zinc-600 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
+                                  >
+                                    {deletingTimeEntryId === entry.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-3 w-3" />
+                                    )}
+                                  </button>
+                                ) : null}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-[12px] text-zinc-600">No time logs yet.</p>
+                      )}
+                    </SidebarField>
 
-                  <SidebarField label="Reporter">
-                    <p className="text-[14px] text-zinc-300">{display.reporterName}</p>
-                  </SidebarField>
+                    <SidebarField label="Due date">
+                      {canEdit ? (
+                        <input
+                          type="date"
+                          value={dueDate}
+                          onChange={(e) => setDueDate(e.target.value)}
+                          className="w-full rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                        />
+                      ) : (
+                        <p className="text-[14px] text-zinc-400">
+                          {detail.dueDate ? dueDateToInput(detail.dueDate) : "None"}
+                        </p>
+                      )}
+                    </SidebarField>
 
-                  <SidebarField label="Priority">
-                    {canEdit ? (
-                      <select
-                        value={priority}
-                        onChange={(e) => setPriority(e.target.value)}
-                        className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] capitalize text-zinc-200 focus:border-blue-500/40 focus:outline-none"
-                      >
-                        {PRIORITIES.map((p) => (
-                          <option key={p} value={p}>
-                            {p}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <p className="text-[14px] capitalize text-zinc-300">{display.priority}</p>
-                    )}
-                  </SidebarField>
-
-                  <SidebarField label="Type">
-                    {canEdit ? (
-                      <select
-                        value={type}
-                        onChange={(e) => setType(e.target.value as TicketType)}
-                        className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] capitalize text-zinc-200 focus:border-blue-500/40 focus:outline-none"
-                      >
-                        {TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <p className="text-[14px] capitalize text-zinc-300">{display.type}</p>
-                    )}
-                  </SidebarField>
-
-                  <SidebarField label="Story points">
-                    {canEdit ? (
-                      <input
-                        type="number"
-                        min={0}
-                        value={storyPoints}
-                        onChange={(e) => setStoryPoints(e.target.value)}
-                        className="w-full rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
-                      />
-                    ) : (
-                      <p className="text-[14px] text-zinc-400">
-                        {display.storyPoints !== null && display.storyPoints !== undefined
-                          ? `${display.storyPoints}`
-                          : "None"}
+                    <SidebarField label="Blocked by — do these first">
+                      <p className="mb-2 text-[12px] leading-snug text-zinc-500">
+                        This ticket should start after its prerequisites are completed.
                       </p>
-                    )}
-                  </SidebarField>
+                      {canEdit && linkPickerOptions.length > 0 ? (
+                        <div className="custom-scrollbar max-h-[180px] space-y-1.5 overflow-y-auto pr-0.5">
+                          {linkPickerOptions.map((t) => (
+                            <label
+                              key={t.id}
+                              className={`flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:bg-white/[0.03] ${dependsOnIds.includes(t.id) ? "border-amber-500/25 bg-amber-500/5" : "border-white/[0.06]"}`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="mt-1 rounded border-zinc-600"
+                                checked={dependsOnIds.includes(t.id)}
+                                onChange={() => {
+                                  setDependsOnIds((prev) =>
+                                    prev.includes(t.id)
+                                      ? prev.filter((x) => x !== t.id)
+                                      : [...prev, t.id]
+                                  );
+                                }}
+                              />
+                              <span className="min-w-0">
+                                <span className="font-mono text-[11px] text-zinc-500">{t.key}</span>
+                                <span className="mt-0.5 block text-[13px] text-zinc-200 line-clamp-2">
+                                  {t.title}
+                                </span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <>
+                          {(detail?.dependsOn?.length ?? 0) > 0 ? (
+                            <ul className="space-y-1">
+                              {detail!.dependsOn!.map((l) => (
+                                <li
+                                  key={l.id}
+                                  className={`flex flex-col rounded-md border border-white/[0.06] px-2 py-1.5 ${l.status !== "done" ? "border-amber-500/15 bg-amber-500/5" : ""}`}
+                                >
+                                  <span className="font-mono text-[11px] text-zinc-500">
+                                    {l.key}
+                                  </span>
+                                  <span className="text-[13px] text-zinc-200 line-clamp-2">
+                                    {l.title}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-[14px] text-zinc-500">None</p>
+                          )}
+                        </>
+                      )}
+                    </SidebarField>
 
-                  <SidebarField label="Due date">
-                    {canEdit ? (
-                      <input
-                        type="date"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                        className="w-full rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
-                      />
-                    ) : (
-                      <p className="text-[14px] text-zinc-400">
-                        {display.dueDate ? dueDateToInput(display.dueDate) : "None"}
-                      </p>
-                    )}
-                  </SidebarField>
+                    <SidebarField label="Blocks">
+                      {(detail?.blocks?.length ?? 0) > 0 ? (
+                        <ul className="space-y-1">
+                          {detail!.blocks!.map((l) => (
+                            <li
+                              key={l.id}
+                              className="flex flex-col rounded-md border border-white/[0.06] px-2 py-1.5"
+                            >
+                              <span className="font-mono text-[11px] text-zinc-500">{l.key}</span>
+                              <span className="text-[13px] text-zinc-300 line-clamp-2">
+                                {l.title}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[14px] text-zinc-500">
+                          Nothing is waiting on this ticket
+                        </p>
+                      )}
+                    </SidebarField>
 
-                  <SidebarField label="Labels">
-                    <button type="button" disabled className="text-left text-[14px] text-zinc-500">
-                      None
-                    </button>
-                  </SidebarField>
+                    <SidebarField label="Labels">
+                      <button
+                        type="button"
+                        disabled
+                        className="text-left text-[14px] text-zinc-500"
+                      >
+                        None
+                      </button>
+                    </SidebarField>
 
-                  <p className="pt-2 text-[11px] leading-relaxed text-zinc-600">
-                    Created {new Date(display.createdAt).toLocaleString()}
-                    <br />
-                    Updated {new Date(display.updatedAt).toLocaleString()}
-                  </p>
-                </>
-              )}
-            </aside>
-          </div>
+                    <p className="pt-2 text-[11px] leading-relaxed text-zinc-600">
+                      Created {new Date(detail.createdAt).toLocaleString()}
+                      <br />
+                      Updated {new Date(detail.updatedAt).toLocaleString()}
+                    </p>
+                  </>
+                ) : null}
+              </aside>
+            </div>
+          ) : null}
 
-          {/* Sticky save bar (Jira-style unsaved changes) */}
           {canEdit && dirty && (
             <div className="flex shrink-0 items-center justify-end gap-2 border-t border-white/[0.08] bg-[#0d0d10] px-4 py-3 sm:px-6">
               <button
@@ -777,6 +1345,17 @@ export default function TicketDetailModal({
         cancelLabel="Keep ticket"
         variant="danger"
         onConfirm={executeDelete}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDeleteEntryId !== null}
+        onClose={() => setPendingDeleteEntryId(null)}
+        title="Remove this time log?"
+        description="This removes the logged hours from this ticket."
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => void executeDeleteTimeEntry()}
       />
     </>
   );

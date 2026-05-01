@@ -96,6 +96,14 @@ export async function fetchProject(id: string): Promise<Project> {
 
 export type TicketType = "task" | "bug" | "feature" | "improvement";
 
+/** Linked ticket shown on detail (blocked-by / blocks). */
+export interface TicketDependencyLink {
+  id: string;
+  key: string;
+  title: string;
+  status: string;
+}
+
 export interface ProjectTicket {
   id: string;
   projectId: string;
@@ -114,6 +122,8 @@ export interface ProjectTicket {
   dueDate: string | null;
   storyPoints: number | null;
   hasImage: boolean;
+  /** True when this ticket lists prerequisites that are not yet marked done (may still proceed in the UI). */
+  blockedByOpenDependencies?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -169,6 +179,8 @@ export interface CreateTicketPayload {
   storyPoints?: number | null;
   imageBase64?: string | null;
   imageMimeType?: string | null;
+  /** Prerequisites in this project; those tickets should be finished before this one. */
+  dependsOnTaskIds?: string[];
 }
 
 export async function fetchTickets(projectId: string): Promise<ProjectTicket[]> {
@@ -176,8 +188,25 @@ export async function fetchTickets(projectId: string): Promise<ProjectTicket[]> 
   return handleResponse<ProjectTicket[]>(res);
 }
 
+/** Logged work on a ticket (see time entries API). */
+export interface TicketTimeEntry {
+  id: string;
+  hours: number;
+  description: string | null;
+  userId: string;
+  userName: string;
+  createdAt: string;
+  canDelete: boolean;
+}
+
 /** Single ticket; `includeImage` adds `imageBase64` for clients that need it (optional). */
-export type ProjectTicketDetail = ProjectTicket & { imageBase64?: string };
+export type ProjectTicketDetail = ProjectTicket & {
+  imageBase64?: string;
+  dependsOn?: TicketDependencyLink[];
+  blocks?: TicketDependencyLink[];
+  timeEntries?: TicketTimeEntry[];
+  totalLoggedHours?: number;
+};
 
 export async function fetchTicket(
   projectId: string,
@@ -195,10 +224,39 @@ export function ticketImageUrl(projectId: string, ticketId: string) {
   return `/api/projects/${encodeURIComponent(projectId)}/tickets/${encodeURIComponent(ticketId)}/image`;
 }
 
+export async function createTimeEntry(
+  projectId: string,
+  ticketId: string,
+  payload: { hours: number; description?: string | null }
+): Promise<{ entry: TicketTimeEntry; totalLoggedHours: number }> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/tickets/${encodeURIComponent(ticketId)}/time-entries`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      credentials: "include",
+    }
+  );
+  return handleResponse<{ entry: TicketTimeEntry; totalLoggedHours: number }>(res);
+}
+
+export async function deleteTimeEntry(
+  projectId: string,
+  ticketId: string,
+  entryId: string
+): Promise<{ totalLoggedHours: number }> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/tickets/${encodeURIComponent(ticketId)}/time-entries/${encodeURIComponent(entryId)}`,
+    { method: "DELETE", credentials: "include" }
+  );
+  return handleResponse<{ totalLoggedHours: number }>(res);
+}
+
 export async function createTicket(
   projectId: string,
   payload: CreateTicketPayload
-): Promise<ProjectTicket> {
+): Promise<ProjectTicketDetail> {
   const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/tickets`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -211,7 +269,7 @@ export async function updateTicket(
   projectId: string,
   ticketId: string,
   payload: Partial<CreateTicketPayload>
-): Promise<ProjectTicket> {
+): Promise<ProjectTicketDetail> {
   const res = await fetch(
     `/api/projects/${encodeURIComponent(projectId)}/tickets/${encodeURIComponent(ticketId)}`,
     {

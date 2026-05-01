@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type DragEvent } from "react";
 import type { ProjectTicket, SprintGroup } from "@/lib/projects-api";
+import TicketItem, { TICKET_DRAG_MIME } from "./TicketItem";
 import {
   ChevronDown,
   ChevronRight,
@@ -14,7 +15,6 @@ import {
   Trash2,
   Flag,
 } from "lucide-react";
-import TicketItem from "./TicketItem";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export interface TicketMoveOption {
@@ -32,6 +32,10 @@ interface SprintSectionProps {
   onDeleteSprint?: (_sprintId: string) => void;
   ticketMoveOptions?: TicketMoveOption[];
   onMoveTicket?: (_ticketId: string, _sprintId: string | null) => void | Promise<void>;
+  /** When true, tickets can be dragged to another section that accepts drops. */
+  enableTicketDrag?: boolean;
+  /** When set, dropping a ticket onto this section runs the handler (target sprint is implicit). */
+  onTicketDrop?: (_ticketId: string) => void | Promise<void>;
 }
 
 export default function SprintSection({
@@ -44,10 +48,13 @@ export default function SprintSection({
   onDeleteSprint,
   ticketMoveOptions = [],
   onMoveTicket,
+  enableTicketDrag = false,
+  onTicketDrop,
 }: SprintSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [dropHighlight, setDropHighlight] = useState(false);
   const [confirmAction, setConfirmAction] = useState<null | {
     type: "complete" | "delete";
     sprintId: string;
@@ -69,10 +76,51 @@ export default function SprintSection({
         : "bg-blue-500/10 text-blue-400 border border-blue-500/10";
 
   const showMove = Boolean(onMoveTicket && ticketMoveOptions.length > 0);
+  const dropEnabled = Boolean(onTicketDrop);
+
+  const hasTicketPayload = (e: DragEvent) => [...e.dataTransfer.types].includes(TICKET_DRAG_MIME);
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!dropEnabled) return;
+    if (!hasTicketPayload(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    if (!dropEnabled) return;
+    if (!hasTicketPayload(e)) return;
+    e.preventDefault();
+    setDropHighlight(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    if (!dropEnabled) return;
+    const next = e.relatedTarget as Node | null;
+    if (next && e.currentTarget.contains(next)) return;
+    setDropHighlight(false);
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    if (!dropEnabled || !onTicketDrop) return;
+    e.preventDefault();
+    setDropHighlight(false);
+    const ticketId = e.dataTransfer.getData(TICKET_DRAG_MIME);
+    if (!ticketId) return;
+    void onTicketDrop(ticketId);
+  };
 
   return (
     <>
-      <div className="mb-3 last:mb-0">
+      <div
+        className={`mb-3 last:mb-0 rounded-lg transition-shadow ${
+          dropHighlight ? "ring-2 ring-blue-500/35 ring-offset-0 ring-offset-[#09090b]" : ""
+        }`}
+        onDragOver={dropEnabled ? handleDragOver : undefined}
+        onDragEnter={dropEnabled ? handleDragEnter : undefined}
+        onDragLeave={dropEnabled ? handleDragLeave : undefined}
+        onDrop={dropEnabled ? handleDrop : undefined}
+      >
         <div
           className="group flex cursor-pointer items-center gap-3 rounded-t-lg border border-white/[0.05] bg-[#111115] px-4 py-2.5 transition-all hover:bg-[#141418]"
           onClick={() => setIsExpanded(!isExpanded)}
@@ -229,7 +277,11 @@ export default function SprintSection({
                   className="flex items-stretch border-b border-white/[0.03] last:border-b-0"
                 >
                   <div className="min-w-0 flex-1">
-                    <TicketItem ticket={ticket} onSelect={onTicketSelect} />
+                    <TicketItem
+                      ticket={ticket}
+                      onSelect={onTicketSelect}
+                      draggableTicketId={enableTicketDrag ? ticket.id : undefined}
+                    />
                   </div>
                   {showMove && (
                     <div

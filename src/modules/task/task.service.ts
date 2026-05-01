@@ -4,6 +4,9 @@ import { sprintRepository } from "@/modules/sprint/sprint.repository";
 import { taskRepository, type TaskInsert, type TaskRow } from "@/modules/task/task.repository";
 import { activityService } from "@/modules/activity/activity.service";
 import { ticketKey } from "@/lib/ticket-key";
+import { normalizeTicketPriority, type TicketPriority } from "@/lib/ticket-priority";
+import { timeEntryService } from "@/modules/time_entry/time_entry.service";
+import type { SerializedTimeEntry } from "@/modules/time_entry/time_entry.types";
 
 export function parseImagePayload(imageBase64: unknown, imageMimeType: unknown) {
   if (imageBase64 === null) {
@@ -51,12 +54,26 @@ type TicketFields = {
   updatedAt: Date;
 };
 
+export type SerializedTicketLink = {
+  id: string;
+  key: string;
+  title: string;
+  status: string;
+};
+
 function serializeTicket(
   row: TicketFields & { image?: Buffer | null },
   projectName: string,
-  opts?: { includeImageBase64?: boolean }
+  opts?: {
+    includeImageBase64?: boolean;
+    blockedByOpenDependencies?: boolean;
+    dependsOn?: SerializedTicketLink[];
+    blocks?: SerializedTicketLink[];
+    timeEntries?: SerializedTimeEntry[];
+    totalLoggedHours?: number;
+  }
 ) {
-  const base = {
+  const base: Record<string, unknown> = {
     id: row.id,
     projectId: row.projectId,
     ticketNumber: row.ticketNumber,
@@ -64,7 +81,7 @@ function serializeTicket(
     title: row.title,
     description: row.description,
     type: row.type,
-    priority: row.priority,
+    priority: row.priority as TicketPriority,
     status: row.status,
     sprintId: row.sprintId,
     assigneeId: row.assigneeId,
@@ -77,10 +94,40 @@ function serializeTicket(
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+  if (opts?.blockedByOpenDependencies !== undefined) {
+    base.blockedByOpenDependencies = opts.blockedByOpenDependencies;
+  }
+  if (opts?.dependsOn) base.dependsOn = opts.dependsOn;
+  if (opts?.blocks) base.blocks = opts.blocks;
+  if (opts?.timeEntries) base.timeEntries = opts.timeEntries;
+  if (opts?.totalLoggedHours !== undefined) base.totalLoggedHours = opts.totalLoggedHours;
+
   if (opts?.includeImageBase64 && row.image && row.imageMimeType) {
-    return { ...base, imageMimeType: row.imageMimeType, imageBase64: row.image.toString("base64") };
+    return {
+      ...base,
+      imageMimeType: row.imageMimeType,
+      imageBase64: row.image.toString("base64"),
+    };
   }
   return base;
+}
+
+function prerequisitesReachTask(
+  adj: Map<string, string[]>,
+  start: string,
+  target: string
+): boolean {
+  const stack = [start];
+  const seen = new Set<string>();
+  while (stack.length) {
+    const cur = stack.pop()!;
+    if (cur === target) return true;
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    const next = adj.get(cur);
+    if (next) for (const n of next) stack.push(n);
+  }
+  return false;
 }
 
 export class TaskService {
@@ -90,7 +137,12 @@ export class TaskService {
       throw new Error("Project not found or access denied");
     }
     const rows = await taskRepository.findByProject(projectId);
-    return rows.map((r) => serializeTicket(r, project.name));
+    const blockedSet = await taskRepository.findTaskIdsBlockedByOpenWork(projectId);
+    return rows.map((r) =>
+      serializeTicket(r, project.name, {
+        blockedByOpenDependencies: blockedSet.has(r.id),
+      })
+    );
   }
 
   async getTicket(
@@ -107,7 +159,59 @@ export class TaskService {
     if (!row) {
       throw new Error("Ticket not found");
     }
-    return serializeTicket(row, project.name, { includeImageBase64 });
+    const [dependsOnIds, blocksIds] = await Promise.all([
+      taskRepository.listDependsOnIds(ticketId),
+      taskRepository.listDependentTaskIds(ticketId),
+    ]);
+    const name = project.name;
+    const [dependsRows, blocksRows] = await Promise.all([
+      taskRepository.findTicketLinkRows(dependsOnIds, projectId),
+      taskRepository.findTicketLinkRows(blocksIds, projectId),
+    ]);
+    const toLink = (t: (typeof dependsRows)[0]): SerializedTicketLink => ({
+      id: t.id,
+      key: ticketKey(name, t.ticketNumber),
+      title: t.title,
+      status: t.status,
+    });
+    const dependsOnSerialized = dependsRows.map(toLink);
+    const blockedByOpenDependencies = dependsOnSerialized.some((l) => l.status !== "done");
+    const timeEntries = await timeEntryService.listForTicket(userId, projectId, ticketId);
+    const totalLoggedHours = timeEntries.reduce((s, e) => s + e.hours, 0);
+    return serializeTicket(row, project.name, {
+      includeImageBase64,
+      blockedByOpenDependencies,
+      dependsOn: dependsOnSerialized,
+      blocks: blocksRows.map(toLink),
+      timeEntries,
+      totalLoggedHours,
+    });
+  }
+
+  /** Validates IDs and dependency graph; replaces edges for `taskId`. Pass `undefined` to skip updates. */
+  private async validateAndPersistDependencies(
+    projectId: string,
+    taskId: string,
+    dependsOnTaskIds: string[] | undefined
+  ): Promise<void> {
+    if (dependsOnTaskIds === undefined) return;
+    const unique = [...new Set(dependsOnTaskIds)].filter((id) => id && id !== taskId);
+    for (const depId of unique) {
+      const exists = await taskRepository.findByIdAndProject(depId, projectId);
+      if (!exists) {
+        throw new Error(`Linked ticket not found in this project: ${depId}`);
+      }
+    }
+    const baseAdj = await taskRepository.buildPrerequisiteAdjacency(projectId, taskId);
+    const working = new Map<string, string[]>();
+    for (const [k, v] of baseAdj) working.set(k, [...v]);
+    working.set(taskId, unique);
+    for (const d of unique) {
+      if (prerequisitesReachTask(working, d, taskId)) {
+        throw new Error("Cannot link tickets: this would create a circular dependency");
+      }
+    }
+    await taskRepository.replaceTaskDependencies(taskId, unique);
   }
 
   async getTicketImage(userId: string, projectId: string, ticketId: string) {
@@ -163,6 +267,7 @@ export class TaskService {
       storyPoints?: number | null;
       imageBase64?: string | null;
       imageMimeType?: string | null;
+      dependsOnTaskIds?: string[];
     }
   ) {
     const project = await projectRepository.getProjectIfMember(userId, projectId);
@@ -171,6 +276,10 @@ export class TaskService {
     }
     const assignee = await this.resolveAssignee(projectId, body.assigneeId ?? null);
     await this.assertSprintAssignable(projectId, body.sprintId ?? null);
+    const priority: TicketPriority =
+      body.priority !== undefined && body.priority !== ""
+        ? normalizeTicketPriority(body.priority)
+        : "medium";
     const imageFields =
       body.imageBase64 !== undefined
         ? parseImagePayload(body.imageBase64, body.imageMimeType)
@@ -181,7 +290,7 @@ export class TaskService {
       title: body.title.trim(),
       description: body.description ?? null,
       type: body.type ?? "task",
-      priority: body.priority ?? "medium",
+      priority,
       status: body.status ?? "todo",
       sprintId: body.sprintId ?? null,
       assigneeId: assignee.assigneeId,
@@ -196,6 +305,10 @@ export class TaskService {
 
     const created = await taskRepository.createWithNextTicketNumber(insert);
 
+    if (body.dependsOnTaskIds !== undefined && body.dependsOnTaskIds.length > 0) {
+      await this.validateAndPersistDependencies(projectId, created.id, body.dependsOnTaskIds);
+    }
+
     await activityService.logActivity({
       workspaceId: project.workspaceId,
       userId,
@@ -205,7 +318,7 @@ export class TaskService {
       entityName: created.title,
     });
 
-    return serializeTicket(created, project.name);
+    return this.getTicket(userId, projectId, created.id, false);
   }
 
   async updateTicket(
@@ -225,6 +338,7 @@ export class TaskService {
       storyPoints: number | null;
       imageBase64: string | null | undefined;
       imageMimeType: string | null;
+      dependsOnTaskIds: string[];
     }>
   ) {
     const project = await projectRepository.getProjectIfMember(userId, projectId);
@@ -245,7 +359,7 @@ export class TaskService {
     }
     if (body.description !== undefined) patch.description = body.description;
     if (body.type !== undefined) patch.type = body.type;
-    if (body.priority !== undefined) patch.priority = body.priority;
+    if (body.priority !== undefined) patch.priority = normalizeTicketPriority(body.priority);
     if (body.status !== undefined) patch.status = body.status;
     if (body.sprintId !== undefined) {
       await this.assertSprintAssignable(projectId, body.sprintId);
@@ -278,8 +392,12 @@ export class TaskService {
       patch.imageMimeType = parsed.imageMimeType;
     }
 
+    if (body.dependsOnTaskIds !== undefined) {
+      await this.validateAndPersistDependencies(projectId, ticketId, body.dependsOnTaskIds);
+    }
+
     if (Object.keys(patch).length === 0) {
-      return serializeTicket(existing, project.name);
+      return this.getTicket(userId, projectId, ticketId, false);
     }
 
     const updated = await taskRepository.update(ticketId, patch);
@@ -311,7 +429,7 @@ export class TaskService {
       });
     }
 
-    return serializeTicket(updated, project.name);
+    return this.getTicket(userId, projectId, ticketId, false);
   }
 
   async deleteTicket(userId: string, projectId: string, ticketId: string) {

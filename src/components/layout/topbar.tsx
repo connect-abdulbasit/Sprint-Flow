@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Bell, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -14,7 +15,6 @@ const pageTitles: Record<string, string> = {
   board: "Board",
   backlog: "Backlog",
   "my-tasks": "My Tasks",
-  assigned: "Assigned",
 };
 
 function getPageTitle(pathname: string) {
@@ -28,14 +28,63 @@ function getPageTitle(pathname: string) {
   );
 }
 
+function getWorkspaceId(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  const workspaceIndex = segments.indexOf("workspace");
+  if (workspaceIndex === -1) return null;
+  return segments[workspaceIndex + 1] ?? null;
+}
+
 export default function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
   const title = pathname ? getPageTitle(pathname) : "Workspace";
+  const workspaceId = pathname ? getWorkspaceId(pathname) : null;
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUnreadState() {
+      if (!workspaceId) {
+        setHasUnreadNotifications(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceId}/notifications`, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          if (!cancelled) setHasUnreadNotifications(false);
+          return;
+        }
+
+        const data = (await res.json()) as Array<{ isRead: boolean }>;
+        if (!cancelled) {
+          setHasUnreadNotifications(data.some((item) => !item.isRead));
+        }
+      } catch {
+        if (!cancelled) setHasUnreadNotifications(false);
+      }
+    }
+
+    void loadUnreadState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, pathname]);
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/signin");
+  };
+
+  const handleNotificationsClick = () => {
+    if (!workspaceId) return;
+    router.push(`/workspace/${workspaceId}/notifications`);
   };
 
   return (
@@ -45,14 +94,21 @@ export default function Topbar() {
       </div>
 
       <div className="flex items-center gap-5">
-        <button className="p-2.5 text-[#6b6b80] hover:text-[#f0f0f5] bg-[#111118]/40 hover:bg-[#111118]/80 border border-white/[0.05] rounded-xl transition-all duration-300 relative shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]">
+        <button
+          onClick={handleNotificationsClick}
+          className="cursor-pointer p-2.5 text-[#6b6b80] hover:text-[#f0f0f5] bg-[#111118]/40 hover:bg-[#111118]/80 border border-white/[0.05] rounded-xl transition-all duration-300 relative shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]"
+          title="Notifications"
+          aria-label="Open notifications"
+        >
           <Bell className="w-[18px] h-[18px]" />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#ff4f7c] rounded-full shadow-[0_0_8px_#ff4f7c]"></span>
+          {hasUnreadNotifications && (
+            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#ff4f7c] rounded-full shadow-[0_0_8px_#ff4f7c]"></span>
+          )}
         </button>
 
         <button
           onClick={handleLogout}
-          className="p-2.5 text-[#6b6b80] hover:text-[#ff4f7c] bg-[#111118]/40 hover:bg-[#111118]/80 border border-white/[0.05] rounded-xl transition-all duration-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]"
+          className="cursor-pointer p-2.5 text-[#6b6b80] hover:text-[#ff4f7c] bg-[#111118]/40 hover:bg-[#111118]/80 border border-white/[0.05] rounded-xl transition-all duration-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]"
           title="Logout"
         >
           <LogOut className="w-[18px] h-[18px]" />

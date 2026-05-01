@@ -6,8 +6,6 @@ import {
   CheckSquare,
   Clock,
   Users,
-  ArrowUpRight,
-  ArrowDownRight,
   ChevronRight,
   Activity,
   Zap,
@@ -16,109 +14,9 @@ import {
   Circle,
   Sparkles,
 } from "lucide-react";
+import { DashboardPageSkeleton } from "@/components/ui/skeleton";
 
-const WORKSPACE_INFO: Record<string, { name: string; color: string }> = {
-  engineering: { name: "Engineering", color: "#4f7cff" },
-  marketing: { name: "Marketing", color: "#ff9f43" },
-  design: { name: "Design System", color: "#7c5cff" },
-  "r-and-d": { name: "R&D", color: "#ff6b6b" },
-  operations: { name: "Operations", color: "#00d4aa" },
-  "side-projects": { name: "Side Projects", color: "#00b4d8" },
-};
-
-const sprintData = {
-  name: "Sprint 14",
-  startDate: "Mar 18",
-  endDate: "Mar 31",
-  daysLeft: 2,
-  totalTasks: 32,
-  completed: 24,
-  inProgress: 5,
-  todo: 3,
-};
-
-const statCards = [
-  {
-    label: "Tasks Completed",
-    value: "24",
-    change: "+8",
-    trend: "up" as const,
-    icon: CheckSquare,
-    color: "#00d4aa",
-    subtitle: "this sprint",
-  },
-  {
-    label: "In Progress",
-    value: "5",
-    change: "-2",
-    trend: "down" as const,
-    icon: Clock,
-    color: "#4f7cff",
-    subtitle: "active right now",
-  },
-  {
-    label: "Story Points",
-    value: "68",
-    change: "+12",
-    trend: "up" as const,
-    icon: Zap,
-    color: "#a259ff",
-    subtitle: "velocity this sprint",
-  },
-  {
-    label: "Blocked",
-    value: "2",
-    change: "+1",
-    trend: "up" as const,
-    icon: AlertCircle,
-    color: "#ff4f7c",
-    subtitle: "needs attention",
-  },
-];
-
-const recentTasks = [
-  {
-    id: "ENG-421",
-    title: "Implement OAuth2 flow for GitHub",
-    status: "done",
-    priority: "high",
-    assignee: "AJ",
-    time: "2h ago",
-  },
-  {
-    id: "ENG-419",
-    title: "Fix memory leak in WebSocket handler",
-    status: "in-progress",
-    priority: "critical",
-    assignee: "BS",
-    time: "4h ago",
-  },
-  {
-    id: "ENG-418",
-    title: "Add pagination to team members API",
-    status: "in-progress",
-    priority: "medium",
-    assignee: "CD",
-    time: "6h ago",
-  },
-  {
-    id: "ENG-416",
-    title: "Design system color tokens refactor",
-    status: "todo",
-    priority: "low",
-    assignee: "DP",
-    time: "1d ago",
-  },
-  {
-    id: "ENG-415",
-    title: "Write E2E tests for onboarding flow",
-    status: "done",
-    priority: "medium",
-    assignee: "AJ",
-    time: "1d ago",
-  },
-];
-
+const MEMBER_COLORS = ["#4f7cff", "#a259ff", "#00d4aa", "#ff9f43", "#ff4f7c", "#00b4d8"];
 const ACTIVITY_COLORS = ["#4f7cff", "#a259ff", "#00d4aa", "#ff9f43", "#ff4f7c", "#00b4d8"];
 
 function getInitials(name: string | null | undefined) {
@@ -158,28 +56,23 @@ function getActivityMiddleText(entityType: string, action: string): string {
   }
 }
 
-const burndownPoints = [32, 30, 28, 26, 23, 20, 17, 14, 11, 9, 8, 8, 8];
-const idealPoints = [32, 29.7, 27.4, 25.1, 22.8, 20.5, 18.2, 15.9, 13.6, 11.3, 9, 6.7, 4.4];
-
-const teamMembers = [
-  { name: "Alice Johnson", initials: "AJ", tasks: 8, completed: 6, color: "#4f7cff" },
-  { name: "Bob Smith", initials: "BS", tasks: 7, completed: 4, color: "#a259ff" },
-  { name: "Charlie Davis", initials: "CD", tasks: 6, completed: 5, color: "#00d4aa" },
-  { name: "Diana Prince", initials: "DP", tasks: 5, completed: 3, color: "#ff9f43" },
-];
-
 function StatusDot({ status }: { status: string }) {
+  const s = status.toLowerCase();
   const colors: Record<string, string> = {
     done: "#00d4aa",
+    in_progress: "#4f7cff",
     "in-progress": "#4f7cff",
+    review: "#a259ff",
+    blocked: "#ff4f7c",
     todo: "#6b6b80",
   };
+  const color = colors[s] ?? "#6b6b80";
   return (
     <div
       className="w-2 h-2 rounded-full shrink-0"
       style={{
-        background: colors[status] || "#6b6b80",
-        boxShadow: status === "done" ? `0 0 6px ${colors[status]}` : "none",
+        background: color,
+        boxShadow: s === "done" ? `0 0 6px ${color}` : "none",
       }}
     />
   );
@@ -192,7 +85,7 @@ function PriorityBadge({ priority }: { priority: string }) {
     medium: { bg: "rgba(79,124,255,0.12)", text: "#4f7cff", label: "Medium" },
     low: { bg: "rgba(107,107,128,0.12)", text: "#9090a8", label: "Low" },
   };
-  const c = config[priority] || config.low;
+  const c = config[priority.toLowerCase()] ?? config.low;
   return (
     <span
       className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold"
@@ -203,24 +96,38 @@ function PriorityBadge({ priority }: { priority: string }) {
   );
 }
 
-function BurndownChart() {
+function BurndownChart({
+  actual,
+  ideal,
+  totalDays,
+}: {
+  actual: number[];
+  ideal: number[];
+  totalDays: number;
+}) {
   const w = 400;
   const h = 140;
   const padX = 0;
   const padY = 8;
-  const maxVal = Math.max(...burndownPoints, ...idealPoints);
-  const steps = burndownPoints.length;
+  const allVals = [...actual, ...ideal].filter((v) => typeof v === "number");
+  const maxVal = allVals.length > 0 ? Math.max(...allVals) : 1;
+  const steps = Math.max(totalDays, actual.length, ideal.length, 2);
 
   const toX = (i: number) => padX + (i / (steps - 1)) * (w - 2 * padX);
   const toY = (v: number) => padY + (1 - v / maxVal) * (h - 2 * padY);
 
-  const actualPath = burndownPoints
-    .map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i)} ${toY(v)}`)
-    .join(" ");
-  const idealPath = idealPoints
-    .map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i)} ${toY(v)}`)
-    .join(" ");
-  const areaPath = actualPath + ` L ${toX(steps - 1)} ${h} L ${toX(0)} ${h} Z`;
+  const actualPath = actual.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i)} ${toY(v)}`).join(" ");
+  const idealPath = ideal.map((v, i) => `${i === 0 ? "M" : "L"} ${toX(i)} ${toY(v)}`).join(" ");
+  const areaPath =
+    actual.length > 0 ? actualPath + ` L ${toX(actual.length - 1)} ${h} L ${toX(0)} ${h} Z` : "";
+
+  if (actual.length === 0 && ideal.length === 0) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <p className="text-xs text-[var(--color-muted)]">No sprint data yet</p>
+      </div>
+    );
+  }
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
@@ -245,32 +152,38 @@ function BurndownChart() {
           strokeWidth="1"
         />
       ))}
-      <path d={areaPath} fill="url(#burndown-fill)" />
-      <path
-        d={idealPath}
-        fill="none"
-        stroke="rgba(255,255,255,0.1)"
-        strokeWidth="1.5"
-        strokeDasharray="6 4"
-      />
-      <path
-        d={actualPath}
-        fill="none"
-        stroke="url(#burndown-stroke)"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle
-        cx={toX(burndownPoints.length - 1)}
-        cy={toY(burndownPoints[burndownPoints.length - 1])}
-        r="4"
-        fill="#4f7cff"
-        stroke="#0a0a0f"
-        strokeWidth="2"
-      >
-        <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite" />
-      </circle>
+      {areaPath && <path d={areaPath} fill="url(#burndown-fill)" />}
+      {ideal.length > 0 && (
+        <path
+          d={idealPath}
+          fill="none"
+          stroke="rgba(255,255,255,0.1)"
+          strokeWidth="1.5"
+          strokeDasharray="6 4"
+        />
+      )}
+      {actual.length > 0 && (
+        <path
+          d={actualPath}
+          fill="none"
+          stroke="url(#burndown-stroke)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      {actual.length > 0 && (
+        <circle
+          cx={toX(actual.length - 1)}
+          cy={toY(actual[actual.length - 1])}
+          r="4"
+          fill="#4f7cff"
+          stroke="#0a0a0f"
+          strokeWidth="2"
+        >
+          <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite" />
+        </circle>
+      )}
     </svg>
   );
 }
@@ -294,7 +207,7 @@ function ProgressRing({
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setOffset(circumference - (value / max) * circumference);
+      setOffset(max === 0 ? circumference : circumference - (value / max) * circumference);
     }, 300);
     return () => clearTimeout(timer);
   }, [value, max, circumference]);
@@ -337,54 +250,148 @@ type ActivityItem = {
   createdAt: string;
 };
 
+type RecentTask = {
+  id: string;
+  key: string;
+  title: string;
+  status: string;
+  priority: string;
+  assigneeName: string | null;
+  updatedAt: string;
+};
+
+type TeamMember = {
+  assigneeId: string;
+  assigneeName: string;
+  totalTasks: number;
+  completedTasks: number;
+};
+
+type DashboardData = {
+  activeSprint: {
+    id: string;
+    name: string;
+    startDate: string;
+    endDate: string;
+    daysLeft: number;
+    projectName: string;
+  } | null;
+  stats: {
+    completed: number;
+    inProgress: number;
+    todo: number;
+    blocked: number;
+    storyPointsCompleted: number;
+    totalTasks: number;
+  };
+  recentTasks: RecentTask[];
+  teamWorkload: TeamMember[];
+  burndown: {
+    actual: number[];
+    ideal: number[];
+    totalDays: number;
+    currentDay: number;
+  };
+  memberCount: number;
+};
+
 export default function DashboardPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const [workspace, setWorkspace] = useState<{ name: string; color: string } | null>(null);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    async function fetchWorkspace() {
+    async function load() {
       try {
-        const res = await fetch(`/api/workspaces/${workspaceId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setWorkspace({
-            name: data.name,
-            color: data.color || "#4f7cff",
-          });
+        const [wsRes, actRes, dashRes] = await Promise.all([
+          fetch(`/api/workspaces/${workspaceId}`),
+          fetch(`/api/workspaces/${workspaceId}/activities`),
+          fetch(`/api/workspaces/${workspaceId}/dashboard`),
+        ]);
+
+        if (wsRes.ok) {
+          const data = await wsRes.json();
+          setWorkspace({ name: data.name, color: data.color ?? "#4f7cff" });
+        }
+        if (actRes.ok) {
+          const data = await actRes.json();
+          setActivities(data ?? []);
+        }
+        if (dashRes.ok) {
+          const data = await dashRes.json();
+          setDashboard(data);
         }
       } catch (err) {
-        console.error("Error fetching workspace details:", err);
+        console.error("Dashboard load error:", err);
       } finally {
         setLoaded(true);
       }
     }
 
-    async function fetchActivities() {
-      try {
-        const res = await fetch(`/api/workspaces/${workspaceId}/activities`);
-        if (res.ok) {
-          const data = await res.json();
-          setActivities(data ?? []);
-        }
-      } catch (err) {
-        console.error("Error fetching activities:", err);
-      }
-    }
-
-    fetchWorkspace();
-    fetchActivities();
+    load();
   }, [workspaceId]);
 
-  const ws = workspace ?? WORKSPACE_INFO[workspaceId] ?? { name: workspaceId, color: "#4f7cff" };
-  const sprintProgress = Math.round((sprintData.completed / sprintData.totalTasks) * 100);
+  const ws = workspace ?? { name: workspaceId, color: "#4f7cff" };
+  const sprint = dashboard?.activeSprint ?? null;
+  const stats = dashboard?.stats ?? {
+    completed: 0,
+    inProgress: 0,
+    todo: 0,
+    blocked: 0,
+    storyPointsCompleted: 0,
+    totalTasks: 0,
+  };
+  const sprintProgress =
+    stats.totalTasks > 0 ? Math.round((stats.completed / stats.totalTasks) * 100) : 0;
+
+  const statCards = [
+    {
+      label: "Tasks Completed",
+      value: String(stats.completed),
+      icon: CheckSquare,
+      color: "#00d4aa",
+      subtitle: sprint ? "this sprint" : "total done",
+    },
+    {
+      label: "In Progress",
+      value: String(stats.inProgress),
+      icon: Clock,
+      color: "#4f7cff",
+      subtitle: "active right now",
+    },
+    {
+      label: "Story Points",
+      value: String(stats.storyPointsCompleted),
+      icon: Zap,
+      color: "#a259ff",
+      subtitle: "velocity this sprint",
+    },
+    {
+      label: "Blocked",
+      value: String(stats.blocked),
+      icon: AlertCircle,
+      color: "#ff4f7c",
+      subtitle: "needs attention",
+    },
+  ];
+
+  const burndown = dashboard?.burndown ?? { actual: [], ideal: [], totalDays: 0, currentDay: 0 };
+  const recentTasks = dashboard?.recentTasks ?? [];
+  const teamWorkload = dashboard?.teamWorkload ?? [];
+
+  if (!loaded) {
+    return (
+      <div className="flex flex-col gap-6 pb-12">
+        <DashboardPageSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6 pb-12">
-      <div
-        className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
-      >
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 transition-all duration-700 opacity-100 translate-y-0">
         <div>
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
@@ -401,32 +408,40 @@ export default function DashboardPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm">
-            <Timer className="w-4 h-4 text-[var(--color-accent)]" />
-            <span className="font-semibold text-[#f0f0f5]">{sprintData.name}</span>
-            <span className="text-[var(--color-muted)] text-xs">
-              {sprintData.startDate} – {sprintData.endDate}
-            </span>
-            <span
-              className="ml-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
-              style={{
-                background:
-                  sprintData.daysLeft <= 3 ? "rgba(255,79,124,0.12)" : "rgba(79,124,255,0.12)",
-                color: sprintData.daysLeft <= 3 ? "#ff4f7c" : "#4f7cff",
-              }}
-            >
-              {sprintData.daysLeft}d left
-            </span>
+        {sprint && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm">
+              <Timer className="w-4 h-4 text-[var(--color-accent)]" />
+              <span className="font-semibold text-[#f0f0f5]">{sprint.name}</span>
+              <span className="text-[var(--color-muted)] text-xs">
+                {sprint.startDate} – {sprint.endDate}
+              </span>
+              <span
+                className="ml-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
+                style={{
+                  background:
+                    sprint.daysLeft <= 3 ? "rgba(255,79,124,0.12)" : "rgba(79,124,255,0.12)",
+                  color: sprint.daysLeft <= 3 ? "#ff4f7c" : "#4f7cff",
+                }}
+              >
+                {sprint.daysLeft}d left
+              </span>
+            </div>
           </div>
-        </div>
+        )}
+        {!sprint && (
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm">
+            <Timer className="w-4 h-4 text-[var(--color-muted)]" />
+            <span className="text-[var(--color-muted)] text-xs">No active sprint</span>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((card, i) => (
           <div
             key={card.label}
-            className={`group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-500 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            className="group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-500 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 opacity-100 translate-y-0"
             style={{ transitionDelay: `${150 + i * 80}ms` }}
           >
             <div
@@ -442,16 +457,6 @@ export default function DashboardPage() {
               >
                 <card.icon className="w-[18px] h-[18px]" style={{ color: card.color }} />
               </div>
-              <div
-                className={`flex items-center gap-0.5 text-xs font-semibold ${card.trend === "up" && card.label !== "Blocked" ? "text-[#00d4aa]" : card.label === "Blocked" && card.trend === "up" ? "text-[#ff4f7c]" : "text-[#00d4aa]"}`}
-              >
-                {card.trend === "up" ? (
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                ) : (
-                  <ArrowDownRight className="w-3.5 h-3.5" />
-                )}
-                {card.change}
-              </div>
             </div>
             <p className="text-3xl font-bold text-[#f0f0f5] leading-none mb-1">{card.value}</p>
             <p className="text-xs text-[var(--color-muted)]">{card.label}</p>
@@ -464,7 +469,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div
-          className={`relative p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          className="relative p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
           style={{ transitionDelay: "500ms" }}
         >
           <div
@@ -480,14 +485,14 @@ export default function DashboardPage() {
                 Sprint Progress
               </h2>
               <span className="text-[10px] font-medium text-[var(--color-muted)] bg-white/[0.04] px-2 py-1 rounded-md">
-                {sprintData.name}
+                {sprint?.name ?? "No sprint"}
               </span>
             </div>
             <div className="flex items-center justify-center mb-6">
               <div className="relative">
                 <ProgressRing
-                  value={sprintData.completed}
-                  max={sprintData.totalTasks}
+                  value={stats.completed}
+                  max={stats.totalTasks}
                   size={130}
                   strokeWidth={10}
                   color={ws.color}
@@ -500,19 +505,9 @@ export default function DashboardPage() {
             </div>
             <div className="space-y-2.5">
               {[
-                {
-                  label: "Completed",
-                  value: sprintData.completed,
-                  color: "#00d4aa",
-                  icon: CheckSquare,
-                },
-                {
-                  label: "In Progress",
-                  value: sprintData.inProgress,
-                  color: "#4f7cff",
-                  icon: Activity,
-                },
-                { label: "To Do", value: sprintData.todo, color: "#6b6b80", icon: Circle },
+                { label: "Completed", value: stats.completed, color: "#00d4aa", icon: CheckSquare },
+                { label: "In Progress", value: stats.inProgress, color: "#4f7cff", icon: Activity },
+                { label: "To Do", value: stats.todo, color: "#6b6b80", icon: Circle },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
@@ -527,7 +522,7 @@ export default function DashboardPage() {
         </div>
 
         <div
-          className={`lg:col-span-2 p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          className="lg:col-span-2 p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] transition-all duration-700 opacity-100 translate-y-0"
           style={{ transitionDelay: "600ms" }}
         >
           <div className="flex items-center justify-between mb-2">
@@ -552,23 +547,27 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="text-[11px] text-[var(--color-muted)] mb-4">
-            8 tasks remaining · On track to complete{" "}
-            {sprintData.daysLeft > 0 ? `in ${sprintData.daysLeft + 1} days` : "today"}
+            {stats.totalTasks - stats.completed} tasks remaining
+            {sprint && sprint.daysLeft > 0 ? ` · ${sprint.daysLeft}d left` : ""}
           </p>
           <div className="h-[180px]">
-            <BurndownChart />
+            <BurndownChart
+              actual={burndown.actual}
+              ideal={burndown.ideal}
+              totalDays={burndown.totalDays}
+            />
           </div>
           <div className="flex items-center justify-between mt-3 text-[10px] text-[var(--color-muted)]">
             <span>Day 1</span>
-            <span>Day 7</span>
-            <span>Day 13</span>
+            {burndown.totalDays > 0 && <span>Day {Math.ceil(burndown.totalDays / 2)}</span>}
+            {burndown.totalDays > 0 && <span>Day {burndown.totalDays}</span>}
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div
-          className={`lg:col-span-2 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          className="lg:col-span-2 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
           style={{ transitionDelay: "700ms" }}
         >
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.05]">
@@ -581,39 +580,45 @@ export default function DashboardPage() {
             </button>
           </div>
           <div className="divide-y divide-white/[0.04]">
-            {recentTasks.map((task) => (
-              <div
-                key={task.id}
-                className="group flex items-center gap-4 px-6 py-3.5 hover:bg-white/[0.02] transition-colors cursor-pointer"
-              >
-                <StatusDot status={task.status} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-mono font-bold text-[var(--color-muted)]">
-                      {task.id}
+            {recentTasks.length === 0 ? (
+              <p className="px-6 py-4 text-xs text-[var(--color-muted)]">No tasks yet</p>
+            ) : (
+              recentTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="group flex items-center gap-4 px-6 py-3.5 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                >
+                  <StatusDot status={task.status} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[10px] font-mono font-bold text-[var(--color-muted)]">
+                        {task.key}
+                      </span>
+                      <PriorityBadge priority={task.priority} />
+                    </div>
+                    <p className="text-sm text-[#f0f0f5] truncate group-hover:text-white transition-colors">
+                      {task.title}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {task.assigneeName && (
+                      <div className="w-7 h-7 rounded-full bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-[9px] font-bold text-[var(--color-muted2)]">
+                        {getInitials(task.assigneeName)}
+                      </div>
+                    )}
+                    <span className="text-[10px] text-[var(--color-muted)] whitespace-nowrap">
+                      {timeAgo(task.updatedAt)}
                     </span>
-                    <PriorityBadge priority={task.priority} />
                   </div>
-                  <p className="text-sm text-[#f0f0f5] truncate group-hover:text-white transition-colors">
-                    {task.title}
-                  </p>
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <div className="w-7 h-7 rounded-full bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-[9px] font-bold text-[var(--color-muted2)]">
-                    {task.assignee}
-                  </div>
-                  <span className="text-[10px] text-[var(--color-muted)] whitespace-nowrap">
-                    {task.time}
-                  </span>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
         <div className="flex flex-col gap-4">
           <div
-            className={`rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
             style={{ transitionDelay: "800ms" }}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
@@ -648,14 +653,10 @@ export default function DashboardPage() {
                       </div>
                       <div className="pb-3">
                         <p className="text-xs text-[var(--color-muted2)] leading-relaxed">
-                          <span className="font-semibold text-[#f0f0f5]">
-                            {firstName}
-                          </span>{" "}
+                          <span className="font-semibold text-[#f0f0f5]">{firstName}</span>{" "}
                           {getActivityMiddleText(item.entityType, item.action)}{" "}
                           {item.entityType !== "member" && (
-                            <span className="font-medium text-[#f0f0f5]">
-                              {item.entityName}
-                            </span>
+                            <span className="font-medium text-[#f0f0f5]">{item.entityName}</span>
                           )}
                         </p>
                         <span className="text-[10px] text-[var(--color-muted)]">
@@ -670,7 +671,7 @@ export default function DashboardPage() {
           </div>
 
           <div
-            className={`rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
             style={{ transitionDelay: "900ms" }}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
@@ -680,42 +681,52 @@ export default function DashboardPage() {
               <Users className="w-3.5 h-3.5 text-[var(--color-accent2)]" />
             </div>
             <div className="px-5 py-3 space-y-3">
-              {teamMembers.map((member) => {
-                const pct = Math.round((member.completed / member.tasks) * 100);
-                return (
-                  <div key={member.name} className="group">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold"
-                          style={{
-                            background: `color-mix(in srgb, ${member.color} 15%, transparent)`,
-                            color: member.color,
-                          }}
-                        >
-                          {member.initials}
+              {teamWorkload.length === 0 ? (
+                <p className="text-xs text-[var(--color-muted)] py-2">
+                  {sprint ? "No assigned tasks in sprint" : "No active sprint"}
+                </p>
+              ) : (
+                teamWorkload.map((member, i) => {
+                  const pct =
+                    member.totalTasks > 0
+                      ? Math.round((member.completedTasks / member.totalTasks) * 100)
+                      : 0;
+                  const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
+                  return (
+                    <div key={member.assigneeId} className="group">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-[8px] font-bold"
+                            style={{
+                              background: `color-mix(in srgb, ${color} 15%, transparent)`,
+                              color: color,
+                            }}
+                          >
+                            {getInitials(member.assigneeName)}
+                          </div>
+                          <span className="text-xs text-[#f0f0f5] font-medium">
+                            {member.assigneeName.split(" ")[0]}
+                          </span>
                         </div>
-                        <span className="text-xs text-[#f0f0f5] font-medium">
-                          {member.name.split(" ")[0]}
+                        <span className="text-[10px] text-[var(--color-muted)] tabular-nums">
+                          {member.completedTasks}/{member.totalTasks}
                         </span>
                       </div>
-                      <span className="text-[10px] text-[var(--color-muted)] tabular-nums">
-                        {member.completed}/{member.tasks}
-                      </span>
+                      <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-1000 ease-out"
+                          style={{
+                            width: `${pct}%`,
+                            background: `linear-gradient(90deg, ${color}, ${color}cc)`,
+                            transitionDelay: "1000ms",
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-1000 ease-out"
-                        style={{
-                          width: loaded ? `${pct}%` : "0%",
-                          background: `linear-gradient(90deg, ${member.color}, ${member.color}cc)`,
-                          transitionDelay: "1000ms",
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -723,4 +734,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

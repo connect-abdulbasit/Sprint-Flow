@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { taskDependenciesTable, tasksTable } from "@/modules/task/task.schema";
-import { and, eq, max, or } from "drizzle-orm";
+import { and, eq, inArray, max, ne, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 export type TaskInsert = typeof tasksTable.$inferInsert;
 export type TaskRow = typeof tasksTable.$inferSelect;
@@ -103,6 +104,94 @@ export class TaskRepository {
       .where(and(eq(tasksTable.id, taskId), eq(tasksTable.projectId, projectId)))
       .execute();
     return row ?? null;
+  }
+
+  /** Task IDs that have at least one linked prerequisite still not in `done` status. */
+  async findTaskIdsBlockedByOpenWork(projectId: string) {
+    const selfTask = alias(tasksTable, "task_dep_self");
+    const prereqTask = alias(tasksTable, "task_dep_prereq");
+    const rows = await db
+      .select({ taskId: taskDependenciesTable.taskId })
+      .from(taskDependenciesTable)
+      .innerJoin(selfTask, eq(selfTask.id, taskDependenciesTable.taskId))
+      .innerJoin(prereqTask, eq(prereqTask.id, taskDependenciesTable.dependsOnTaskId))
+      .where(
+        and(
+          eq(selfTask.projectId, projectId),
+          eq(prereqTask.projectId, projectId),
+          ne(prereqTask.status, "done")
+        )
+      )
+      .execute();
+    return new Set(rows.map((r) => r.taskId));
+  }
+
+  /** Build prerequisite adjacency within a project after removing outgoing deps from `excludeSourceTaskId` (optional). */
+  async buildPrerequisiteAdjacency(projectId: string, excludeOutgoingFrom?: string | null) {
+    const deps = await db
+      .select({
+        taskId: taskDependenciesTable.taskId,
+        dependsOn: taskDependenciesTable.dependsOnTaskId,
+      })
+      .from(taskDependenciesTable)
+      .innerJoin(tasksTable, eq(tasksTable.id, taskDependenciesTable.taskId))
+      .where(eq(tasksTable.projectId, projectId))
+      .execute();
+
+    const map = new Map<string, string[]>();
+    for (const d of deps) {
+      if (excludeOutgoingFrom && d.taskId === excludeOutgoingFrom) continue;
+      const cur = map.get(d.taskId);
+      if (cur) cur.push(d.dependsOn);
+      else map.set(d.taskId, [d.dependsOn]);
+    }
+    return map;
+  }
+
+  async replaceTaskDependencies(taskId: string, dependsOnTaskIds: string[]) {
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(taskDependenciesTable)
+        .where(eq(taskDependenciesTable.taskId, taskId))
+        .execute();
+      if (dependsOnTaskIds.length === 0) return;
+      await tx
+        .insert(taskDependenciesTable)
+        .values(dependsOnTaskIds.map((dependsOnTaskId) => ({ taskId, dependsOnTaskId })))
+        .execute();
+    });
+  }
+
+  async listDependsOnIds(taskId: string) {
+    const rows = await db
+      .select({ id: taskDependenciesTable.dependsOnTaskId })
+      .from(taskDependenciesTable)
+      .where(eq(taskDependenciesTable.taskId, taskId))
+      .execute();
+    return rows.map((r) => r.id);
+  }
+
+  async listDependentTaskIds(prerequisiteTaskId: string) {
+    const rows = await db
+      .select({ taskId: taskDependenciesTable.taskId })
+      .from(taskDependenciesTable)
+      .where(eq(taskDependenciesTable.dependsOnTaskId, prerequisiteTaskId))
+      .execute();
+    return rows.map((r) => r.taskId);
+  }
+
+  async findTicketLinkRows(taskIds: string[], projectId: string) {
+    if (taskIds.length === 0) return [];
+    return db
+      .select({
+        id: tasksTable.id,
+        ticketNumber: tasksTable.ticketNumber,
+        title: tasksTable.title,
+        status: tasksTable.status,
+      })
+      .from(tasksTable)
+      .where(and(eq(tasksTable.projectId, projectId), inArray(tasksTable.id, taskIds)))
+      .execute();
   }
 }
 

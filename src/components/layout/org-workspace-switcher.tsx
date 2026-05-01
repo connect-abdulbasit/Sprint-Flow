@@ -20,7 +20,6 @@ interface Organization {
   name: string;
   initials: string;
   role: string;
-  plan: string;
   gradient: string;
 }
 
@@ -85,7 +84,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
           name: org.name,
           initials: getInitials(org.name),
           role: "Owner",
-          plan: "Free",
           gradient: getGradient(org.id),
         }));
 

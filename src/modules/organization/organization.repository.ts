@@ -1,6 +1,14 @@
 import { db } from "@/lib/db";
-import { organizationsTable, organizationMembersTable, organizationInvitesTable } from "@/db";
-import { eq, and } from "drizzle-orm";
+import {
+  organizationsTable,
+  organizationMembersTable,
+  organizationInvitesTable,
+  usersTable,
+  workspacesTable,
+  projectsTable,
+  tasksTable,
+} from "@/db";
+import { eq, and, asc, sql } from "drizzle-orm";
 
 export class OrganizationRepository {
   async createOrganization(data: typeof organizationsTable.$inferInsert) {
@@ -59,6 +67,47 @@ export class OrganizationRepository {
 
     const first = results[0];
     return first ? first.organizations : null;
+  }
+
+  async getOrganizationMembers(organizationId: string) {
+    return db
+      .select({
+        userId: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        avatarUrl: usersTable.avatarUrl,
+        role: organizationMembersTable.role,
+      })
+      .from(organizationMembersTable)
+      .innerJoin(usersTable, eq(organizationMembersTable.userId, usersTable.id))
+      .where(eq(organizationMembersTable.organizationId, organizationId))
+      .orderBy(asc(usersTable.name))
+      .execute();
+  }
+
+  async getOrganizationWorkspaces(organizationId: string) {
+    return db
+      .select()
+      .from(workspacesTable)
+      .where(eq(workspacesTable.organizationId, organizationId))
+      .execute();
+  }
+
+  async getOrganizationActiveTasksCount(organizationId: string) {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(tasksTable)
+      .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
+      .innerJoin(workspacesTable, eq(projectsTable.workspaceId, workspacesTable.id))
+      .where(
+        and(
+          eq(workspacesTable.organizationId, organizationId),
+          sql`lower(${tasksTable.status}) <> 'done'`
+        )
+      )
+      .execute();
+
+    return row?.count ?? 0;
   }
 
   async createInvite(data: typeof organizationInvitesTable.$inferInsert) {

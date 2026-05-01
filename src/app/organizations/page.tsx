@@ -5,6 +5,7 @@ import { Plus, FolderKanban, ArrowRight } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { OrganizationCardsSkeleton } from "@/components/ui/skeleton";
 
 type Organization = {
   id: string;
@@ -42,19 +43,6 @@ export default function OrganizationsPage() {
     fetchOrgs();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-2 border-[var(--color-accent)]/20 border-t-[var(--color-accent)] rounded-full animate-spin" />
-          <p className="text-[var(--color-muted)] text-sm font-medium animate-pulse">
-            Loading Organizations...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[var(--color-bg)] text-[#f0f0f5]">
       <div className="max-w-5xl mx-auto px-6 py-16 md:py-20">
@@ -75,7 +63,32 @@ export default function OrganizationsPage() {
           </span>
         </Link>
 
-        {orgs.length === 0 ? (
+        {isLoading ? (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
+              <div>
+                <h1
+                  className="text-3xl md:text-[2.5rem] font-extrabold tracking-[-0.03em] leading-tight text-[#f0f0f5]"
+                  style={{ fontFamily: "var(--font-syne)" }}
+                >
+                  Your Organizations
+                </h1>
+                <p className="text-[var(--color-muted2)] mt-2 text-[0.95rem]">
+                  Jump into a workspace or create something new.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push("/onboarding/workspace")}
+                className="flex items-center gap-2 px-6 py-3 text-sm font-bold text-[var(--color-bg)] bg-[#f0f0f5] rounded-xl hover:bg-white transition-all shadow-lg active:scale-95 translate-y-[-4px]"
+              >
+                <Plus className="w-4 h-4" />
+                New Organization
+              </button>
+            </div>
+            <OrganizationCardsSkeleton count={6} />
+          </>
+        ) : orgs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="w-20 h-20 bg-white/[0.03] border border-white/[0.08] rounded-[2rem] flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(0,0,0,0.3)]">
               <Plus className="w-10 h-10 text-[var(--color-accent)]" />
@@ -130,9 +143,6 @@ export default function OrganizationsPage() {
                       <div className="w-12 h-12 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-lg font-bold text-[#f0f0f5] group-hover:bg-[var(--color-accent)]/10 group-hover:border-[var(--color-accent)]/20 transition-all">
                         {getInitials(org.name)}
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--color-accent)] bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 px-2.5 py-1.5 rounded-lg shadow-sm">
-                        FREE
-                      </span>
                     </div>
 
                     <h2 className="text-xl font-bold tracking-tight text-[#f0f0f5] mb-2 group-hover:text-white transition-colors">

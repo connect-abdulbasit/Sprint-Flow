@@ -13,7 +13,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Bell,
-  CircleUserRound,
 } from "lucide-react";
 import { useState } from "react";
 import OrgWorkspaceSwitcher from "./org-workspace-switcher";
@@ -60,11 +59,6 @@ export default function Sidebar() {
           name: "My Tasks",
           href: `${workspaceBase}/my-tasks`,
           icon: CheckSquare,
-        },
-        {
-          name: "Assigned to Me",
-          href: `${workspaceBase}/assigned`,
-          icon: CircleUserRound,
         },
         {
           name: "Notifications",

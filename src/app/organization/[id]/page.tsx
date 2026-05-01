@@ -16,6 +16,7 @@ import {
   Info,
 } from "lucide-react";
 import { writeSelectedOrgId, writeWorkspaceIdForOrg } from "@/lib/workspace-prefs";
+import { OrganizationDetailDataSkeleton } from "@/components/ui/skeleton";
 
 function getInitials(name: string) {
   return name
@@ -26,18 +27,19 @@ function getInitials(name: string) {
     .slice(0, 2);
 }
 
-const members = [
-  { id: 1, name: "Alice Johnson", role: "Frontend Lead", initials: "AJ" },
-  { id: 2, name: "Bob Smith", role: "Backend Engineer", initials: "BS" },
-  { id: 3, name: "Charlie Davis", role: "Product Manager", initials: "CD" },
-  { id: 4, name: "Diana Prince", role: "UX Designer", initials: "DP" },
-];
-
 type Organization = {
   id: string;
   name: string;
   description?: string | null;
   ownerId: string;
+};
+
+type OrganizationMember = {
+  userId: string;
+  name: string;
+  email: string;
+  avatarUrl: string | null;
+  role: "member" | "admin" | "owner";
 };
 
 type ApiWorkspace = {
@@ -49,54 +51,80 @@ type ApiWorkspace = {
   color?: string | null;
 };
 
-const statsBase = [
-  { label: "Workspaces", value: "0", icon: FolderKanban, color: "var(--color-accent)" },
-  { label: "Members", value: "24", icon: Users, color: "var(--color-accent2)" },
-  { label: "Active Tasks", value: "67", icon: Activity, color: "var(--color-accent3)" },
-];
+type OrganizationDashboardResponse = {
+  organization: Organization;
+  workspaces: ApiWorkspace[];
+  members: OrganizationMember[];
+  stats: {
+    workspaceCount: number;
+    memberCount: number;
+    activeTasksCount: number;
+  };
+};
+
+const roleLabel: Record<OrganizationMember["role"], string> = {
+  owner: "Owner",
+  admin: "Admin",
+  member: "Member",
+};
 
 export default function OrganizationPage() {
   const { id } = useParams<{ id: string }>();
   const [org, setOrg] = useState<Organization | null>(null);
   const [orgWorkspaces, setOrgWorkspaces] = useState<ApiWorkspace[]>([]);
+  const [orgMembers, setOrgMembers] = useState<OrganizationMember[]>([]);
+  const [orgStats, setOrgStats] = useState({
+    workspaceCount: 0,
+    memberCount: 0,
+    activeTasksCount: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tooltipVisible, setTooltipVisible] = useState(false);
 
   useEffect(() => {
-    async function fetchOrgAndWorkspaces() {
+    async function fetchOrgDashboard() {
       if (!id) return;
       try {
-        const [orgRes, wsRes] = await Promise.all([
-          fetch(`/api/organizations/${id}`),
-          fetch("/api/workspaces"),
-        ]);
-
-        if (!orgRes.ok) {
+        const dashboardRes = await fetch(`/api/organizations/${id}/dashboard`);
+        if (!dashboardRes.ok) {
           throw new Error("Failed to load organization details");
         }
 
-        const orgData = (await orgRes.json()) as Organization;
-        setOrg(orgData);
-
-        if (wsRes.ok) {
-          const allWs: ApiWorkspace[] = await wsRes.json();
-          setOrgWorkspaces(allWs.filter((w) => w.organizationId === id));
-        } else {
-          setOrgWorkspaces([]);
-        }
+        const dashboardData = (await dashboardRes.json()) as OrganizationDashboardResponse;
+        setOrg(dashboardData.organization);
+        setOrgWorkspaces(dashboardData.workspaces ?? []);
+        setOrgMembers(dashboardData.members ?? []);
+        setOrgStats(dashboardData.stats);
       } catch (err) {
         setError((err as Error).message);
       } finally {
         setIsLoading(false);
       }
     }
-    fetchOrgAndWorkspaces();
+    fetchOrgDashboard();
   }, [id]);
 
-  const stats = statsBase.map((s) =>
-    s.label === "Workspaces" ? { ...s, value: String(orgWorkspaces.length) } : s
-  );
+  const stats = [
+    {
+      label: "Workspaces",
+      value: String(orgStats.workspaceCount),
+      icon: FolderKanban,
+      color: "var(--color-accent)",
+    },
+    {
+      label: "Members",
+      value: String(orgStats.memberCount),
+      icon: Users,
+      color: "var(--color-accent2)",
+    },
+    {
+      label: "Active Tasks",
+      value: String(orgStats.activeTasksCount),
+      icon: Activity,
+      color: "var(--color-accent3)",
+    },
+  ];
 
   const persistWorkspaceNav = (workspaceId: string) => {
     if (!id) return;
@@ -106,9 +134,15 @@ export default function OrganizationPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-12 h-12 border-2 border-[var(--color-accent)]/20 border-t-[var(--color-accent)] rounded-full animate-spin mb-4" />
-        <p className="text-sm text-[var(--color-muted)] font-medium">Synchronizing brand data...</p>
+      <div className="flex flex-col gap-8 pb-12">
+        <Link
+          href="/organizations"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted)] hover:text-[var(--color-muted2)] transition-colors w-fit"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          All organizations
+        </Link>
+        <OrganizationDetailDataSkeleton settingsHref={`/organization/${id}/settings`} />
       </div>
     );
   }
@@ -288,21 +322,29 @@ export default function OrganizationPage() {
           </button>
         </div>
         <div className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] divide-y divide-white/[0.05] overflow-hidden">
-          {members.map((m) => (
-            <div
-              key={m.id}
-              className="group flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-xs font-bold text-[var(--color-muted2)] shrink-0">
-                {m.initials}
+          {orgMembers.length === 0 ? (
+            <p className="text-sm text-[var(--color-muted)] py-6 px-5">
+              No members yet. Invite users from a workspace.
+            </p>
+          ) : (
+            orgMembers.map((m) => (
+              <div
+                key={m.userId}
+                className="group flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
+              >
+                <div className="w-9 h-9 rounded-full bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-xs font-bold text-[var(--color-muted2)] shrink-0">
+                  {getInitials(m.name || m.email)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-[#f0f0f5] truncate block">
+                    {m.name || m.email}
+                  </span>
+                  <span className="text-xs text-[var(--color-muted)]">{roleLabel[m.role]}</span>
+                </div>
+                <MoreHorizontal className="w-4 h-4 text-[var(--color-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer" />
               </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-[#f0f0f5] truncate block">{m.name}</span>
-                <span className="text-xs text-[var(--color-muted)]">{m.role}</span>
-              </div>
-              <MoreHorizontal className="w-4 h-4 text-[var(--color-muted)] opacity-0 group-hover:opacity-100 transition-opacity shrink-0 cursor-pointer" />
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
     </div>

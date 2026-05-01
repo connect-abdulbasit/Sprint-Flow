@@ -2,7 +2,8 @@
 
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
 import CreateSprintModal from "@/components/project/CreateSprintModal";
-import { Calendar, Plus, CheckCircle2, Loader2, ArrowRight } from "lucide-react";
+import { Calendar, Plus, CheckCircle2, ArrowRight } from "lucide-react";
+import { SprintTimelineSkeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -76,10 +77,7 @@ export default function ProjectSprintsPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-zinc-500 gap-2 text-[13px]">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Loading sprints…
-          </div>
+          <SprintTimelineSkeleton />
         ) : sprints.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/[0.08] bg-[#111115]/40 px-8 py-16 text-center">
             <Calendar className="mx-auto h-10 w-10 text-zinc-600 mb-4" />

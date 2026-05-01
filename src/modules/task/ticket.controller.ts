@@ -10,7 +10,10 @@ function ticketErrorStatus(message: string) {
     message.includes("required") ||
     message.includes("valid") ||
     message.includes("member") ||
-    message.includes("cannot be empty")
+    message.includes("cannot be empty") ||
+    message.includes("must be one of") ||
+    message.includes("circular") ||
+    message.includes("Linked ticket not found")
   ) {
     return 400;
   }
@@ -46,6 +49,18 @@ export class TicketController {
       if (!title) {
         return NextResponse.json({ error: "title is required" }, { status: 400 });
       }
+      let dependsOnTaskIds: string[] | undefined;
+      if (body.dependsOnTaskIds !== undefined) {
+        if (!Array.isArray(body.dependsOnTaskIds)) {
+          return NextResponse.json(
+            { error: "dependsOnTaskIds must be an array of ticket ids" },
+            { status: 400 }
+          );
+        }
+        dependsOnTaskIds = body.dependsOnTaskIds
+          .map((x: unknown) => String(x).trim())
+          .filter(Boolean);
+      }
       const ticket = await taskService.createTicket(user.id, projectId, {
         title,
         reporterName: user.name,
@@ -59,6 +74,7 @@ export class TicketController {
         storyPoints: body.storyPoints,
         imageBase64: body.imageBase64,
         imageMimeType: body.imageMimeType,
+        dependsOnTaskIds,
       });
       return NextResponse.json(ticket, { status: 201 });
     } catch (error) {
@@ -94,6 +110,18 @@ export class TicketController {
     try {
       const { id: projectId, ticketId } = await context.params;
       const body = await req.json();
+      let dependsOnTaskIds: string[] | undefined;
+      if (body.dependsOnTaskIds !== undefined) {
+        if (!Array.isArray(body.dependsOnTaskIds)) {
+          return NextResponse.json(
+            { error: "dependsOnTaskIds must be an array of ticket ids" },
+            { status: 400 }
+          );
+        }
+        dependsOnTaskIds = body.dependsOnTaskIds
+          .map((x: unknown) => String(x).trim())
+          .filter(Boolean);
+      }
       const ticket = await taskService.updateTicket(user.id, projectId, ticketId, {
         title: body.title,
         description: body.description,
@@ -107,6 +135,7 @@ export class TicketController {
         storyPoints: body.storyPoints,
         imageBase64: body.imageBase64,
         imageMimeType: body.imageMimeType,
+        dependsOnTaskIds,
       });
       return NextResponse.json(ticket);
     } catch (error) {
