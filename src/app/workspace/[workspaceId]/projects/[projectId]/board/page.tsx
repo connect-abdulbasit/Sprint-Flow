@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   Trash2,
   X,
+  Link2,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -36,6 +37,7 @@ import {
   slugifyColumnId,
   statusOptionsFromColumns,
 } from "@/lib/board-columns";
+import { BoardColumnsSkeleton } from "@/components/ui/skeleton";
 import { initialsFromName } from "@/lib/initials";
 import type { LucideIcon } from "lucide-react";
 
@@ -119,6 +121,7 @@ export default function ProjectBoardPage() {
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [columnError, setColumnError] = useState<string | null>(null);
+  const [boardReady, setBoardReady] = useState(false);
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createInitialStatus, setCreateInitialStatus] = useState<string>("todo");
@@ -159,6 +162,7 @@ export default function ProjectBoardPage() {
 
   const loadData = useCallback(() => {
     if (!pid || !wid) return;
+    setBoardReady(false);
     Promise.all([
       fetchTickets(pid),
       fetchWorkspaceMembers(wid),
@@ -172,7 +176,8 @@ export default function ProjectBoardPage() {
         setProject(p);
         setLoadError(null);
       })
-      .catch(() => setLoadError("Could not load board"));
+      .catch(() => setLoadError("Could not load board"))
+      .finally(() => setBoardReady(true));
   }, [pid, wid]);
 
   useEffect(() => {
@@ -215,8 +220,9 @@ export default function ProjectBoardPage() {
     if (!boardFocusSprintId) {
       return {
         sprintId: null as string | null,
-        title: "Backlog",
-        subtitle: "No active or completed sprint — showing unscheduled work.",
+        title: "Empty board",
+        subtitle:
+          "Only tickets assigned to an active sprint or the most recently completed sprint appear here. If nothing has been started or finished yet, plan work in Backlog — unscheduled tickets stay off this board.",
         mode: "backlog" as const,
       };
     }
@@ -246,10 +252,11 @@ export default function ProjectBoardPage() {
     };
   }, [sprints, boardFocusSprintId]);
 
-  const boardTickets = useMemo(
-    () => tickets.filter((t) => t.sprintId === boardFocusSprintId),
-    [tickets, boardFocusSprintId]
-  );
+  /** Sprint board never lists backlog-only tickets (`sprintId === null`). When no active/completed sprint exists yet, show nothing. */
+  const boardTickets = useMemo(() => {
+    if (boardFocusSprintId === null) return [];
+    return tickets.filter((t) => t.sprintId === boardFocusSprintId);
+  }, [tickets, boardFocusSprintId]);
 
   const orphanBoardTickets = useMemo(
     () => boardTickets.filter((t) => !columnIdSet.has(t.status)),
@@ -533,7 +540,7 @@ export default function ProjectBoardPage() {
               Board scope
             </p>
             <p className="text-[13px] font-medium text-zinc-200 truncate">
-              {boardFocusMeta.mode === "backlog" && "Backlog"}
+              {boardFocusMeta.mode === "backlog" && boardFocusMeta.title}
               {boardFocusMeta.mode === "active" && `Active: ${boardFocusMeta.title}`}
               {boardFocusMeta.mode === "last_completed" && `Last sprint: ${boardFocusMeta.title}`}
             </p>
@@ -667,6 +674,7 @@ export default function ProjectBoardPage() {
           sprintPickerSprints={sprintPickerForForm}
           defaultSprintId={boardFocusSprintId}
           statusOptions={statusFormOptions}
+          linkableTickets={tickets}
           isOpen={createModalOpen}
           onClose={closeCreateModal}
           onSaved={handleTicketSaved}
@@ -681,6 +689,7 @@ export default function ProjectBoardPage() {
           members={members}
           sprintPickerOptions={sprintPickerOptions}
           statusOptions={statusFormOptions}
+          linkableTickets={tickets}
           isOpen={Boolean(detailTicketId)}
           onClose={closeDetail}
           onUpdated={handleTicketSaved}
@@ -688,261 +697,279 @@ export default function ProjectBoardPage() {
         />
       )}
 
-      <div className="flex-1 overflow-x-auto p-6 flex flex-nowrap items-stretch gap-0 custom-scrollbar">
-        {boardColumnDefs.map((column, columnIndex) => {
-          const columnTickets = boardTickets.filter((t) => t.status === column.id);
-          const isOver = dragOverColumn === column.id && draggedTicketId !== null;
-          const ColIcon = COLUMN_ICON_MAP[column.id] ?? LayoutGrid;
-          const slotActive = columnDropSlot === columnIndex && draggedColumnIndex !== null;
+      {!boardReady ? (
+        <div className="flex-1 overflow-x-auto p-6 flex flex-nowrap items-stretch gap-0 custom-scrollbar min-h-[320px]">
+          <BoardColumnsSkeleton />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-x-auto p-6 flex flex-nowrap items-stretch gap-0 custom-scrollbar">
+          {boardColumnDefs.map((column, columnIndex) => {
+            const columnTickets = boardTickets.filter((t) => t.status === column.id);
+            const isOver = dragOverColumn === column.id && draggedTicketId !== null;
+            const ColIcon = COLUMN_ICON_MAP[column.id] ?? LayoutGrid;
+            const slotActive = columnDropSlot === columnIndex && draggedColumnIndex !== null;
 
-          return (
-            <div key={column.id} className="flex flex-nowrap items-stretch shrink-0">
-              <div
-                role="separator"
-                aria-orientation="vertical"
-                className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${
-                  slotActive ? "bg-blue-500/15" : "hover:bg-white/[0.02]"
-                }`}
-                onDragOver={(e) => handleColumnSlotDragOver(e, columnIndex)}
-                onDragLeave={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node | null))
-                    setColumnDropSlot(null);
-                }}
-                onDrop={(e) => void handleColumnSlotDrop(e, columnIndex)}
-              >
+            return (
+              <div key={column.id} className="flex flex-nowrap items-stretch shrink-0">
                 <div
-                  className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${
-                    slotActive
-                      ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
-                      : "h-16 bg-white/[0.06]"
+                  role="separator"
+                  aria-orientation="vertical"
+                  className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${
+                    slotActive ? "bg-blue-500/15" : "hover:bg-white/[0.02]"
                   }`}
-                />
-                <button
-                  type="button"
-                  title="Add column here"
-                  disabled={savingColumns || boardColumnDefs.length >= 12}
-                  onClick={() => openAddColumnAt(columnIndex)}
-                  className="absolute bottom-1 left-1/2 z-[1] -translate-x-1/2 rounded p-0.5 text-zinc-600 opacity-0 hover:text-zinc-300 group-hover/slot:opacity-100 hover:opacity-100 disabled:opacity-30"
+                  onDragOver={(e) => handleColumnSlotDragOver(e, columnIndex)}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+                      setColumnDropSlot(null);
+                  }}
+                  onDrop={(e) => void handleColumnSlotDrop(e, columnIndex)}
                 >
-                  <Plus className="h-3 w-3" />
-                </button>
-              </div>
-              <div className="flex flex-col w-[300px] shrink-0 group/col px-1">
-                <div
-                  className={`flex items-center justify-between mb-3 px-1 gap-1 rounded-lg border border-transparent ${
-                    draggedColumnIndex === columnIndex ? "opacity-50 border-white/[0.08]" : ""
-                  }`}
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <div
-                      className="shrink-0 cursor-grab rounded p-0.5 text-zinc-600 hover:bg-white/[0.05] active:cursor-grabbing"
-                      draggable
-                      title="Drag to reorder column"
-                      onDragStart={(e) => handleColumnHeaderDragStart(e, columnIndex)}
-                      onDragEnd={handleDragEnd}
-                    >
-                      <GripVertical className="w-3.5 h-3.5" aria-hidden />
-                    </div>
-                    <div className="flex min-w-0 items-center gap-2">
+                  <div
+                    className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${
+                      slotActive
+                        ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                        : "h-16 bg-white/[0.06]"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    title="Add column here"
+                    disabled={savingColumns || boardColumnDefs.length >= 12}
+                    onClick={() => openAddColumnAt(columnIndex)}
+                    className="absolute bottom-1 left-1/2 z-[1] -translate-x-1/2 rounded p-0.5 text-zinc-600 opacity-0 hover:text-zinc-300 group-hover/slot:opacity-100 hover:opacity-100 disabled:opacity-30"
+                  >
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+                <div className="flex flex-col w-[300px] shrink-0 group/col px-1">
+                  <div
+                    className={`flex items-center justify-between mb-3 px-1 gap-1 rounded-lg border border-transparent ${
+                      draggedColumnIndex === columnIndex ? "opacity-50 border-white/[0.08]" : ""
+                    }`}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
                       <div
-                        className={`w-2 h-2 shrink-0 rounded-full ${column.dotColor ?? "bg-zinc-500"}`}
-                      />
-                      <ColIcon className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                      <h3 className="truncate text-[13px] font-semibold text-zinc-300">
-                        {column.title}
-                      </h3>
-                      <span className="shrink-0 rounded bg-zinc-800/60 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600">
-                        {columnTickets.length}
-                      </span>
+                        className="shrink-0 cursor-grab rounded p-0.5 text-zinc-600 hover:bg-white/[0.05] active:cursor-grabbing"
+                        draggable
+                        title="Drag to reorder column"
+                        onDragStart={(e) => handleColumnHeaderDragStart(e, columnIndex)}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <GripVertical className="w-3.5 h-3.5" aria-hidden />
+                      </div>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div
+                          className={`w-2 h-2 shrink-0 rounded-full ${column.dotColor ?? "bg-zinc-500"}`}
+                        />
+                        <ColIcon className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
+                        <h3 className="truncate text-[13px] font-semibold text-zinc-300">
+                          {column.title}
+                        </h3>
+                        <span className="shrink-0 rounded bg-zinc-800/60 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600">
+                          {columnTickets.length}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-0.5 shrink-0">
-                    {boardColumnDefs.length > 2 && (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      {boardColumnDefs.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => openRemoveColumn(column)}
+                          disabled={savingColumns}
+                          className="p-1 text-zinc-600 hover:text-red-400 hover:bg-white/[0.05] rounded-md transition-all opacity-0 group-hover/col:opacity-100 disabled:opacity-30"
+                          title="Remove column"
+                          aria-label={`Remove column ${column.title}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => openRemoveColumn(column)}
-                        disabled={savingColumns}
-                        className="p-1 text-zinc-600 hover:text-red-400 hover:bg-white/[0.05] rounded-md transition-all opacity-0 group-hover/col:opacity-100 disabled:opacity-30"
-                        title="Remove column"
-                        aria-label={`Remove column ${column.title}`}
+                        onClick={() => openCreate(column.id)}
+                        className="p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-md transition-all opacity-0 group-hover/col:opacity-100"
+                        aria-label={`Add ticket to ${column.title}`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Plus className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`flex-1 space-y-2 overflow-y-auto custom-scrollbar rounded-xl p-2 border transition-all duration-200 min-h-[120px] ${
+                      isOver
+                        ? "bg-blue-500/[0.04] border-blue-500/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]"
+                        : "bg-zinc-900/30 border-white/[0.03]"
+                    }`}
+                    onDragEnter={(e) => handleColumnDragEnter(e, column.id)}
+                    onDragLeave={() => handleColumnDragLeave(column.id)}
+                    onDragOver={handleColumnDragOver}
+                    onDrop={(e) => void handleDrop(e, column.id)}
+                  >
+                    {columnTickets.map((ticket, index) => (
+                      <div key={ticket.id}>
+                        {isOver && dropTargetIndex === index && (
+                          <div className="h-0.5 bg-blue-500 rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
+                        )}
+                        <div
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, ticket.id)}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={(e) => handleCardDragOver(e, index)}
+                          onDrop={(e) => void handleDrop(e, column.id)}
+                          onClick={() => openDetail(ticket)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openDetail(ticket);
+                            }
+                          }}
+                          tabIndex={0}
+                          className={`group/card relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#111115] p-3.5 pr-10 shadow-sm transition-all select-none hover:border-white/[0.1] hover:bg-[#141418] active:cursor-grabbing ${
+                            draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
+                          }`}
+                        >
+                          <div
+                            className="pointer-events-none absolute top-2.5 right-2.5 text-zinc-600"
+                            aria-hidden
+                          >
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </div>
+
+                          <div className="mb-2.5 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-medium capitalize ${typeColors[ticket.type] || typeColors.task}`}
+                            >
+                              {ticket.type}
+                            </span>
+                            <span
+                              className={`rounded border px-1.5 py-0.5 text-[10px] font-medium capitalize ${priorityColors[ticket.priority] || priorityColors.medium}`}
+                            >
+                              {ticket.priority}
+                            </span>
+                            {ticket.blockedByOpenDependencies ? (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+                                title="Blocked by prerequisites not done yet"
+                              >
+                                <Link2 className="h-3 w-3" aria-hidden />
+                                Waiting
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className="mb-1 font-mono text-[11px] text-zinc-600">
+                            {ticket.key}
+                          </div>
+
+                          <h4 className="mb-4 text-[13px] font-medium leading-snug text-zinc-300 group-hover/card:text-zinc-100">
+                            {ticket.title}
+                          </h4>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700/50 bg-zinc-800 text-[9px] font-semibold text-zinc-400">
+                              {initialsFromName(ticket.assigneeName)}
+                            </div>
+                            {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
+                              <div className="rounded bg-zinc-800/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+                                {ticket.storyPoints} pts
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {isOver && dropTargetIndex === columnTickets.length && (
+                      <div className="h-0.5 bg-blue-500 rounded-full mx-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
                     )}
+
                     <button
                       type="button"
                       onClick={() => openCreate(column.id)}
-                      className="p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-md transition-all opacity-0 group-hover/col:opacity-100"
-                      aria-label={`Add ticket to ${column.title}`}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-transparent py-2.5 text-[12px] font-medium text-zinc-600 transition-all hover:border-white/[0.06] hover:bg-white/[0.02] hover:text-zinc-400"
                     >
                       <Plus className="w-3.5 h-3.5" />
+                      Add task
                     </button>
                   </div>
                 </div>
+              </div>
+            );
+          })}
 
-                <div
-                  className={`flex-1 space-y-2 overflow-y-auto custom-scrollbar rounded-xl p-2 border transition-all duration-200 min-h-[120px] ${
-                    isOver
-                      ? "bg-blue-500/[0.04] border-blue-500/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]"
-                      : "bg-zinc-900/30 border-white/[0.03]"
-                  }`}
-                  onDragEnter={(e) => handleColumnDragEnter(e, column.id)}
-                  onDragLeave={() => handleColumnDragLeave(column.id)}
-                  onDragOver={handleColumnDragOver}
-                  onDrop={(e) => void handleDrop(e, column.id)}
-                >
-                  {columnTickets.map((ticket, index) => (
-                    <div key={ticket.id}>
-                      {isOver && dropTargetIndex === index && (
-                        <div className="h-0.5 bg-blue-500 rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
-                      )}
-                      <div
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, ticket.id)}
-                        onDragEnd={handleDragEnd}
-                        onDragOver={(e) => handleCardDragOver(e, index)}
-                        onDrop={(e) => void handleDrop(e, column.id)}
-                        onClick={() => openDetail(ticket)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            openDetail(ticket);
-                          }
-                        }}
-                        tabIndex={0}
-                        className={`group/card relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#111115] p-3.5 pr-10 shadow-sm transition-all select-none hover:border-white/[0.1] hover:bg-[#141418] active:cursor-grabbing ${
-                          draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
-                        }`}
-                      >
-                        <div
-                          className="pointer-events-none absolute top-2.5 right-2.5 text-zinc-600"
-                          aria-hidden
-                        >
-                          <GripVertical className="h-3.5 w-3.5" />
-                        </div>
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${
+              columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
+                ? "bg-blue-500/15"
+                : "hover:bg-white/[0.02]"
+            }`}
+            onDragOver={(e) => handleColumnSlotDragOver(e, boardColumnDefs.length)}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+                setColumnDropSlot(null);
+            }}
+            onDrop={(e) => void handleColumnSlotDrop(e, boardColumnDefs.length)}
+          >
+            <div
+              className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${
+                columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
+                  ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                  : "h-16 bg-white/[0.06]"
+              }`}
+            />
+            <button
+              type="button"
+              title="Add column at end"
+              disabled={savingColumns || boardColumnDefs.length >= 12}
+              onClick={() => openAddColumnAt(null)}
+              className="absolute bottom-1 left-1/2 z-[1] -translate-x-1/2 rounded p-0.5 text-zinc-600 opacity-0 hover:text-zinc-300 group-hover/slot:opacity-100 hover:opacity-100 disabled:opacity-30"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
 
-                        <div className="mb-2.5 flex flex-wrap items-center gap-2">
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-medium capitalize ${typeColors[ticket.type] || typeColors.task}`}
-                          >
-                            {ticket.type}
-                          </span>
-                          <span
-                            className={`rounded border px-1.5 py-0.5 text-[10px] font-medium capitalize ${priorityColors[ticket.priority] || priorityColors.medium}`}
-                          >
-                            {ticket.priority}
-                          </span>
-                        </div>
-
-                        <div className="mb-1 font-mono text-[11px] text-zinc-600">{ticket.key}</div>
-
-                        <h4 className="mb-4 text-[13px] font-medium leading-snug text-zinc-300 group-hover/card:text-zinc-100">
-                          {ticket.title}
-                        </h4>
-
-                        <div className="flex items-center justify-between">
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700/50 bg-zinc-800 text-[9px] font-semibold text-zinc-400">
-                            {initialsFromName(ticket.assigneeName)}
-                          </div>
-                          {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
-                            <div className="rounded bg-zinc-800/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
-                              {ticket.storyPoints} pts
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {isOver && dropTargetIndex === columnTickets.length && (
-                    <div className="h-0.5 bg-blue-500 rounded-full mx-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
-                  )}
-
+          {orphanBoardTickets.length > 0 && (
+            <div className="flex flex-col w-[280px] shrink-0 border border-amber-500/20 rounded-xl bg-amber-500/[0.04] p-3">
+              <p className="text-[11px] font-semibold text-amber-400/90 mb-1">Other statuses</p>
+              <p className="text-[10px] text-zinc-500 mb-2">
+                These tickets do not match any board column. Drag them into a column or add a column
+                with this status id.
+              </p>
+              <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                {orphanBoardTickets.map((ticket) => (
                   <button
+                    key={ticket.id}
                     type="button"
-                    onClick={() => openCreate(column.id)}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-transparent py-2.5 text-[12px] font-medium text-zinc-600 transition-all hover:border-white/[0.06] hover:bg-white/[0.02] hover:text-zinc-400"
+                    onClick={() => openDetail(ticket)}
+                    className="w-full text-left rounded-lg border border-white/[0.06] bg-[#111115]/80 px-3 py-2 hover:bg-[#141418]"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    Add task
+                    <span className="font-mono text-[10px] text-zinc-500">{ticket.key}</span>
+                    <span className="block text-[12px] text-zinc-300 truncate">{ticket.title}</span>
+                    <span className="text-[10px] text-amber-400/80">status: {ticket.status}</span>
                   </button>
-                </div>
+                ))}
               </div>
             </div>
-          );
-        })}
+          )}
 
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${
-            columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
-              ? "bg-blue-500/15"
-              : "hover:bg-white/[0.02]"
-          }`}
-          onDragOver={(e) => handleColumnSlotDragOver(e, boardColumnDefs.length)}
-          onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setColumnDropSlot(null);
-          }}
-          onDrop={(e) => void handleColumnSlotDrop(e, boardColumnDefs.length)}
-        >
-          <div
-            className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${
-              columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
-                ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
-                : "h-16 bg-white/[0.06]"
-            }`}
-          />
           <button
             type="button"
-            title="Add column at end"
-            disabled={savingColumns || boardColumnDefs.length >= 12}
             onClick={() => openAddColumnAt(null)}
-            className="absolute bottom-1 left-1/2 z-[1] -translate-x-1/2 rounded p-0.5 text-zinc-600 opacity-0 hover:text-zinc-300 group-hover/slot:opacity-100 hover:opacity-100 disabled:opacity-30"
+            disabled={savingColumns || boardColumnDefs.length >= 12}
+            className="flex w-[300px] shrink-0 flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.08] transition-all hover:border-white/[0.14] hover:bg-white/[0.02] disabled:opacity-40 disabled:pointer-events-none min-h-[160px]"
           >
-            <Plus className="h-3 w-3" />
+            <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800/50 bg-white/[0.02] text-zinc-600">
+              <Plus className="h-4 w-4" />
+            </div>
+            <span className="text-[12px] font-medium text-zinc-500">Add column</span>
+            {boardColumnDefs.length >= 12 && (
+              <span className="text-[10px] text-zinc-600 mt-1">Max 12 columns</span>
+            )}
           </button>
         </div>
-
-        {orphanBoardTickets.length > 0 && (
-          <div className="flex flex-col w-[280px] shrink-0 border border-amber-500/20 rounded-xl bg-amber-500/[0.04] p-3">
-            <p className="text-[11px] font-semibold text-amber-400/90 mb-1">Other statuses</p>
-            <p className="text-[10px] text-zinc-500 mb-2">
-              These tickets do not match any board column. Drag them into a column or add a column
-              with this status id.
-            </p>
-            <div className="space-y-2 max-h-[60vh] overflow-y-auto custom-scrollbar">
-              {orphanBoardTickets.map((ticket) => (
-                <button
-                  key={ticket.id}
-                  type="button"
-                  onClick={() => openDetail(ticket)}
-                  className="w-full text-left rounded-lg border border-white/[0.06] bg-[#111115]/80 px-3 py-2 hover:bg-[#141418]"
-                >
-                  <span className="font-mono text-[10px] text-zinc-500">{ticket.key}</span>
-                  <span className="block text-[12px] text-zinc-300 truncate">{ticket.title}</span>
-                  <span className="text-[10px] text-amber-400/80">status: {ticket.status}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => openAddColumnAt(null)}
-          disabled={savingColumns || boardColumnDefs.length >= 12}
-          className="flex w-[300px] shrink-0 flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.08] transition-all hover:border-white/[0.14] hover:bg-white/[0.02] disabled:opacity-40 disabled:pointer-events-none min-h-[160px]"
-        >
-          <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800/50 bg-white/[0.02] text-zinc-600">
-            <Plus className="h-4 w-4" />
-          </div>
-          <span className="text-[12px] font-medium text-zinc-500">Add column</span>
-          {boardColumnDefs.length >= 12 && (
-            <span className="text-[10px] text-zinc-600 mt-1">Max 12 columns</span>
-          )}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

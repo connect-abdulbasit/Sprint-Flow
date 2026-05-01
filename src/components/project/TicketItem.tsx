@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { ProjectTicket } from "@/lib/projects-api";
 import { initialsFromName } from "@/lib/initials";
 import {
@@ -14,7 +15,11 @@ import {
   Bug,
   Zap,
   PlusCircle,
+  Link2,
+  GripVertical,
 } from "lucide-react";
+
+export const TICKET_DRAG_MIME = "application/x-sprintflow-ticket";
 
 const priorityConfig = {
   low: { icon: ArrowDown, color: "text-blue-400/60", bg: "bg-blue-400/10", label: "Low" },
@@ -40,10 +45,14 @@ const statusConfig = {
 export default function TicketItem({
   ticket,
   onSelect,
+  draggableTicketId,
 }: {
   ticket: ProjectTicket;
   onSelect?: (_ticket: ProjectTicket) => void;
+  /** When set, row can be dragged (backlog / sprint moves). */
+  draggableTicketId?: string;
 }) {
+  const suppressClickRef = useRef(false);
   const priority =
     priorityConfig[ticket.priority as keyof typeof priorityConfig] ?? priorityConfig.medium;
   const type = typeConfig[ticket.type];
@@ -51,11 +60,27 @@ export default function TicketItem({
   const PriorityIcon = priority.icon;
   const TypeIcon = type.icon;
   const StatusIcon = status.icon;
+  const isDraggable = Boolean(draggableTicketId);
 
   return (
     <div
       className="group flex cursor-pointer items-center gap-3 border-b border-white/[0.03] px-4 py-2 transition-all hover:bg-white/[0.03]"
-      onClick={() => onSelect?.(ticket)}
+      draggable={isDraggable}
+      onDragStart={(e) => {
+        if (!draggableTicketId) return;
+        e.dataTransfer.setData(TICKET_DRAG_MIME, draggableTicketId);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragEnd={() => {
+        suppressClickRef.current = true;
+        window.setTimeout(() => {
+          suppressClickRef.current = false;
+        }, 0);
+      }}
+      onClick={() => {
+        if (suppressClickRef.current) return;
+        onSelect?.(ticket);
+      }}
       onKeyDown={(e) => {
         if (onSelect && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
@@ -64,6 +89,15 @@ export default function TicketItem({
       }}
       tabIndex={onSelect ? 0 : undefined}
     >
+      {isDraggable ? (
+        <span
+          className="shrink-0 cursor-grab text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+          aria-hidden
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </span>
+      ) : null}
       {/* Status Icon */}
       <StatusIcon className={`w-4 h-4 shrink-0 ${status.color}`} />
 
@@ -76,6 +110,15 @@ export default function TicketItem({
       <span className="text-[13px] text-zinc-300 flex-1 truncate group-hover:text-zinc-100 transition-colors">
         {ticket.title}
       </span>
+
+      {ticket.blockedByOpenDependencies ? (
+        <span
+          className="flex shrink-0 text-amber-500/90"
+          title="Waiting on linked tickets not done yet"
+        >
+          <Link2 className="h-3 w-3" aria-hidden />
+        </span>
+      ) : null}
 
       {/* Type Badge */}
       <div className="flex items-center gap-1 shrink-0">

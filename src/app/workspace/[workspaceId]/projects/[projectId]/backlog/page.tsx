@@ -26,6 +26,7 @@ import {
   type SprintGroup,
 } from "@/lib/projects-api";
 import { normalizeBoardColumns, statusOptionsFromColumns } from "@/lib/board-columns";
+import { BacklogSectionsSkeleton } from "@/components/ui/skeleton";
 
 function buildSprintPickerOptions(sprints: ProjectSprint[], currentSprintId: string | null) {
   const opts: { id: string | null; name: string }[] = [{ id: null, name: "Backlog" }];
@@ -70,9 +71,11 @@ export default function ProjectBacklogPage() {
   const [detailTicketId, setDetailTicketId] = useState<string | null>(null);
   const [detailPreview, setDetailPreview] = useState<ProjectTicket | null>(null);
   const [actionAlert, setActionAlert] = useState<{ title: string; message: string } | null>(null);
+  const [backlogReady, setBacklogReady] = useState(false);
 
   const load = useCallback(() => {
     if (!pid || !wid) return;
+    setBacklogReady(false);
     Promise.all([
       fetchTickets(pid),
       fetchSprints(pid),
@@ -90,7 +93,8 @@ export default function ProjectBacklogPage() {
         setSprints([]);
         setMembers([]);
         setProject(null);
-      });
+      })
+      .finally(() => setBacklogReady(true));
   }, [pid, wid]);
 
   useEffect(() => {
@@ -189,14 +193,26 @@ export default function ProjectBacklogPage() {
 
   const handleMoveTicket = useCallback(
     async (ticketId: string, sprintId: string | null) => {
+      let previousSnapshot: ProjectTicket | undefined;
+      setTickets((prev) => {
+        const t = prev.find((x) => x.id === ticketId);
+        if (!t || t.sprintId === sprintId) return prev;
+        previousSnapshot = t;
+        return prev.map((x) => (x.id === ticketId ? { ...x, sprintId } : x));
+      });
+      if (!previousSnapshot) return;
+
+      setDetailPreview((p) => (p?.id === ticketId ? { ...p, sprintId } : p));
+
       try {
         const updated = await updateTicket(pid, ticketId, { sprintId });
         handleSaved(updated);
       } catch {
-        load();
+        setTickets((prev) => prev.map((t) => (t.id === ticketId ? previousSnapshot! : t)));
+        setDetailPreview((p) => (p?.id === ticketId ? previousSnapshot! : p));
       }
     },
-    [pid, handleSaved, load]
+    [pid, handleSaved]
   );
 
   const handleStartSprint = useCallback(
@@ -286,6 +302,7 @@ export default function ProjectBacklogPage() {
           sprintPickerSprints={sprintPickerForForm}
           defaultSprintId={createDefaultSprintId}
           statusOptions={statusFormOptions}
+          linkableTickets={tickets}
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
           onSaved={handleSaved}
@@ -309,6 +326,7 @@ export default function ProjectBacklogPage() {
           members={members}
           sprintPickerOptions={sprintPickerOptions}
           statusOptions={statusFormOptions}
+          linkableTickets={tickets}
           isOpen={Boolean(detailTicketId)}
           onClose={closeDetail}
           onUpdated={handleSaved}
@@ -344,83 +362,102 @@ export default function ProjectBacklogPage() {
           </div>
         </div>
 
-        {planningAndActive.length === 0 ? (
-          <div className="rounded-lg border border-white/[0.05] bg-[#111115]/30 px-4 py-6 text-center text-[13px] text-zinc-500">
-            No planned or active sprints yet. Create a sprint, drag work in from the backlog (use
-            Move), then press Start when the team commits.
-          </div>
+        {!backlogReady ? (
+          <BacklogSectionsSkeleton />
         ) : (
-          <div className="space-y-3">
-            {planningAndActive.map((group) => (
+          <>
+            {planningAndActive.length === 0 ? (
+              <div className="rounded-lg border border-white/[0.05] bg-[#111115]/30 px-4 py-6 text-center text-[13px] text-zinc-500">
+                No planned or active sprints yet. Create a sprint, then drag tickets from the
+                backlog into it (or use Move), then press Start when the team commits.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {planningAndActive.map((group) => (
+                  <SprintSection
+                    key={group.id}
+                    sprint={group}
+                    onCreateTask={() => openCreate(group.id)}
+                    onTicketSelect={openDetail}
+                    onStartSprint={handleStartSprint}
+                    onCompleteSprint={handleCompleteSprint}
+                    onDeleteSprint={handleDeleteSprint}
+                    ticketMoveOptions={moveOptionsForSprintTicket(group.id)}
+                    onMoveTicket={handleMoveTicket}
+                    enableTicketDrag
+                    onTicketDrop={(ticketId) => {
+                      const t = tickets.find((x) => x.id === ticketId);
+                      if (t?.sprintId === group.id) return;
+                      void handleMoveTicket(ticketId, group.id);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-[15px] font-semibold text-zinc-200">Backlog</h2>
+                  <p className="text-[12px] text-zinc-500 mt-0.5">
+                    {backlogTickets.length} unscheduled{" "}
+                    {backlogTickets.length === 1 ? "ticket" : "tickets"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-[11px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
+                  disabled
+                >
+                  Archived
+                </button>
+              </div>
+
               <SprintSection
-                key={group.id}
-                sprint={group}
-                onCreateTask={() => openCreate(group.id)}
+                sprint={backlog}
+                isBacklog
+                onCreateTask={() => openCreate(null)}
                 onTicketSelect={openDetail}
-                onStartSprint={handleStartSprint}
-                onCompleteSprint={handleCompleteSprint}
-                onDeleteSprint={handleDeleteSprint}
-                ticketMoveOptions={moveOptionsForSprintTicket(group.id)}
+                ticketMoveOptions={moveOptionsForBacklogTicket()}
                 onMoveTicket={handleMoveTicket}
+                enableTicketDrag
+                onTicketDrop={(ticketId) => {
+                  const t = tickets.find((x) => x.id === ticketId);
+                  if (!t || t.sprintId === null) return;
+                  void handleMoveTicket(ticketId, null);
+                }}
               />
-            ))}
-          </div>
+            </div>
+
+            {completedGroups.length > 0 && (
+              <div className="pt-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-px flex-1 bg-white/[0.03]" />
+                  <span className="text-[11px] font-medium text-zinc-500">Completed sprints</span>
+                  <div className="h-px flex-1 bg-white/[0.03]" />
+                </div>
+                <div className="space-y-3 opacity-90">
+                  {completedGroups.map((group) => (
+                    <SprintSection
+                      key={group.id}
+                      sprint={group}
+                      onCreateTask={() => openCreate(null)}
+                      onTicketSelect={openDetail}
+                      ticketMoveOptions={moveOptionsForSprintTicket(group.id)}
+                      onMoveTicket={handleMoveTicket}
+                      enableTicketDrag
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col items-center justify-center py-12 opacity-30">
+              <Layers className="w-6 h-6 text-zinc-600 mb-2" />
+              <p className="text-[11px] text-zinc-600 font-medium">End of backlog</p>
+            </div>
+          </>
         )}
-
-        <div className="pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-[15px] font-semibold text-zinc-200">Backlog</h2>
-              <p className="text-[12px] text-zinc-500 mt-0.5">
-                {backlogTickets.length} unscheduled{" "}
-                {backlogTickets.length === 1 ? "ticket" : "tickets"}
-              </p>
-            </div>
-            <button
-              type="button"
-              className="text-[11px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
-              disabled
-            >
-              Archived
-            </button>
-          </div>
-
-          <SprintSection
-            sprint={backlog}
-            isBacklog
-            onCreateTask={() => openCreate(null)}
-            onTicketSelect={openDetail}
-            ticketMoveOptions={moveOptionsForBacklogTicket()}
-            onMoveTicket={handleMoveTicket}
-          />
-        </div>
-
-        {completedGroups.length > 0 && (
-          <div className="pt-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-px flex-1 bg-white/[0.03]" />
-              <span className="text-[11px] font-medium text-zinc-500">Completed sprints</span>
-              <div className="h-px flex-1 bg-white/[0.03]" />
-            </div>
-            <div className="space-y-3 opacity-90">
-              {completedGroups.map((group) => (
-                <SprintSection
-                  key={group.id}
-                  sprint={group}
-                  onCreateTask={() => openCreate(null)}
-                  onTicketSelect={openDetail}
-                  ticketMoveOptions={moveOptionsForSprintTicket(group.id)}
-                  onMoveTicket={handleMoveTicket}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex flex-col items-center justify-center py-12 opacity-30">
-          <Layers className="w-6 h-6 text-zinc-600 mb-2" />
-          <p className="text-[11px] text-zinc-600 font-medium">End of backlog</p>
-        </div>
       </div>
     </div>
   );

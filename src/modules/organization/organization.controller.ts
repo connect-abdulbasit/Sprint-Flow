@@ -15,14 +15,14 @@ export class OrganizationController {
 
       const workspaceData = body.workspaceName
         ? {
-          name: String(body.workspaceName).trim(),
-          slug: String(
-            body.workspaceSlug || body.workspaceName.toLowerCase().replace(/\s+/g, "-")
-          ).trim(),
-          description: body.workspaceDescription
-            ? String(body.workspaceDescription).trim()
-            : undefined,
-        }
+            name: String(body.workspaceName).trim(),
+            slug: String(
+              body.workspaceSlug || body.workspaceName.toLowerCase().replace(/\s+/g, "-")
+            ).trim(),
+            description: body.workspaceDescription
+              ? String(body.workspaceDescription).trim()
+              : undefined,
+          }
         : undefined;
 
       if (!name) {
@@ -72,6 +72,25 @@ export class OrganizationController {
       console.error("Fetch organization by id error:", error);
       return NextResponse.json(
         { error: (error as Error)?.message ?? "Failed to fetch organization" },
+        { status: 500 }
+      );
+    }
+  }
+
+  async getDashboard(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const dashboard = await organizationService.getOrganizationDashboard(user.id, id);
+      return NextResponse.json(dashboard);
+    } catch (error) {
+      console.error("Fetch organization dashboard error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to fetch organization dashboard" },
         { status: 500 }
       );
     }

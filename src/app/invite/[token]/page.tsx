@@ -15,6 +15,7 @@ import {
   XCircle,
   X,
 } from "lucide-react";
+import { InviteCardSkeleton } from "@/components/ui/skeleton";
 
 type InvitationData = {
   id: string;
@@ -213,10 +214,7 @@ export default function InviteAcceptPage() {
 
           <div className="p-8">
             {loading ? (
-              <div className="flex flex-col items-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin text-[#4f7cff] mb-4" />
-                <p className="text-sm text-[#6b6b80]">Loading invitation…</p>
-              </div>
+              <InviteCardSkeleton />
             ) : error && !invitation ? (
               <div className="flex flex-col items-center py-6 text-center">
                 <div
