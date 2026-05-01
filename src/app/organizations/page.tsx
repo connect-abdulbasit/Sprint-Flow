@@ -143,9 +143,6 @@ export default function OrganizationsPage() {
                       <div className="w-12 h-12 rounded-xl bg-white/[0.05] border border-white/[0.08] flex items-center justify-center text-lg font-bold text-[#f0f0f5] group-hover:bg-[var(--color-accent)]/10 group-hover:border-[var(--color-accent)]/20 transition-all">
                         {getInitials(org.name)}
                       </div>
-                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--color-accent)] bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/20 px-2.5 py-1.5 rounded-lg shadow-sm">
-                        FREE
-                      </span>
                     </div>
 
                     <h2 className="text-xl font-bold tracking-tight text-[#f0f0f5] mb-2 group-hover:text-white transition-colors">
