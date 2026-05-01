@@ -40,6 +40,33 @@ export class OrganizationService {
     return org;
   }
 
+  async getOrganizationDashboard(userId: string, orgId: string) {
+    const org = await organizationRepository.getOrganization(userId, orgId);
+    if (!org) {
+      throw new Error("Organization not found or you don't have access");
+    }
+
+    const [members, workspaces, activeTasksCount] = await Promise.all([
+      organizationRepository.getOrganizationMembers(orgId),
+      organizationRepository.getOrganizationWorkspaces(orgId),
+      organizationRepository.getOrganizationActiveTasksCount(orgId),
+    ]);
+
+    return {
+      organization: org,
+      workspaces,
+      members: members.map((m) => ({
+        ...m,
+        name: m.name ?? m.email ?? "Unknown User",
+      })),
+      stats: {
+        workspaceCount: workspaces.length,
+        memberCount: members.length,
+        activeTasksCount,
+      },
+    };
+  }
+
   async sendInvite(
     userId: string,
     data: { organizationId: string; email: string; role: "member" | "admin" | "owner" }
@@ -74,7 +101,11 @@ export class OrganizationService {
     return { success: true, message: "Successfully joined organization" };
   }
 
-  async updateOrganization(userId: string, orgId: string, data: { name?: string; description?: string }) {
+  async updateOrganization(
+    userId: string,
+    orgId: string,
+    data: { name?: string; description?: string }
+  ) {
     const member = await organizationRepository.getMember(userId, orgId);
     if (!member || !["owner", "admin"].includes(member.role)) {
       throw new Error("Forbidden: Not authorized to update organization");

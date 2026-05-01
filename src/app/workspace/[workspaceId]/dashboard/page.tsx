@@ -14,6 +14,7 @@ import {
   Circle,
   Sparkles,
 } from "lucide-react";
+import { DashboardPageSkeleton } from "@/components/ui/skeleton";
 
 const MEMBER_COLORS = ["#4f7cff", "#a259ff", "#00d4aa", "#ff9f43", "#ff4f7c", "#00b4d8"];
 const ACTIVITY_COLORS = ["#4f7cff", "#a259ff", "#00d4aa", "#ff9f43", "#ff4f7c", "#00b4d8"];
@@ -380,11 +381,17 @@ export default function DashboardPage() {
   const recentTasks = dashboard?.recentTasks ?? [];
   const teamWorkload = dashboard?.teamWorkload ?? [];
 
+  if (!loaded) {
+    return (
+      <div className="flex flex-col gap-6 pb-12">
+        <DashboardPageSkeleton />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6 pb-12">
-      <div
-        className={`flex flex-col sm:flex-row sm:items-end justify-between gap-4 transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}
-      >
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 transition-all duration-700 opacity-100 translate-y-0">
         <div>
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
@@ -422,7 +429,7 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-        {!sprint && loaded && (
+        {!sprint && (
           <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm">
             <Timer className="w-4 h-4 text-[var(--color-muted)]" />
             <span className="text-[var(--color-muted)] text-xs">No active sprint</span>
@@ -434,7 +441,7 @@ export default function DashboardPage() {
         {statCards.map((card, i) => (
           <div
             key={card.label}
-            className={`group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-500 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            className="group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-500 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 opacity-100 translate-y-0"
             style={{ transitionDelay: `${150 + i * 80}ms` }}
           >
             <div
@@ -462,7 +469,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div
-          className={`relative p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          className="relative p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
           style={{ transitionDelay: "500ms" }}
         >
           <div
@@ -515,7 +522,7 @@ export default function DashboardPage() {
         </div>
 
         <div
-          className={`lg:col-span-2 p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          className="lg:col-span-2 p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] transition-all duration-700 opacity-100 translate-y-0"
           style={{ transitionDelay: "600ms" }}
         >
           <div className="flex items-center justify-between mb-2">
@@ -560,7 +567,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div
-          className={`lg:col-span-2 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+          className="lg:col-span-2 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
           style={{ transitionDelay: "700ms" }}
         >
           <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.05]">
@@ -611,7 +618,7 @@ export default function DashboardPage() {
 
         <div className="flex flex-col gap-4">
           <div
-            className={`rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
             style={{ transitionDelay: "800ms" }}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
@@ -664,7 +671,7 @@ export default function DashboardPage() {
           </div>
 
           <div
-            className={`rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+            className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
             style={{ transitionDelay: "900ms" }}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
@@ -710,7 +717,7 @@ export default function DashboardPage() {
                         <div
                           className="h-full rounded-full transition-all duration-1000 ease-out"
                           style={{
-                            width: loaded ? `${pct}%` : "0%",
+                            width: `${pct}%`,
                             background: `linear-gradient(90deg, ${color}, ${color}cc)`,
                             transitionDelay: "1000ms",
                           }}

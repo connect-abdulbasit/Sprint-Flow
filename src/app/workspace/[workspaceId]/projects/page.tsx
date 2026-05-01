@@ -6,6 +6,7 @@ import { FolderKanban, Plus, Search, Filter, AlertCircle, X } from "lucide-react
 import { useProjects } from "@/hooks/useProjects";
 import ProjectCard from "@/components/project/ProjectCard";
 import ProjectModal from "@/components/project/ProjectModal";
+import { ProjectGridSkeleton } from "@/components/ui/skeleton";
 
 export default function ProjectsPage() {
   const { workspaceId } = useParams() as { workspaceId: string };
@@ -92,27 +93,7 @@ export default function ProjectsPage() {
 
       <div className="flex-1 overflow-y-auto px-10 py-10 custom-scrollbar">
         {loading && projects.length === 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="bg-[#111115] border border-white/[0.05] rounded-2xl p-5 animate-pulse"
-              >
-                <div className="flex items-start justify-between mb-5">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-800" />
-                  <div className="w-14 h-5 rounded-full bg-zinc-800" />
-                </div>
-                <div className="space-y-2">
-                  <div className="h-5 w-3/4 rounded bg-zinc-800" />
-                  <div className="h-4 w-full rounded bg-zinc-800/60" />
-                  <div className="h-4 w-2/3 rounded bg-zinc-800/40" />
-                </div>
-                <div className="mt-6 pt-4 border-t border-white/[0.03]">
-                  <div className="h-3 w-24 rounded bg-zinc-800/40" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <ProjectGridSkeleton count={6} />
         ) : filteredProjects.length === 0 && !loading ? (
           <div className="flex flex-col items-center justify-center py-32 text-center">
             <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center text-zinc-600 mb-6">

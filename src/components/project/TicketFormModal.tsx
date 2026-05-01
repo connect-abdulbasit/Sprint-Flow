@@ -12,9 +12,9 @@ import {
 } from "@/lib/projects-api";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { DEFAULT_STATUS_FORM_OPTIONS } from "@/lib/board-columns";
+import { TICKET_PRIORITY_LABELS, TICKET_PRIORITIES } from "@/lib/ticket-priority";
 
 const TYPES: TicketType[] = ["task", "bug", "feature", "improvement"];
-const PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -38,6 +38,8 @@ export interface TicketFormModalProps {
   defaultSprintId?: string | null;
   /** When set (e.g. from project board), status dropdown uses these values/labels. */
   statusOptions?: { value: string; label: string }[];
+  /** Tickets in this project to link as prerequisites when creating (optional). */
+  linkableTickets?: ProjectTicket[];
   isOpen: boolean;
   onClose: () => void;
   onSaved: (_ticket: ProjectTicket) => void;
@@ -53,6 +55,7 @@ export default function TicketFormModal({
   sprintPickerSprints = [],
   defaultSprintId = null,
   statusOptions,
+  linkableTickets = [],
   isOpen,
   onClose,
   onSaved,
@@ -68,6 +71,7 @@ export default function TicketFormModal({
   const [storyPoints, setStoryPoints] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [clearImage, setClearImage] = useState(false);
+  const [createDependsOnIds, setCreateDependsOnIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,8 +104,14 @@ export default function TicketFormModal({
       setAssigneeId("");
       setCreateSprintId(defaultSprintId ?? null);
       setStoryPoints("");
+      setCreateDependsOnIds([]);
     }
   }, [isOpen, mode, ticket, initialStatus, defaultSprintId]);
+
+  const createLinkOptions = useMemo(
+    () => [...linkableTickets].sort((a, b) => a.ticketNumber - b.ticketNumber),
+    [linkableTickets]
+  );
 
   const statusSelectOptions = useMemo(() => {
     const base = statusOptions?.length ? statusOptions : DEFAULT_STATUS_FORM_OPTIONS;
@@ -150,6 +160,7 @@ export default function TicketFormModal({
           assigneeId: assigneePayload,
           storyPoints: storyPointsVal,
           sprintId: createSprintId,
+          ...(createDependsOnIds.length > 0 ? { dependsOnTaskIds: createDependsOnIds } : {}),
           ...(imageBase64 !== undefined ? { imageBase64, imageMimeType } : {}),
         });
         onSaved(created);
@@ -271,9 +282,9 @@ export default function TicketFormModal({
                     onChange={(e) => setPriority(e.target.value)}
                     className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
                   >
-                    {PRIORITIES.map((p) => (
+                    {TICKET_PRIORITIES.map((p) => (
                       <option key={p} value={p}>
-                        {p}
+                        {TICKET_PRIORITY_LABELS[p]}
                       </option>
                     ))}
                   </select>
@@ -313,6 +324,42 @@ export default function TicketFormModal({
                   </select>
                 </div>
               </div>
+
+              {mode === "create" && createLinkOptions.length > 0 && (
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">
+                    Blocked by — complete these first
+                  </label>
+                  <p className="mb-2 text-[12px] text-zinc-500">
+                    Link tickets that must be done before work on this one can start.
+                  </p>
+                  <div className="custom-scrollbar max-h-[140px] space-y-1.5 overflow-y-auto rounded-lg border border-white/[0.08] p-2">
+                    {createLinkOptions.map((t) => (
+                      <label
+                        key={t.id}
+                        className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.03] ${createDependsOnIds.includes(t.id) ? "bg-amber-500/5" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 rounded border-zinc-600"
+                          checked={createDependsOnIds.includes(t.id)}
+                          onChange={() => {
+                            setCreateDependsOnIds((prev) =>
+                              prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id]
+                            );
+                          }}
+                        />
+                        <span className="min-w-0">
+                          <span className="font-mono text-[11px] text-zinc-500">{t.key}</span>
+                          <span className="mt-0.5 block truncate text-[13px] text-zinc-200">
+                            {t.title}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="mb-1 block text-[11px] font-medium text-zinc-500">
