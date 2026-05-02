@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { taskDependenciesTable, tasksTable } from "@/modules/task/task.schema";
+import { projectsTable } from "@/modules/project/project.schema";
 import { and, eq, inArray, max, ne, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
@@ -54,6 +55,37 @@ export class TaskRepository {
       .from(tasksTable)
       .where(eq(tasksTable.projectId, projectId))
       .orderBy(tasksTable.ticketNumber)
+      .execute();
+  }
+
+  /** All tasks assigned to a user across every project in a workspace. */
+  async findByAssigneeInWorkspace(assigneeId: string, workspaceId: string) {
+    return db
+      .select({
+        id: tasksTable.id,
+        projectId: tasksTable.projectId,
+        projectName: projectsTable.name,
+        ticketNumber: tasksTable.ticketNumber,
+        sprintId: tasksTable.sprintId,
+        title: tasksTable.title,
+        description: tasksTable.description,
+        type: tasksTable.type,
+        priority: tasksTable.priority,
+        status: tasksTable.status,
+        assigneeId: tasksTable.assigneeId,
+        assigneeName: tasksTable.assigneeName,
+        reporterId: tasksTable.reporterId,
+        reporterName: tasksTable.reporterName,
+        dueDate: tasksTable.dueDate,
+        storyPoints: tasksTable.storyPoints,
+        imageMimeType: tasksTable.imageMimeType,
+        createdAt: tasksTable.createdAt,
+        updatedAt: tasksTable.updatedAt,
+      })
+      .from(tasksTable)
+      .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
+      .where(and(eq(tasksTable.assigneeId, assigneeId), eq(projectsTable.workspaceId, workspaceId)))
+      .orderBy(tasksTable.updatedAt)
       .execute();
   }
 
