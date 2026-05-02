@@ -7,6 +7,7 @@ import { ticketKey } from "@/lib/ticket-key";
 import { normalizeTicketPriority, type TicketPriority } from "@/lib/ticket-priority";
 import { timeEntryService } from "@/modules/time_entry/time_entry.service";
 import type { SerializedTimeEntry } from "@/modules/time_entry/time_entry.types";
+import { hasRole, type WorkspaceRole } from "@/lib/auth/rbac";
 
 export function parseImagePayload(imageBase64: unknown, imageMimeType: unknown) {
   if (imageBase64 === null) {
@@ -270,10 +271,14 @@ export class TaskService {
       dependsOnTaskIds?: string[];
     }
   ) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
     }
+    if (!hasRole(membership.role as WorkspaceRole, "project_manager")) {
+      throw new Error("Forbidden: only admins and project managers can create tickets");
+    }
+    const { project } = membership;
     const assignee = await this.resolveAssignee(projectId, body.assigneeId ?? null);
     await this.assertSprintAssignable(projectId, body.sprintId ?? null);
     const priority: TicketPriority =
@@ -341,10 +346,12 @@ export class TaskService {
       dependsOnTaskIds: string[];
     }>
   ) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
     }
+    const role = membership.role as WorkspaceRole;
+    const workspaceIdForActivity = membership.project.workspaceId;
     const existing = await taskRepository.findByIdAndProject(ticketId, projectId);
     if (!existing) {
       throw new Error("Ticket not found");
@@ -396,6 +403,17 @@ export class TaskService {
       await this.validateAndPersistDependencies(projectId, ticketId, body.dependsOnTaskIds);
     }
 
+    if (!hasRole(role, "project_manager")) {
+      const allowedKeysForMember = new Set(["status"]);
+      const requestedKeys = Object.keys(body).filter(
+        (k) => (body as Record<string, unknown>)[k] !== undefined
+      );
+      const hasRestrictedChanges = requestedKeys.some((k) => !allowedKeysForMember.has(k));
+      if (hasRestrictedChanges) {
+        throw new Error("Forbidden: members can only update ticket status");
+      }
+    }
+
     if (Object.keys(patch).length === 0) {
       return this.getTicket(userId, projectId, ticketId, false);
     }
@@ -408,7 +426,7 @@ export class TaskService {
     // Log activity: completed
     if (body.status === "done" && existing.status !== "done") {
       await activityService.logActivity({
-        workspaceId: project.workspaceId,
+        workspaceId: workspaceIdForActivity,
         userId,
         action: "completed",
         entityType: "task",
@@ -420,7 +438,7 @@ export class TaskService {
     // Log activity: assigned
     if (body.assigneeId !== undefined && body.assigneeId !== existing.assigneeId) {
       await activityService.logActivity({
-        workspaceId: project.workspaceId,
+        workspaceId: workspaceIdForActivity,
         userId,
         action: "assigned",
         entityType: "task",
@@ -433,9 +451,12 @@ export class TaskService {
   }
 
   async deleteTicket(userId: string, projectId: string, ticketId: string) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
+    }
+    if (!hasRole(membership.role as WorkspaceRole, "admin")) {
+      throw new Error("Forbidden: only admins can delete tickets");
     }
     const existing = await taskRepository.findByIdAndProject(ticketId, projectId);
     if (!existing) {

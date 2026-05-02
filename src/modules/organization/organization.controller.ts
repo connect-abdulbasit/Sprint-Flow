@@ -96,63 +96,6 @@ export class OrganizationController {
     }
   }
 
-  async sendInvite(req: NextRequest) {
-    const user = await getCurrentUser(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    try {
-      const body = await req.json();
-      const organizationId = String(body.organizationId ?? "").trim();
-      const email = String(body.email ?? "")
-        .trim()
-        .toLowerCase();
-      const role = String(body.role ?? "").trim() as "member" | "admin" | "owner";
-
-      if (!organizationId || !email || !role) {
-        return NextResponse.json(
-          { error: "organizationId, email, and role required" },
-          { status: 400 }
-        );
-      }
-
-      const invite = await organizationService.sendInvite(user.id, { organizationId, email, role });
-      return NextResponse.json(invite);
-    } catch (error) {
-      console.error("Create invite error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to create invite" },
-        { status: 500 }
-      );
-    }
-  }
-
-  async acceptInvite(req: NextRequest) {
-    const user = await getCurrentUser(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    try {
-      const body = await req.json();
-      const token = String(body.token ?? "").trim();
-
-      if (!token) {
-        return NextResponse.json({ error: "Token required" }, { status: 400 });
-      }
-
-      const result = await organizationService.acceptInvite(user.id, token);
-      return NextResponse.json(result);
-    } catch (error) {
-      console.error("Accept invite error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to accept invite" },
-        { status: 500 }
-      );
-    }
-  }
-
   async update(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const user = await getCurrentUser(req);
     if (!user) {

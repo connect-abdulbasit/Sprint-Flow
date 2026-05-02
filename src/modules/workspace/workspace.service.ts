@@ -17,12 +17,20 @@ export class WorkspaceService {
       ...data,
     });
 
-    // Auto-assign the creator as admin
-    await workspaceRepository.addMember({
-      workspaceId: workspace.id,
-      userId,
-      role: "admin",
-    });
+    // Seed workspace admins from organization owner/admins.
+    // Keep creator as admin even if org role lookup is stale/missing.
+    const privilegedMembers = await workspaceRepository.getPrivilegedOrgMembers(
+      data.organizationId
+    );
+    const adminUserIds = new Set<string>([userId, ...privilegedMembers.map((m) => m.userId)]);
+
+    for (const adminUserId of adminUserIds) {
+      await workspaceRepository.addMember({
+        workspaceId: workspace.id,
+        userId: adminUserId,
+        role: "admin",
+      });
+    }
 
     return workspace;
   }
@@ -48,8 +56,8 @@ export class WorkspaceService {
 
   async updateWorkspace(userId: string, id: string, data: { name?: string; description?: string }) {
     const member = await workspaceRepository.getMember(userId, id);
-    if (!member) {
-      throw new Error("Access denied");
+    if (!member || !hasRole(member.role as WorkspaceRole, "admin")) {
+      throw new Error("Forbidden: only admins can update workspace settings");
     }
 
     const updateData: Partial<{ name: string; description: string }> = {};
@@ -65,8 +73,8 @@ export class WorkspaceService {
 
   async deleteWorkspace(userId: string, id: string) {
     const member = await workspaceRepository.getMember(userId, id);
-    if (!member) {
-      throw new Error("Access denied");
+    if (!member || !hasRole(member.role as WorkspaceRole, "admin")) {
+      throw new Error("Forbidden: only admins can delete workspaces");
     }
 
     return workspaceRepository.deleteWorkspace(id);
@@ -134,22 +142,39 @@ export class WorkspaceService {
       throw new Error("This email has already accepted an invite to this workspace.");
     }
 
-    // 6. Prevent duplicate pending invites (anti-spam) — return existing silently
+    // 6. Role policy before pending-invite handling:
+    // project managers can only invite members, never PM/admin.
+    if (sender.role === "project_manager" && data.role !== "member") {
+      throw new Error("Forbidden: Project managers can only invite members.");
+    }
+
+    // 7. Prevent duplicate pending invites (anti-spam).
+    // If role changed, update pending invite role to match latest intent.
     const pendingInvite = await workspaceRepository.findPendingInvite(data.workspaceId, data.email);
     if (pendingInvite) {
+      if (pendingInvite.role !== data.role) {
+        const updated = await workspaceRepository.updatePendingInviteRole(
+          pendingInvite.id,
+          data.role
+        );
+        return {
+          id: updated.id,
+          token: updated.token,
+          message: "Existing pending invitation updated with the new role.",
+          alreadyPending: true,
+          roleUpdated: true,
+        };
+      }
       return {
         id: pendingInvite.id,
         token: pendingInvite.token,
         message: "An invitation is already pending for this email.",
         alreadyPending: true,
+        roleUpdated: false,
       };
     }
 
-    // 7. Create the invite
-    // Project managers can only invite members, not admins or other PMs
-    if (sender.role === "project_manager" && data.role !== "member") {
-      throw new Error("Forbidden: Project managers can only invite members.");
-    }
+    // 8. Create the invite
 
     const token = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -168,6 +193,7 @@ export class WorkspaceService {
       token: invite.token,
       message: "Invitation sent successfully.",
       alreadyPending: false,
+      roleUpdated: false,
     };
   }
 
@@ -181,6 +207,7 @@ export class WorkspaceService {
 
     const invite = result.invite;
     const workspace = result.workspace;
+    const organization = result.organization;
     const inviter = result.inviter;
 
     // Check if expired
@@ -198,6 +225,7 @@ export class WorkspaceService {
       workspaceName: workspace?.name ?? "Unknown Workspace",
       workspaceId: workspace?.id ?? "",
       organizationId: workspace?.organizationId ?? "",
+      organizationName: organization?.name ?? "Unknown Organization",
       invitedByName: inviter?.name ?? "Unknown",
     };
   }

@@ -2,13 +2,13 @@ import { db } from "@/lib/db";
 import {
   organizationsTable,
   organizationMembersTable,
-  organizationInvitesTable,
   usersTable,
   workspacesTable,
+  workspaceMembersTable,
   projectsTable,
   tasksTable,
 } from "@/db";
-import { eq, and, asc, sql } from "drizzle-orm";
+import { eq, and, asc, inArray, sql } from "drizzle-orm";
 
 export class OrganizationRepository {
   async createOrganization(data: typeof organizationsTable.$inferInsert) {
@@ -37,7 +37,10 @@ export class OrganizationRepository {
 
   async getUserOrganizations(userId: string) {
     const results = await db
-      .select()
+      .select({
+        organization: organizationsTable,
+        role: organizationMembersTable.role,
+      })
       .from(organizationMembersTable)
       .where(eq(organizationMembersTable.userId, userId))
       .leftJoin(
@@ -46,7 +49,15 @@ export class OrganizationRepository {
       )
       .execute();
 
-    return results.map((r) => r.organizations).filter(Boolean);
+    return results
+      .map((r) => {
+        if (!r.organization) return null;
+        return {
+          ...r.organization,
+          role: r.role,
+        };
+      })
+      .filter(Boolean);
   }
 
   async getOrganization(userId: string, organizationId: string) {
@@ -93,6 +104,24 @@ export class OrganizationRepository {
       .execute();
   }
 
+  async getUserOrganizationWorkspaces(userId: string, organizationId: string) {
+    const results = await db
+      .select({
+        workspace: workspacesTable,
+      })
+      .from(workspaceMembersTable)
+      .innerJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
+      .where(
+        and(
+          eq(workspaceMembersTable.userId, userId),
+          eq(workspacesTable.organizationId, organizationId)
+        )
+      )
+      .execute();
+
+    return results.map((r) => r.workspace);
+  }
+
   async getOrganizationActiveTasksCount(organizationId: string) {
     const [row] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -110,31 +139,22 @@ export class OrganizationRepository {
     return row?.count ?? 0;
   }
 
-  async createInvite(data: typeof organizationInvitesTable.$inferInsert) {
-    const [invite] = await db.insert(organizationInvitesTable).values(data).returning().execute();
-    return invite;
-  }
+  async getActiveTasksCountForWorkspaceIds(workspaceIds: string[]) {
+    if (workspaceIds.length === 0) return 0;
 
-  async findInviteByToken(token: string) {
-    const results = await db
-      .select()
-      .from(organizationInvitesTable)
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(tasksTable)
+      .innerJoin(projectsTable, eq(tasksTable.projectId, projectsTable.id))
       .where(
         and(
-          eq(organizationInvitesTable.token, token),
-          eq(organizationInvitesTable.status, "pending")
+          inArray(projectsTable.workspaceId, workspaceIds),
+          sql`lower(${tasksTable.status}) <> 'done'`
         )
       )
       .execute();
-    return results[0];
-  }
 
-  async updateInviteStatus(inviteId: string, status: "pending" | "accepted" | "declined") {
-    await db
-      .update(organizationInvitesTable)
-      .set({ status })
-      .where(eq(organizationInvitesTable.id, inviteId))
-      .execute();
+    return row?.count ?? 0;
   }
 
   async updateOrganization(
