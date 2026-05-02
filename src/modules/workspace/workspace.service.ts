@@ -6,6 +6,7 @@ import { activityService } from "@/modules/activity/activity.service";
 import { authRepository } from "@/modules/auth/auth.repository";
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
+import { hasRole, type WorkspaceRole } from "@/lib/auth/rbac";
 
 export class WorkspaceService {
   async createWorkspace(
@@ -95,7 +96,7 @@ export class WorkspaceService {
 
   async sendInvite(
     userId: string,
-    data: { workspaceId: string; email: string; role: "member" | "admin" }
+    data: { workspaceId: string; email: string; role: WorkspaceRole }
   ) {
     // 1. Email-only validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -109,10 +110,10 @@ export class WorkspaceService {
       throw new Error("Workspace not found.");
     }
 
-    // 3. Verify sender is admin/member of workspace
+    // 3. RBAC: Only admins and project_managers can send invites
     const sender = await workspaceRepository.getMember(userId, data.workspaceId);
-    if (!sender || sender.role !== "admin") {
-      throw new Error("Forbidden: Only workspace admins can send invites.");
+    if (!sender || !hasRole(sender.role as WorkspaceRole, "project_manager")) {
+      throw new Error("Forbidden: Only admins and project managers can send invites.");
     }
 
     // 4. Check if user is already a workspace member (by email)
@@ -145,6 +146,11 @@ export class WorkspaceService {
     }
 
     // 7. Create the invite
+    // Project managers can only invite members, not admins or other PMs
+    if (sender.role === "project_manager" && data.role !== "member") {
+      throw new Error("Forbidden: Project managers can only invite members.");
+    }
+
     const token = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     const invite = await workspaceRepository.createInvite({
@@ -249,7 +255,7 @@ export class WorkspaceService {
         .values({
           workspaceId: inviteRow.workspaceId,
           userId,
-          role: inviteRow.role as "admin" | "member",
+          role: inviteRow.role as WorkspaceRole,
         })
         .execute();
 
@@ -281,9 +287,9 @@ export class WorkspaceService {
   }
 
   async removeMember(callerUserId: string, workspaceId: string, targetUserId: string) {
-    // Verify caller is admin
+    // RBAC: Only admins can remove members
     const caller = await workspaceRepository.getMember(callerUserId, workspaceId);
-    if (!caller || caller.role !== "admin") {
+    if (!caller || !hasRole(caller.role as WorkspaceRole, "admin")) {
       throw new Error("Forbidden: Only workspace admins can remove members.");
     }
 
@@ -333,10 +339,10 @@ export class WorkspaceService {
   // ── Invite: list pending for a workspace ──────────────────
 
   async getWorkspaceInvites(userId: string, workspaceId: string) {
-    // Verify user is admin
+    // RBAC: Admins and project_managers can view invites
     const member = await workspaceRepository.getMember(userId, workspaceId);
-    if (!member || member.role !== "admin") {
-      throw new Error("Forbidden: Only workspace admins can view invites.");
+    if (!member || !hasRole(member.role as WorkspaceRole, "project_manager")) {
+      throw new Error("Forbidden: Only admins and project managers can view invites.");
     }
 
     const results = await workspaceRepository.getWorkspaceInvites(workspaceId);
