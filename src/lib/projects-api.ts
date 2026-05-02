@@ -94,6 +94,36 @@ export async function fetchProject(id: string): Promise<Project> {
   return handleResponse<Project>(res);
 }
 
+// ─── My Tasks ────────────────────────────────────────────────────────────────
+
+export interface MyTask {
+  id: string;
+  projectId: string;
+  projectName: string;
+  ticketNumber: number;
+  key: string;
+  title: string;
+  description: string | null;
+  type: TicketType;
+  priority: string;
+  status: string;
+  sprintId: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  reporterId: string;
+  reporterName: string;
+  dueDate: string | null;
+  storyPoints: number | null;
+  hasImage: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchMyTasks(workspaceId: string): Promise<MyTask[]> {
+  const res = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/my-tasks`);
+  return handleResponse<MyTask[]>(res);
+}
+
 export type TicketType = "task" | "bug" | "feature" | "improvement";
 
 /** Linked ticket shown on detail (blocked-by / blocks). */
