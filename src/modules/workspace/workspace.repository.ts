@@ -42,13 +42,24 @@ export class WorkspaceRepository {
 
   async getUserWorkspaces(userId: string) {
     const results = await db
-      .select()
+      .select({
+        workspace: workspacesTable,
+        role: workspaceMembersTable.role,
+      })
       .from(workspaceMembersTable)
       .where(eq(workspaceMembersTable.userId, userId))
       .leftJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
       .execute();
 
-    return results.map((r) => r.workspaces).filter(Boolean);
+    return results
+      .map((r) => {
+        if (!r.workspace) return null;
+        return {
+          ...r.workspace,
+          role: r.role,
+        };
+      })
+      .filter(Boolean);
   }
 
   async getWorkspaceById(idOrSlug: string) {
@@ -159,6 +170,16 @@ export class WorkspaceRepository {
       .set({ status })
       .where(eq(workspaceInvitesTable.id, inviteId))
       .execute();
+  }
+
+  async updatePendingInviteRole(inviteId: string, role: "admin" | "project_manager" | "member") {
+    const [invite] = await db
+      .update(workspaceInvitesTable)
+      .set({ role })
+      .where(eq(workspaceInvitesTable.id, inviteId))
+      .returning()
+      .execute();
+    return invite;
   }
 
   async findUserByEmail(email: string) {
