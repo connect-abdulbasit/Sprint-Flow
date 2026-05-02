@@ -1,7 +1,13 @@
 import { db } from "@/lib/db";
-import { workspacesTable, workspaceMembersTable, workspaceInvitesTable, usersTable } from "@/db";
+import {
+  organizationsTable,
+  workspacesTable,
+  workspaceMembersTable,
+  workspaceInvitesTable,
+  usersTable,
+} from "@/db";
 import { organizationMembersTable } from "@/modules/organization/organization.schema";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gt, inArray } from "drizzle-orm";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -96,7 +102,8 @@ export class WorkspaceRepository {
         and(
           eq(workspaceInvitesTable.workspaceId, workspaceId),
           eq(workspaceInvitesTable.email, email),
-          eq(workspaceInvitesTable.status, "pending")
+          eq(workspaceInvitesTable.status, "pending"),
+          gt(workspaceInvitesTable.expiresAt, new Date())
         )
       )
       .execute();
@@ -134,10 +141,12 @@ export class WorkspaceRepository {
       .select({
         invite: workspaceInvitesTable,
         workspace: workspacesTable,
+        organization: organizationsTable,
         inviter: usersTable,
       })
       .from(workspaceInvitesTable)
       .leftJoin(workspacesTable, eq(workspaceInvitesTable.workspaceId, workspacesTable.id))
+      .leftJoin(organizationsTable, eq(workspacesTable.organizationId, organizationsTable.id))
       .leftJoin(usersTable, eq(workspaceInvitesTable.invitedBy, usersTable.id))
       .where(eq(workspaceInvitesTable.token, token))
       .execute();
@@ -168,7 +177,8 @@ export class WorkspaceRepository {
       .where(
         and(
           eq(workspaceInvitesTable.workspaceId, workspaceId),
-          eq(workspaceInvitesTable.status, "pending")
+          eq(workspaceInvitesTable.status, "pending"),
+          gt(workspaceInvitesTable.expiresAt, new Date())
         )
       )
       .execute();
@@ -192,6 +202,23 @@ export class WorkspaceRepository {
       )
       .execute();
     return results[0];
+  }
+
+  async getPrivilegedOrgMembers(organizationId: string) {
+    const results = await db
+      .select({
+        userId: organizationMembersTable.userId,
+        role: organizationMembersTable.role,
+      })
+      .from(organizationMembersTable)
+      .where(
+        and(
+          eq(organizationMembersTable.organizationId, organizationId),
+          inArray(organizationMembersTable.role, ["owner", "admin"])
+        )
+      )
+      .execute();
+    return results;
   }
 
   async getWorkspacesByOrganizationId(organizationId: string) {

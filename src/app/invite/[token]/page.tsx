@@ -27,6 +27,7 @@ type InvitationData = {
   workspaceName: string;
   workspaceId: string;
   organizationId: string;
+  organizationName: string;
   invitedByName: string;
 };
 
@@ -349,6 +350,12 @@ export default function InviteAcceptPage() {
                     <Briefcase className="w-4 h-4 text-[#4f7cff]" />
                     <h3 className="text-lg font-bold text-[#f0f0f5]">{invitation.workspaceName}</h3>
                   </div>
+                  <p className="text-xs text-[#9090a8] mb-3">
+                    Organization:{" "}
+                    <span className="text-[#f0f0f5] font-medium">
+                      {invitation.organizationName}
+                    </span>
+                  </p>
                   <div className="flex items-center justify-center gap-4 text-xs text-[#6b6b80]">
                     <span className="flex items-center gap-1.5">
                       {invitation.role === "admin" ? (

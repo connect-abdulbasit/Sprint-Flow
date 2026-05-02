@@ -17,12 +17,20 @@ export class WorkspaceService {
       ...data,
     });
 
-    // Auto-assign the creator as admin
-    await workspaceRepository.addMember({
-      workspaceId: workspace.id,
-      userId,
-      role: "admin",
-    });
+    // Seed workspace admins from organization owner/admins.
+    // Keep creator as admin even if org role lookup is stale/missing.
+    const privilegedMembers = await workspaceRepository.getPrivilegedOrgMembers(
+      data.organizationId
+    );
+    const adminUserIds = new Set<string>([userId, ...privilegedMembers.map((m) => m.userId)]);
+
+    for (const adminUserId of adminUserIds) {
+      await workspaceRepository.addMember({
+        workspaceId: workspace.id,
+        userId: adminUserId,
+        role: "admin",
+      });
+    }
 
     return workspace;
   }
@@ -181,6 +189,7 @@ export class WorkspaceService {
 
     const invite = result.invite;
     const workspace = result.workspace;
+    const organization = result.organization;
     const inviter = result.inviter;
 
     // Check if expired
@@ -198,6 +207,7 @@ export class WorkspaceService {
       workspaceName: workspace?.name ?? "Unknown Workspace",
       workspaceId: workspace?.id ?? "",
       organizationId: workspace?.organizationId ?? "",
+      organizationName: organization?.name ?? "Unknown Organization",
       invitedByName: inviter?.name ?? "Unknown",
     };
   }
