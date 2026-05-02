@@ -42,7 +42,7 @@ export default function InviteModal({
   workspaceName,
 }: InviteModalProps) {
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"member" | "admin">("member");
+  const [role, setRole] = useState<"member" | "project_manager" | "admin">("member");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [inviteLink, setInviteLink] = useState("");
@@ -287,7 +287,7 @@ export default function InviteModal({
 
                 <div>
                   <label className="block text-[13px] font-medium text-[#9090a8] mb-2">Role</label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <button
                       type="button"
                       onClick={() => setRole("member")}
@@ -310,6 +310,30 @@ export default function InviteModal({
                       Member
                       {role === "member" && (
                         <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#4f7cff]" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRole("project_manager")}
+                      className="relative flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200"
+                      style={{
+                        background:
+                          role === "project_manager"
+                            ? "linear-gradient(135deg, rgba(255, 159, 67, 0.12), rgba(255, 159, 67, 0.06))"
+                            : "rgba(255, 255, 255, 0.02)",
+                        border: `1px solid ${role === "project_manager" ? "rgba(255, 159, 67, 0.3)" : "rgba(255, 255, 255, 0.06)"}`,
+                        color: role === "project_manager" ? "#f0f0f5" : "#6b6b80",
+                      }}
+                    >
+                      <Shield
+                        className="w-4 h-4"
+                        style={{
+                          color: role === "project_manager" ? "#ff9f43" : "#6b6b80",
+                        }}
+                      />
+                      PM
+                      {role === "project_manager" && (
+                        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#ff9f43]" />
                       )}
                     </button>
                     <button
@@ -339,8 +363,10 @@ export default function InviteModal({
                   </div>
                   <p className="text-[11px] text-[#6b6b80] mt-2">
                     {role === "member"
-                      ? "Members can view and contribute to projects."
-                      : "Admins can manage members, settings, and projects."}
+                      ? "Members can view projects and update task statuses."
+                      : role === "project_manager"
+                        ? "Project Managers can create/edit projects, tasks, and invite members."
+                        : "Admins can manage members, settings, billing, and all projects."}
                   </p>
                 </div>
 

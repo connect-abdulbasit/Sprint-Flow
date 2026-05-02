@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { authService } from "@/modules/auth/auth.service";
 import { verifyAccessToken } from "@/lib/jwt";
+import { db } from "@/lib/db";
+import { workspaceMembersTable } from "@/modules/workspace/workspace.schema";
+import { and, eq } from "drizzle-orm";
+import type { WorkspaceRole } from "@/lib/auth/rbac";
 
 export function hashPassword(password: string) {
   return bcrypt.hashSync(password, 10);
@@ -83,6 +87,34 @@ export async function getCurrentUser(req: NextRequest) {
   } catch {
     return null;
   }
+}
+
+/**
+ * Get current user together with their workspace role.
+ * Returns null if not authenticated or not a member of the workspace.
+ */
+export async function getCurrentUserWithRole(req: NextRequest, workspaceId: string) {
+  const user = await getCurrentUser(req);
+  if (!user) return null;
+
+  const results = await db
+    .select({ role: workspaceMembersTable.role })
+    .from(workspaceMembersTable)
+    .where(
+      and(
+        eq(workspaceMembersTable.userId, user.id),
+        eq(workspaceMembersTable.workspaceId, workspaceId)
+      )
+    )
+    .execute();
+
+  const membership = results[0];
+  if (!membership) return null;
+
+  return {
+    ...user,
+    workspaceRole: membership.role as WorkspaceRole,
+  };
 }
 
 export async function createSession(userId: string) {

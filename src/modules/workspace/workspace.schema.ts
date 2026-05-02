@@ -13,7 +13,7 @@ import { usersTable } from "@/modules/user/user.schema";
 import { relations } from "drizzle-orm";
 import { projectsTable } from "@/modules/project/project.schema";
 
-export const workspaceRoleEnum = pgEnum("workspace_role", ["admin", "member"]);
+export const workspaceRoleEnum = pgEnum("workspace_role", ["admin", "project_manager", "member"]);
 
 export const workspacesTable = pgTable(
   "workspaces",

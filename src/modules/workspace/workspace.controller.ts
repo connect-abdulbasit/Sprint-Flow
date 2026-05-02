@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { workspaceService } from "./workspace.service";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getCurrentUserWithRole } from "@/lib/auth";
+import { hasRole, isValidRole, type WorkspaceRole } from "@/lib/auth/rbac";
 
 export class WorkspaceController {
   async create(req: NextRequest) {
@@ -264,24 +265,37 @@ export class WorkspaceController {
   }
 
   async sendInvite(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const user = await getCurrentUser(req);
-    if (!user) {
+    const { id: workspaceId } = await params;
+
+    // RBAC: Resolve user + workspace role in one shot
+    const userWithRole = await getCurrentUserWithRole(req, workspaceId);
+    if (!userWithRole) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Enforce: only admin and project_manager can send invites
+    if (!hasRole(userWithRole.workspaceRole, "project_manager")) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have permission to invite users." },
+        { status: 403 }
+      );
+    }
+
     try {
-      const { id: workspaceId } = await params;
       const body = await req.json();
       const email = String(body.email ?? "")
         .trim()
         .toLowerCase();
-      const role = (body.role === "admin" ? "admin" : "member") as "member" | "admin";
+      const rawRole = String(body.role ?? "member")
+        .trim()
+        .toLowerCase();
+      const role: WorkspaceRole = isValidRole(rawRole) ? rawRole : "member";
 
       if (!email) {
         return NextResponse.json({ error: "Email is required" }, { status: 400 });
       }
 
-      const result = await workspaceService.sendInvite(user.id, {
+      const result = await workspaceService.sendInvite(userWithRole.id, {
         workspaceId,
         email,
         role,
