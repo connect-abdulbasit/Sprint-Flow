@@ -37,7 +37,10 @@ export class OrganizationRepository {
 
   async getUserOrganizations(userId: string) {
     const results = await db
-      .select()
+      .select({
+        organization: organizationsTable,
+        role: organizationMembersTable.role,
+      })
       .from(organizationMembersTable)
       .where(eq(organizationMembersTable.userId, userId))
       .leftJoin(
@@ -46,7 +49,15 @@ export class OrganizationRepository {
       )
       .execute();
 
-    return results.map((r) => r.organizations).filter(Boolean);
+    return results
+      .map((r) => {
+        if (!r.organization) return null;
+        return {
+          ...r.organization,
+          role: r.role,
+        };
+      })
+      .filter(Boolean);
   }
 
   async getOrganization(userId: string, organizationId: string) {

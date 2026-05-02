@@ -100,11 +100,10 @@ export class WorkspaceController {
       });
       return NextResponse.json(updated);
     } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to update workspace";
       console.error("Update workspace error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to update workspace" },
-        { status: 500 }
-      );
+      const status = message.includes("Forbidden") ? 403 : 500;
+      return NextResponse.json({ error: message }, { status });
     }
   }
 
@@ -119,11 +118,10 @@ export class WorkspaceController {
       await workspaceService.deleteWorkspace(user.id, id);
       return NextResponse.json({ success: true });
     } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to delete workspace";
       console.error("Delete workspace error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to delete workspace" },
-        { status: 500 }
-      );
+      const status = message.includes("Forbidden") ? 403 : 500;
+      return NextResponse.json({ error: message }, { status });
     }
   }
 

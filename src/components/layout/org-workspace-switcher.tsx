@@ -27,6 +27,7 @@ interface Workspace {
   id: string;
   name: string;
   color: string;
+  role?: string;
   taskCount: number;
   memberCount: number;
 }
@@ -51,6 +52,18 @@ const GRADIENTS = [
 function getGradient(id: string) {
   const charSum = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return GRADIENTS[charSum % GRADIENTS.length];
+}
+
+function getOrganizationRoleLabel(role: string | null | undefined) {
+  if (role === "owner") return "Org Owner";
+  if (role === "admin") return "Org Admin";
+  return "Org Member";
+}
+
+function getWorkspaceRoleLabel(role: string | null | undefined) {
+  if (role === "admin") return "Admin";
+  if (role === "project_manager") return "Project Manager";
+  return "Member";
 }
 
 export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
@@ -79,22 +92,29 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         const orgsData = await orgsRes.json();
         const wsData = await wsRes.json();
 
-        const mappedOrgs = orgsData.map((org: { id: string; name: string }) => ({
+        const mappedOrgs = orgsData.map((org: { id: string; name: string; role?: string }) => ({
           id: org.id,
           name: org.name,
           initials: getInitials(org.name),
-          role: "Owner",
+          role: getOrganizationRoleLabel(org.role),
           gradient: getGradient(org.id),
         }));
 
         const wsByOrg: Record<string, Workspace[]> = {};
         wsData.forEach(
-          (ws: { id: string; name: string; color: string | null; organizationId: string }) => {
+          (ws: {
+            id: string;
+            name: string;
+            color: string | null;
+            organizationId: string;
+            role?: string;
+          }) => {
             if (!wsByOrg[ws.organizationId]) wsByOrg[ws.organizationId] = [];
             wsByOrg[ws.organizationId].push({
               id: ws.id,
               name: ws.name,
               color: ws.color || "#4f7cff",
+              role: ws.role,
               taskCount: 0,
               memberCount: 1,
             });
@@ -269,6 +289,10 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                   }}
                 />
                 <span className="text-[11px] text-[#8888a0] truncate">{currentWorkspace.name}</span>
+                <span className="text-[11px] text-[#6b6b80]">•</span>
+                <span className="text-[11px] text-[#6b6b80] truncate">
+                  {getWorkspaceRoleLabel(currentWorkspace.role)}
+                </span>
               </>
             )}
             {!currentWorkspace && (
@@ -326,7 +350,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                   <span className="text-[12.5px] font-semibold truncate block leading-tight">
                     {org.name}
                   </span>
-                  <span className="text-[10px] text-[#6b6b80]">{org.role}</span>
                 </div>
                 {isSelected && (
                   <Check className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
@@ -377,6 +400,9 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                 <div className="flex-1 min-w-0">
                   <span className="text-[12.5px] font-medium truncate block leading-tight">
                     {ws.name}
+                  </span>
+                  <span className="text-[10px] text-[#6b6b80] truncate">
+                    {getWorkspaceRoleLabel(ws.role)}
                   </span>
                 </div>
                 <span className="text-[10px] text-[#6b6b80] tabular-nums shrink-0">

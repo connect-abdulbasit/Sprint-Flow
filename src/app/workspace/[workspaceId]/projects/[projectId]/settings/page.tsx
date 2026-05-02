@@ -8,6 +8,7 @@ import { useEffect, useState, useRef } from "react";
 import { deleteProject, fetchProject, type Project } from "@/lib/projects-api";
 import { projectKeyPrefix } from "@/lib/ticket-key";
 import { ProjectSettingsBodySkeleton } from "@/components/ui/skeleton";
+import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 
 export default function ProjectSettingsPage() {
   const router = useRouter();
@@ -16,6 +17,8 @@ export default function ProjectSettingsPage() {
   const workspaceId = params.workspaceId;
   const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
   const wid = typeof workspaceId === "string" ? workspaceId : (workspaceId?.[0] ?? "");
+  const { hasRole, isLoading: roleLoading } = useWorkspaceRole(wid);
+  const canDeleteProject = !roleLoading && hasRole("admin");
   const [project, setProject] = useState<Project | null>(null);
   const [activeSection, setActiveSection] = useState("general");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -71,7 +74,16 @@ export default function ProjectSettingsPage() {
               <nav className="space-y-1">
                 {[
                   { id: "general" as const, label: "General", icon: Settings },
-                  { id: "danger" as const, label: "Danger Zone", icon: ShieldAlert, danger: true },
+                  ...(canDeleteProject
+                    ? [
+                        {
+                          id: "danger" as const,
+                          label: "Danger Zone",
+                          icon: ShieldAlert,
+                          danger: true,
+                        },
+                      ]
+                    : []),
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -194,37 +206,41 @@ export default function ProjectSettingsPage() {
                 </div>
               </section>
 
-              <section ref={sections.danger} className="space-y-8 pt-8">
-                <div className="border-b border-red-500/10 pb-6 text-red-400">
-                  <h2 className="text-2xl font-bold tracking-tight">Danger Zone</h2>
-                  <p className="text-[14px] text-red-500/60 mt-1">
-                    Actions here are permanent and cannot be undone.
-                  </p>
-                </div>
-
-                <div className="p-8 rounded-2xl bg-red-500/[0.03] border border-red-500/10 flex flex-col md:flex-row items-center gap-8 shadow-[0_0_30px_rgba(239,68,68,0.02)]">
-                  <div className="flex-1 text-center md:text-left">
-                    <h3 className="text-[16px] font-bold text-red-400 mb-2">Delete this project</h3>
-                    <p className="text-[13px] text-zinc-500 leading-relaxed">
-                      Removing this project will delete all associated tickets, sprints, and
-                      metrics. This action is{" "}
-                      <span className="text-red-400/80 font-bold italic">irreversible</span>.
+              {canDeleteProject && (
+                <section ref={sections.danger} className="space-y-8 pt-8">
+                  <div className="border-b border-red-500/10 pb-6 text-red-400">
+                    <h2 className="text-2xl font-bold tracking-tight">Danger Zone</h2>
+                    <p className="text-[14px] text-red-500/60 mt-1">
+                      Actions here are permanent and cannot be undone.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={!pid}
-                    onClick={() => {
-                      setDeleteError(null);
-                      setDeleteDialogOpen(true);
-                    }}
-                    className="shrink-0 px-6 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[13px] font-bold rounded-xl border border-red-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete Project
-                  </button>
-                </div>
-              </section>
+
+                  <div className="p-8 rounded-2xl bg-red-500/[0.03] border border-red-500/10 flex flex-col md:flex-row items-center gap-8 shadow-[0_0_30px_rgba(239,68,68,0.02)]">
+                    <div className="flex-1 text-center md:text-left">
+                      <h3 className="text-[16px] font-bold text-red-400 mb-2">
+                        Delete this project
+                      </h3>
+                      <p className="text-[13px] text-zinc-500 leading-relaxed">
+                        Removing this project will delete all associated tickets, sprints, and
+                        metrics. This action is{" "}
+                        <span className="text-red-400/80 font-bold italic">irreversible</span>.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!pid}
+                      onClick={() => {
+                        setDeleteError(null);
+                        setDeleteDialogOpen(true);
+                      }}
+                      className="shrink-0 px-6 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[13px] font-bold rounded-xl border border-red-500/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Project
+                    </button>
+                  </div>
+                </section>
+              )}
 
               <DeleteConfirmDialog
                 isOpen={deleteDialogOpen}

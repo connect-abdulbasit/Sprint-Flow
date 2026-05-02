@@ -3,7 +3,12 @@ import { getCurrentUser } from "@/lib/auth";
 import { taskService } from "@/modules/task/task.service";
 
 function ticketErrorStatus(message: string) {
-  if (message.includes("access denied") || message.includes("Project not found")) return 403;
+  if (
+    message.includes("Forbidden") ||
+    message.includes("access denied") ||
+    message.includes("Project not found")
+  )
+    return 403;
   if (message.includes("Ticket not found") || message.includes("Ticket image not found"))
     return 404;
   if (

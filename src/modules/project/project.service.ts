@@ -2,6 +2,8 @@ import { projectRepository } from "./project.repository";
 import { workspaceService } from "@/modules/workspace/workspace.service";
 import { activityService } from "@/modules/activity/activity.service";
 import { parseBoardColumnsPayload } from "@/lib/board-columns";
+import { hasRole, type WorkspaceRole } from "@/lib/auth/rbac";
+import { workspaceRepository } from "@/modules/workspace/workspace.repository";
 
 export class ProjectService {
   async getWorkspaceProjects(userId: string, workspaceId: string) {
@@ -17,10 +19,14 @@ export class ProjectService {
     userId: string,
     payload: { name: string; description?: string; workspaceId: string }
   ) {
-    // Verify workspace access
+    // Verify workspace access and management permissions
     const workspace = await workspaceService.getWorkspaceById(userId, payload.workspaceId);
-    if (!workspace) {
+    const membership = await workspaceRepository.getMember(userId, payload.workspaceId);
+    if (!workspace || !membership) {
       throw new Error("Workspace not found or access denied");
+    }
+    if (!hasRole(membership.role as WorkspaceRole, "project_manager")) {
+      throw new Error("Forbidden: only admins and project managers can create projects");
     }
     const project = await projectRepository.create({
       ...payload,
@@ -49,10 +55,14 @@ export class ProjectService {
       boardColumns?: unknown;
     }
   ) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
     }
+    if (!hasRole(membership.role as WorkspaceRole, "project_manager")) {
+      throw new Error("Forbidden: only admins and project managers can update projects");
+    }
+    const { project } = membership;
     const patch: Parameters<typeof projectRepository.update>[1] = {};
     if (payload.name !== undefined) {
       const n = String(payload.name).trim();
@@ -73,10 +83,14 @@ export class ProjectService {
   }
 
   async deleteProject(userId: string, projectId: string) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
     }
+    if (!hasRole(membership.role as WorkspaceRole, "admin")) {
+      throw new Error("Forbidden: only admins can delete projects");
+    }
+    const { project } = membership;
 
     await activityService.logActivity({
       workspaceId: project.workspaceId,

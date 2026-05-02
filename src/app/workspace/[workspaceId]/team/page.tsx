@@ -109,6 +109,7 @@ export default function TeamPage() {
   );
 
   const adminCount = members.filter((m) => m.role === "admin").length;
+  const projectManagerCount = members.filter((m) => m.role === "project_manager").length;
   const memberCount = members.filter((m) => m.role === "member").length;
   const wsName = workspace?.name ?? "Workspace";
 
@@ -178,7 +179,7 @@ export default function TeamPage() {
         ) : (
           <>
             {/* ── Stat Cards ─────────────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 {
                   label: "Total Members",
@@ -191,6 +192,12 @@ export default function TeamPage() {
                   value: adminCount.toString(),
                   icon: Shield,
                   color: "#a259ff",
+                },
+                {
+                  label: "Project Managers",
+                  value: projectManagerCount.toString(),
+                  icon: Briefcase,
+                  color: "#ff9f43",
                 },
                 {
                   label: "Members",

@@ -44,6 +44,24 @@ export class ProjectRepository {
     return ok ? project : null;
   }
 
+  async getProjectIfMemberWithRole(userId: string, projectId: string) {
+    const [row] = await db
+      .select({
+        project: projectsTable,
+        role: workspaceMembersTable.role,
+      })
+      .from(projectsTable)
+      .innerJoin(
+        workspaceMembersTable,
+        eq(workspaceMembersTable.workspaceId, projectsTable.workspaceId)
+      )
+      .where(and(eq(projectsTable.id, projectId), eq(workspaceMembersTable.userId, userId)))
+      .execute();
+
+    if (!row) return null;
+    return row;
+  }
+
   async create(data: {
     name: string;
     description?: string;
