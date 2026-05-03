@@ -338,6 +338,11 @@ export class WorkspaceController {
   }
 
   async getInviteByToken(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
       const { token } = await params;
       const invite = await workspaceService.getInviteByToken(token);

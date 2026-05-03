@@ -5,9 +5,7 @@ import { verifyAccessToken } from "@/lib/jwt";
 const PUBLIC_PATHS = ["/", "/signin", "/signup"];
 
 function isPublicPath(pathname: string) {
-  if (PUBLIC_PATHS.includes(pathname)) return true;
-  if (pathname.startsWith("/invite/")) return true;
-  return false;
+  return PUBLIC_PATHS.includes(pathname);
 }
 
 const AUTH_PAGES = ["/signin", "/signup"];
