@@ -4,7 +4,7 @@ import { sprintsTable } from "@/modules/sprint/sprint.schema";
 import { tasksTable } from "@/modules/task/task.schema";
 import { workspaceMembersTable } from "@/modules/workspace/workspace.schema";
 import { usersTable } from "@/modules/user/user.schema";
-import { eq, inArray, desc, and } from "drizzle-orm";
+import { eq, inArray, desc, and, asc } from "drizzle-orm";
 
 export class DashboardRepository {
   async getWorkspaceProjects(workspaceId: string) {
@@ -15,9 +15,9 @@ export class DashboardRepository {
       .execute();
   }
 
-  async getActiveSprintForProjects(projectIds: string[]) {
-    if (projectIds.length === 0) return null;
-    const [row] = await db
+  async getActiveSprintsForProjects(projectIds: string[]) {
+    if (projectIds.length === 0) return [];
+    return db
       .select({
         id: sprintsTable.id,
         name: sprintsTable.name,
@@ -30,15 +30,15 @@ export class DashboardRepository {
       .from(sprintsTable)
       .innerJoin(projectsTable, eq(sprintsTable.projectId, projectsTable.id))
       .where(and(inArray(sprintsTable.projectId, projectIds), eq(sprintsTable.status, "active")))
-      .limit(1)
+      .orderBy(asc(sprintsTable.endDate))
       .execute();
-    return row ?? null;
   }
 
   async getSprintTasks(sprintId: string) {
     return db
       .select({
         id: tasksTable.id,
+        sprintId: tasksTable.sprintId,
         title: tasksTable.title,
         status: tasksTable.status,
         priority: tasksTable.priority,
@@ -51,6 +51,27 @@ export class DashboardRepository {
       })
       .from(tasksTable)
       .where(eq(tasksTable.sprintId, sprintId))
+      .execute();
+  }
+
+  async getSprintTasksForSprints(sprintIds: string[]) {
+    if (sprintIds.length === 0) return [];
+    return db
+      .select({
+        id: tasksTable.id,
+        sprintId: tasksTable.sprintId,
+        title: tasksTable.title,
+        status: tasksTable.status,
+        priority: tasksTable.priority,
+        assigneeId: tasksTable.assigneeId,
+        assigneeName: tasksTable.assigneeName,
+        storyPoints: tasksTable.storyPoints,
+        ticketNumber: tasksTable.ticketNumber,
+        projectId: tasksTable.projectId,
+        updatedAt: tasksTable.updatedAt,
+      })
+      .from(tasksTable)
+      .where(inArray(tasksTable.sprintId, sprintIds))
       .execute();
   }
 

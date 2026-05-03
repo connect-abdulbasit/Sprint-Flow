@@ -32,6 +32,27 @@ interface Workspace {
   memberCount: number;
 }
 
+/** API list row before mapping into `Organization` */
+interface ApiOrganizationRow {
+  id: string;
+  name: string;
+  role?: string;
+}
+
+/** API list row before mapping into `Workspace` */
+interface ApiWorkspaceRow {
+  id: string;
+  name: string;
+  color: string | null;
+  organizationId: string;
+  role?: string;
+}
+
+function extractItems<T>(payload: T[] | { items?: T[] }) {
+  if (Array.isArray(payload)) return payload;
+  return Array.isArray(payload?.items) ? payload.items : [];
+}
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -89,10 +110,15 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
 
         if (!orgsRes.ok || !wsRes.ok) throw new Error("Failed to fetch");
 
-        const orgsData = await orgsRes.json();
-        const wsData = await wsRes.json();
+        const orgsPayload = (await orgsRes.json()) as
+          | ApiOrganizationRow[]
+          | { items?: ApiOrganizationRow[] };
+        const wsPayload = (await wsRes.json()) as ApiWorkspaceRow[] | { items?: ApiWorkspaceRow[] };
 
-        const mappedOrgs = orgsData.map((org: { id: string; name: string; role?: string }) => ({
+        const orgsData = extractItems<ApiOrganizationRow>(orgsPayload);
+        const wsData = extractItems<ApiWorkspaceRow>(wsPayload);
+
+        const mappedOrgs = orgsData.map((org) => ({
           id: org.id,
           name: org.name,
           initials: getInitials(org.name),
@@ -101,25 +127,17 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         }));
 
         const wsByOrg: Record<string, Workspace[]> = {};
-        wsData.forEach(
-          (ws: {
-            id: string;
-            name: string;
-            color: string | null;
-            organizationId: string;
-            role?: string;
-          }) => {
-            if (!wsByOrg[ws.organizationId]) wsByOrg[ws.organizationId] = [];
-            wsByOrg[ws.organizationId].push({
-              id: ws.id,
-              name: ws.name,
-              color: ws.color || "#4f7cff",
-              role: ws.role,
-              taskCount: 0,
-              memberCount: 1,
-            });
-          }
-        );
+        wsData.forEach((ws) => {
+          if (!wsByOrg[ws.organizationId]) wsByOrg[ws.organizationId] = [];
+          wsByOrg[ws.organizationId].push({
+            id: ws.id,
+            name: ws.name,
+            color: ws.color || "#4f7cff",
+            role: ws.role,
+            taskCount: 0,
+            memberCount: 1,
+          });
+        });
 
         if (mappedOrgs.length > 0) {
           setRealOrganizations(mappedOrgs);

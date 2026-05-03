@@ -57,11 +57,18 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json();
 }
 
+function extractItems<T>(payload: T[] | PaginatedResponse<T>): T[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.items)) return payload.items;
+  return [];
+}
+
 // ─── API functions ───────────────────────────────────────────────────────────
 
 export async function fetchProjects(workspaceId: string): Promise<Project[]> {
   const res = await fetch(`/api/projects?workspaceId=${encodeURIComponent(workspaceId)}`);
-  return handleResponse<Project[]>(res);
+  const data = await handleResponse<Project[] | PaginatedResponse<Project>>(res);
+  return extractItems(data);
 }
 
 export async function createProject(payload: CreateProjectPayload): Promise<Project> {
@@ -121,7 +128,8 @@ export interface MyTask {
 
 export async function fetchMyTasks(workspaceId: string): Promise<MyTask[]> {
   const res = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/my-tasks`);
-  return handleResponse<MyTask[]>(res);
+  const data = await handleResponse<MyTask[] | PaginatedResponse<MyTask>>(res);
+  return extractItems(data);
 }
 
 export type TicketType = "task" | "bug" | "feature" | "improvement";
@@ -197,6 +205,18 @@ export interface UpdateSprintPayload {
   endDate?: string;
 }
 
+type PaginatedResponse<T> = {
+  items: T[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
+  };
+};
+
 export interface CreateTicketPayload {
   title: string;
   description?: string | null;
@@ -215,7 +235,8 @@ export interface CreateTicketPayload {
 
 export async function fetchTickets(projectId: string): Promise<ProjectTicket[]> {
   const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/tickets`);
-  return handleResponse<ProjectTicket[]>(res);
+  const data = await handleResponse<ProjectTicket[] | PaginatedResponse<ProjectTicket>>(res);
+  return extractItems(data);
 }
 
 /** Logged work on a ticket (see time entries API). */
@@ -320,7 +341,8 @@ export interface ProjectMember {
 
 export async function fetchWorkspaceMembers(workspaceId: string): Promise<ProjectMember[]> {
   const res = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/members`);
-  return handleResponse<ProjectMember[]>(res);
+  const data = await handleResponse<ProjectMember[] | PaginatedResponse<ProjectMember>>(res);
+  return extractItems(data);
 }
 
 export async function deleteTicket(projectId: string, ticketId: string): Promise<void> {
@@ -333,7 +355,8 @@ export async function deleteTicket(projectId: string, ticketId: string): Promise
 
 export async function fetchSprints(projectId: string): Promise<ProjectSprint[]> {
   const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/sprints`);
-  return handleResponse<ProjectSprint[]>(res);
+  const data = await handleResponse<ProjectSprint[] | PaginatedResponse<ProjectSprint>>(res);
+  return extractItems(data);
 }
 
 export async function createSprint(

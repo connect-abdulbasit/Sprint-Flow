@@ -4,30 +4,6 @@ import { useEffect, useState } from "react";
 import { Bell, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
-const pageTitles: Record<string, string> = {
-  dashboard: "Dashboard",
-  notifications: "Notifications",
-  projects: "Projects",
-  team: "Team",
-  reports: "Reports",
-  settings: "Settings",
-  sprints: "Sprints",
-  board: "Board",
-  backlog: "Backlog",
-  "my-tasks": "My Tasks",
-};
-
-function getPageTitle(pathname: string) {
-  const segments = pathname.split("/").filter(Boolean);
-  const workspaceIndex = segments.indexOf("workspace");
-  const pageKey = segments[workspaceIndex + 2] ?? segments[workspaceIndex + 1];
-
-  if (!pageKey) return "Workspace";
-  return (
-    pageTitles[pageKey] ?? pageKey.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
-  );
-}
-
 function getWorkspaceId(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
   const workspaceIndex = segments.indexOf("workspace");
@@ -38,7 +14,6 @@ function getWorkspaceId(pathname: string) {
 export default function Topbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const title = pathname ? getPageTitle(pathname) : "Workspace";
   const workspaceId = pathname ? getWorkspaceId(pathname) : null;
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
 
@@ -61,9 +36,17 @@ export default function Topbar() {
           return;
         }
 
-        const data = (await res.json()) as Array<{ isRead: boolean }>;
+        const data = (await res.json()) as
+          | Array<{ isRead: boolean }>
+          | { unreadCount?: number; items?: Array<{ isRead: boolean }> };
         if (!cancelled) {
-          setHasUnreadNotifications(data.some((item) => !item.isRead));
+          if (Array.isArray(data)) {
+            setHasUnreadNotifications(data.some((item) => !item.isRead));
+          } else if (typeof data.unreadCount === "number") {
+            setHasUnreadNotifications(data.unreadCount > 0);
+          } else {
+            setHasUnreadNotifications((data.items ?? []).some((item) => !item.isRead));
+          }
         }
       } catch {
         if (!cancelled) setHasUnreadNotifications(false);
@@ -88,15 +71,11 @@ export default function Topbar() {
   };
 
   return (
-    <header className="h-20 flex items-center justify-between px-8 bg-transparent z-30">
+    <header className="h-14 flex items-center justify-end px-8 bg-transparent z-30">
       <div className="flex items-center gap-3">
-        <h1 className="text-xl font-semibold text-white">{title}</h1>
-      </div>
-
-      <div className="flex items-center gap-5">
         <button
           onClick={handleNotificationsClick}
-          className="cursor-pointer p-2.5 text-[#6b6b80] hover:text-[#f0f0f5] bg-[#111118]/40 hover:bg-[#111118]/80 border border-white/[0.05] rounded-xl transition-all duration-300 relative shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]"
+          className="cursor-pointer p-2 text-[#6b6b80] hover:text-[#f0f0f5] bg-[#111118]/25 hover:bg-[#111118]/65 border border-white/[0.05] rounded-xl transition-all duration-300 relative"
           title="Notifications"
           aria-label="Open notifications"
         >
@@ -108,7 +87,7 @@ export default function Topbar() {
 
         <button
           onClick={handleLogout}
-          className="cursor-pointer p-2.5 text-[#6b6b80] hover:text-[#ff4f7c] bg-[#111118]/40 hover:bg-[#111118]/80 border border-white/[0.05] rounded-xl transition-all duration-300 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]"
+          className="cursor-pointer p-2 text-[#6b6b80] hover:text-[#ff4f7c] bg-[#111118]/25 hover:bg-[#111118]/65 border border-white/[0.05] rounded-xl transition-all duration-300"
           title="Logout"
         >
           <LogOut className="w-[18px] h-[18px]" />

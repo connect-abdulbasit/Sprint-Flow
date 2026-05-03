@@ -3,8 +3,6 @@
 import {
   ChevronRight,
   FolderKanban,
-  Search,
-  Filter,
   Plus,
   LayoutList,
   Columns,
@@ -127,19 +125,6 @@ export default function ProjectPageHeader() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 group-focus-within:text-blue-400 transition-colors" />
-            <input
-              type="text"
-              placeholder="Search in project..."
-              className="bg-white/[0.03] border border-white/[0.06] rounded-lg pl-9 pr-4 py-1.5 text-[13px] text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all w-[200px]"
-            />
-          </div>
-
-          <button className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05] border border-white/[0.06] rounded-lg transition-all">
-            <Filter className="w-3.5 h-3.5" />
-          </button>
-
           <div className="h-4 w-px bg-white/[0.06] mx-0.5" />
 
           {canCreateIssue && (

@@ -112,17 +112,6 @@ export function DashboardPageSkeleton() {
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <Skeleton className="w-2 h-2 rounded-full shrink-0" />
-              <Skeleton className="h-3 w-40 rounded" />
-            </div>
-            <p className="text-sm text-[var(--color-muted)]">
-              Your workspace dashboard with sprint metrics and team updates.
-            </p>
-          </div>
-        </div>
         <Skeleton className="h-11 w-56 rounded-xl shrink-0" />
       </div>
 
@@ -333,7 +322,7 @@ export function TeamDataSkeleton() {
         <div className="flex items-center gap-4 px-6 py-3 border-b border-white/[0.05] text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-[0.1em]">
           <div className="w-10" />
           <div className="flex-1">Member</div>
-          <div className="w-24 hidden sm:block">Role</div>
+          <div className="w-36 hidden sm:block">Role</div>
           <div className="w-28 hidden md:block">Joined</div>
           <div className="w-8" />
         </div>
@@ -341,12 +330,13 @@ export function TeamDataSkeleton() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-6 py-4">
               <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-40 rounded" />
-                <Skeleton className="h-3 w-48 rounded sm:hidden" />
+              <div className="flex-1 space-y-2 min-w-0">
+                <Skeleton className="h-4 w-40 max-w-full rounded" />
+                <Skeleton className="h-3 w-48 max-w-full rounded" />
               </div>
-              <Skeleton className="h-4 w-16 rounded hidden sm:block" />
+              <Skeleton className="h-6 w-24 rounded-lg hidden sm:block" />
               <Skeleton className="h-4 w-20 rounded hidden md:block" />
+              <Skeleton className="h-7 w-7 rounded-lg shrink-0" />
             </div>
           ))}
         </div>

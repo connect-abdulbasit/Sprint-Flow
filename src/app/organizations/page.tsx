@@ -12,6 +12,11 @@ type Organization = {
   name: string;
 };
 
+function extractItems<T>(payload: T[] | { items?: T[] }) {
+  if (Array.isArray(payload)) return payload;
+  return Array.isArray(payload?.items) ? payload.items : [];
+}
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -31,7 +36,7 @@ export default function OrganizationsPage() {
       try {
         const res = await fetch("/api/organizations");
         if (res.ok) {
-          const data = await res.json();
+          const data = extractItems<Organization>(await res.json());
           setOrgs(data);
         }
       } catch (err) {

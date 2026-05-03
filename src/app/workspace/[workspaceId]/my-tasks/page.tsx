@@ -127,6 +127,8 @@ export default function MyTasksPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
+  const query = search.trim().toLowerCase();
+  const hasSearch = query.length > 0;
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -141,8 +143,8 @@ export default function MyTasksPage() {
   const filteredTasks = useMemo(() => {
     let result = tasks;
 
-    if (search.trim()) {
-      const q = search.toLowerCase();
+    if (hasSearch) {
+      const q = query;
       result = result.filter(
         (t) =>
           t.title.toLowerCase().includes(q) ||
@@ -162,7 +164,7 @@ export default function MyTasksPage() {
     }
 
     return result;
-  }, [tasks, search, statusFilter]);
+  }, [tasks, hasSearch, query, statusFilter]);
 
   // Stats
   const stats = useMemo(() => {
@@ -193,8 +195,8 @@ export default function MyTasksPage() {
               <CheckSquare className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-zinc-100 tracking-tight">My Tasks</h1>
-              <p className="text-[12px] text-zinc-500 flex items-center gap-2 mt-0.5">
+              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">My Tasks</h1>
+              <p className="mt-1 flex items-center gap-2 text-[13px] text-zinc-500">
                 Assigned to you
                 <span className="w-1 h-1 rounded-full bg-zinc-800" />
                 {stats.total} {stats.total === 1 ? "ticket" : "tickets"}
@@ -286,10 +288,10 @@ export default function MyTasksPage() {
               </div>
             </div>
             <h3 className="text-lg font-semibold text-zinc-200 mb-2">
-              {search || statusFilter !== "all" ? "No matching tasks" : "You're all caught up!"}
+              {hasSearch || statusFilter !== "all" ? "No matching tasks" : "You're all caught up!"}
             </h3>
             <p className="text-[13px] text-zinc-500 max-w-sm leading-relaxed">
-              {search || statusFilter !== "all"
+              {hasSearch || statusFilter !== "all"
                 ? "Try adjusting your search or filter criteria."
                 : "No tasks have been assigned to you yet. When someone assigns you a ticket, it will appear here."}
             </p>

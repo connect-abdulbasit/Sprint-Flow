@@ -35,6 +35,11 @@ type InviteModalProps = {
   workspaceName: string;
 };
 
+function extractItems<T>(payload: T[] | { items?: T[] }) {
+  if (Array.isArray(payload)) return payload;
+  return Array.isArray(payload?.items) ? payload.items : [];
+}
+
 export default function InviteModal({
   isOpen,
   onClose,
@@ -68,8 +73,8 @@ export default function InviteModal({
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/invites`);
       if (res.ok) {
-        const data = await res.json();
-        setInvitations(Array.isArray(data) ? data : []);
+        const data = extractItems<Invitation>(await res.json());
+        setInvitations(data);
       }
     } catch {
       // silently fail - invitations list is non-critical

@@ -65,9 +65,19 @@ export default function SignUpForm() {
         <div className="flex flex-col items-center mb-8">
           <Link
             href="/"
-            className="flex items-center gap-3 mb-6 no-underline transition-transform duration-300 hover:scale-[1.02]"
+            className="inline-flex items-center gap-3 mb-6 no-underline transition-transform duration-300 hover:scale-[1.02]"
           >
-            <img src="/logo.png" alt="SprintFlow" className="h-10 w-auto object-contain" />
+            <img
+              src="/logo-icon.png"
+              alt="SprintFlow"
+              className="w-11 h-11 object-contain rounded-xl shadow-[0_0_24px_rgba(79,124,255,0.15)]"
+            />
+            <span
+              className="text-2xl font-black tracking-tight text-[#f0f0f5]"
+              style={{ fontFamily: "var(--font-syne)" }}
+            >
+              SprintFlow
+            </span>
           </Link>
 
           <p className="text-[#9090a8] text-sm">Sign up to continue</p>
