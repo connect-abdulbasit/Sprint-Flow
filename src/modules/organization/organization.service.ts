@@ -1,7 +1,6 @@
 import { organizationRepository } from "./organization.repository";
 import { workspaceRepository } from "@/modules/workspace/workspace.repository";
 import { workspaceService } from "@/modules/workspace/workspace.service";
-import crypto from "crypto";
 
 export class OrganizationService {
   async createOrganization(
@@ -41,16 +40,29 @@ export class OrganizationService {
   }
 
   async getOrganizationDashboard(userId: string, orgId: string) {
-    const org = await organizationRepository.getOrganization(userId, orgId);
-    if (!org) {
+    const [org, orgMembership] = await Promise.all([
+      organizationRepository.getOrganization(userId, orgId),
+      organizationRepository.getMember(userId, orgId),
+    ]);
+
+    if (!org || !orgMembership) {
       throw new Error("Organization not found or you don't have access");
     }
 
-    const [members, workspaces, activeTasksCount] = await Promise.all([
+    const canViewAllWorkspaces = orgMembership.role === "owner" || orgMembership.role === "admin";
+
+    const [members, workspaces] = await Promise.all([
       organizationRepository.getOrganizationMembers(orgId),
-      organizationRepository.getOrganizationWorkspaces(orgId),
-      organizationRepository.getOrganizationActiveTasksCount(orgId),
+      canViewAllWorkspaces
+        ? organizationRepository.getOrganizationWorkspaces(orgId)
+        : organizationRepository.getUserOrganizationWorkspaces(userId, orgId),
     ]);
+
+    const activeTasksCount = canViewAllWorkspaces
+      ? await organizationRepository.getOrganizationActiveTasksCount(orgId)
+      : await organizationRepository.getActiveTasksCountForWorkspaceIds(
+          workspaces.map((ws) => ws.id)
+        );
 
     return {
       organization: org,
@@ -65,40 +77,6 @@ export class OrganizationService {
         activeTasksCount,
       },
     };
-  }
-
-  async sendInvite(
-    userId: string,
-    data: { organizationId: string; email: string; role: "member" | "admin" | "owner" }
-  ) {
-    const sender = await organizationRepository.getMember(userId, data.organizationId);
-    if (!sender || !["owner", "admin"].includes(sender.role)) {
-      throw new Error("Forbidden: Not authorized to invite");
-    }
-
-    const token = crypto.randomUUID();
-    return organizationRepository.createInvite({ ...data, token, status: "pending" });
-  }
-
-  async acceptInvite(userId: string, token: string) {
-    const invite = await organizationRepository.findInviteByToken(token);
-    if (!invite) {
-      throw new Error("Invalid or expired invite");
-    }
-
-    const existingMember = await organizationRepository.getMember(userId, invite.organizationId);
-    if (existingMember) {
-      throw new Error("Already a member of this organization");
-    }
-
-    await organizationRepository.addMember({
-      organizationId: invite.organizationId,
-      userId,
-      role: invite.role,
-    });
-
-    await organizationRepository.updateInviteStatus(invite.id, "accepted");
-    return { success: true, message: "Successfully joined organization" };
   }
 
   async updateOrganization(
@@ -134,7 +112,7 @@ export class OrganizationService {
       await workspaceRepository.deleteWorkspace(ws.id);
     }
 
-    // Delete organization (cascades to organization_members, organization_invites)
+    // Delete organization (cascades to organization_members)
     await organizationRepository.deleteOrganization(orgId);
 
     return { success: true };

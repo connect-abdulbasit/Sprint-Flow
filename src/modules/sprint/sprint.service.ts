@@ -5,6 +5,7 @@ import { sprintRepository } from "@/modules/sprint/sprint.repository";
 import { tasksTable } from "@/modules/task/task.schema";
 import { activityService } from "@/modules/activity/activity.service";
 import { and, eq, ne } from "drizzle-orm";
+import { hasRole, type WorkspaceRole } from "@/lib/auth/rbac";
 
 export type SprintStatus = "planning" | "active" | "completed";
 
@@ -57,10 +58,14 @@ export class SprintService {
     projectId: string,
     body: { name: string; goal: string | null; startDate: string; endDate: string }
   ) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
     }
+    if (!hasRole(membership.role as WorkspaceRole, "project_manager")) {
+      throw new Error("Forbidden: only admins and project managers can create sprints");
+    }
+    const { project } = membership;
     const start = parseYmd(body.startDate);
     const end = parseYmd(body.endDate);
     if (!start || !end) {
@@ -99,9 +104,12 @@ export class SprintService {
       endDate?: string;
     }
   ) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
+    }
+    if (!hasRole(membership.role as WorkspaceRole, "project_manager")) {
+      throw new Error("Forbidden: only admins and project managers can update sprints");
     }
     const sprint = await sprintRepository.findByIdAndProject(sprintId, projectId);
     if (!sprint) {
@@ -144,10 +152,14 @@ export class SprintService {
   }
 
   async deleteSprint(userId: string, projectId: string, sprintId: string) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
     }
+    if (!hasRole(membership.role as WorkspaceRole, "admin")) {
+      throw new Error("Forbidden: only admins can delete sprints");
+    }
+    const { project } = membership;
     const sprint = await sprintRepository.findByIdAndProject(sprintId, projectId);
     if (!sprint) {
       throw new Error("Sprint not found");
@@ -174,10 +186,14 @@ export class SprintService {
   }
 
   async startSprint(userId: string, projectId: string, sprintId: string) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
     }
+    if (!hasRole(membership.role as WorkspaceRole, "project_manager")) {
+      throw new Error("Forbidden: only admins and project managers can start sprints");
+    }
+    const { project } = membership;
     const sprint = await sprintRepository.findByIdAndProject(sprintId, projectId);
     if (!sprint) {
       throw new Error("Sprint not found");
@@ -203,10 +219,14 @@ export class SprintService {
   }
 
   async completeSprint(userId: string, projectId: string, sprintId: string) {
-    const project = await projectRepository.getProjectIfMember(userId, projectId);
-    if (!project) {
+    const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
+    if (!membership) {
       throw new Error("Project not found or access denied");
     }
+    if (!hasRole(membership.role as WorkspaceRole, "project_manager")) {
+      throw new Error("Forbidden: only admins and project managers can complete sprints");
+    }
+    const { project } = membership;
     const sprint = await sprintRepository.findByIdAndProject(sprintId, projectId);
     if (!sprint) {
       throw new Error("Sprint not found");

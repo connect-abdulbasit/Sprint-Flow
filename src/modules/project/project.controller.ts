@@ -25,7 +25,12 @@ function serializeProject(project: {
 }
 
 function projectUpdateErrorStatus(message: string) {
-  if (message.includes("access denied") || message.includes("not found")) return 403;
+  if (
+    message.includes("Forbidden") ||
+    message.includes("access denied") ||
+    message.includes("not found")
+  )
+    return 403;
   if (
     message.includes("Board") ||
     message.includes("column") ||
@@ -91,11 +96,12 @@ export class ProjectController {
         }
       );
     } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to create project";
       console.error("Create project error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to create project" },
-        { status: 500 }
-      );
+      if (message.includes("Forbidden")) {
+        return NextResponse.json({ error: message }, { status: 403 });
+      }
+      return NextResponse.json({ error: message }, { status: 500 });
     }
   }
 
@@ -160,6 +166,9 @@ export class ProjectController {
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to delete project";
       console.error("Delete project error:", error);
+      if (message.includes("Forbidden")) {
+        return NextResponse.json({ error: message }, { status: 403 });
+      }
       if (message.includes("access denied") || message.includes("not found")) {
         return NextResponse.json({ error: message }, { status: 404 });
       }

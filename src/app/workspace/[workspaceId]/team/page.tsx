@@ -13,8 +13,10 @@ import {
   MoreHorizontal,
   Search,
   UserPlus,
+  Briefcase,
 } from "lucide-react";
 import InviteModal from "@/components/InviteModal";
+import RoleGate from "@/components/RoleGate";
 import { Skeleton, TeamDataSkeleton } from "@/components/ui/skeleton";
 
 type WorkspaceMember = {
@@ -28,6 +30,7 @@ type WorkspaceMember = {
 
 const roleConfig: Record<string, { icon: typeof Shield; color: string; label: string }> = {
   admin: { icon: Shield, color: "#a259ff", label: "Admin" },
+  project_manager: { icon: Briefcase, color: "#ff9f43", label: "Project Manager" },
   member: { icon: UserCircle, color: "#4f7cff", label: "Member" },
   owner: { icon: Crown, color: "#ff9f43", label: "Owner" },
 };
@@ -106,6 +109,7 @@ export default function TeamPage() {
   );
 
   const adminCount = members.filter((m) => m.role === "admin").length;
+  const projectManagerCount = members.filter((m) => m.role === "project_manager").length;
   const memberCount = members.filter((m) => m.role === "member").length;
   const wsName = workspace?.name ?? "Workspace";
 
@@ -139,20 +143,22 @@ export default function TeamPage() {
             </p>
           </div>
 
-          <button
-            onClick={() => setInviteOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 hover:-translate-y-0.5 shrink-0"
-            style={{
-              background: "linear-gradient(135deg, #4f7cff, #6b93ff)",
-              color: "#fff",
-              border: "1px solid rgba(79, 124, 255, 0.3)",
-              boxShadow:
-                "0 4px 16px rgba(79, 124, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-            }}
-          >
-            <UserPlus className="w-4 h-4" />
-            Invite People
-          </button>
+          <RoleGate workspaceId={workspaceId} allowedRoles={["admin", "project_manager"]}>
+            <button
+              onClick={() => setInviteOpen(true)}
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 hover:-translate-y-0.5 shrink-0"
+              style={{
+                background: "linear-gradient(135deg, #4f7cff, #6b93ff)",
+                color: "#fff",
+                border: "1px solid rgba(79, 124, 255, 0.3)",
+                boxShadow:
+                  "0 4px 16px rgba(79, 124, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+              }}
+            >
+              <UserPlus className="w-4 h-4" />
+              Invite People
+            </button>
+          </RoleGate>
         </div>
 
         {loading ? (
@@ -173,7 +179,7 @@ export default function TeamPage() {
         ) : (
           <>
             {/* ── Stat Cards ─────────────────────────────────────── */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 {
                   label: "Total Members",
@@ -186,6 +192,12 @@ export default function TeamPage() {
                   value: adminCount.toString(),
                   icon: Shield,
                   color: "#a259ff",
+                },
+                {
+                  label: "Project Managers",
+                  value: projectManagerCount.toString(),
+                  icon: Briefcase,
+                  color: "#ff9f43",
                 },
                 {
                   label: "Members",
@@ -293,13 +305,18 @@ export default function TeamPage() {
                       <p className="text-xs text-[var(--color-muted)] max-w-[240px] mb-5">
                         Invite your first team member to start collaborating in this workspace.
                       </p>
-                      <button
-                        onClick={() => setInviteOpen(true)}
-                        className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[#4f7cff] bg-[#4f7cff]/[0.08] border border-[#4f7cff]/20 rounded-xl hover:bg-[#4f7cff]/[0.12] transition-all duration-200"
+                      <RoleGate
+                        workspaceId={workspaceId}
+                        allowedRoles={["admin", "project_manager"]}
                       >
-                        <Plus className="w-3.5 h-3.5" />
-                        Invite People
-                      </button>
+                        <button
+                          onClick={() => setInviteOpen(true)}
+                          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[#4f7cff] bg-[#4f7cff]/[0.08] border border-[#4f7cff]/20 rounded-xl hover:bg-[#4f7cff]/[0.12] transition-all duration-200"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Invite People
+                        </button>
+                      </RoleGate>
                     </>
                   )}
                 </div>
@@ -372,23 +389,25 @@ export default function TeamPage() {
 
             {/* ── Invite CTA Card ────────────────────────────────── */}
             {!error && members.length > 0 && (
-              <div
-                className={`border border-dashed border-white/[0.06] rounded-2xl flex items-center justify-center py-10 group hover:border-[#4f7cff]/20 hover:bg-[#4f7cff]/[0.02] transition-all duration-300 cursor-pointer ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-                style={{ transitionDelay: "700ms" }}
-                onClick={() => setInviteOpen(true)}
-              >
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-11 h-11 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center text-[var(--color-muted)] group-hover:text-[#4f7cff] group-hover:scale-110 group-hover:border-[#4f7cff]/20 transition-all duration-300 mb-3">
-                    <UserPlus className="w-5 h-5" />
+              <RoleGate workspaceId={workspaceId} allowedRoles={["admin", "project_manager"]}>
+                <div
+                  className={`border border-dashed border-white/[0.06] rounded-2xl flex items-center justify-center py-10 group hover:border-[#4f7cff]/20 hover:bg-[#4f7cff]/[0.02] transition-all duration-300 cursor-pointer ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
+                  style={{ transitionDelay: "700ms" }}
+                  onClick={() => setInviteOpen(true)}
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-11 h-11 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center text-[var(--color-muted)] group-hover:text-[#4f7cff] group-hover:scale-110 group-hover:border-[#4f7cff]/20 transition-all duration-300 mb-3">
+                      <UserPlus className="w-5 h-5" />
+                    </div>
+                    <span className="text-[13px] font-medium text-[var(--color-muted)] group-hover:text-[#f0f0f5] transition-colors">
+                      Invite more team members
+                    </span>
+                    <p className="text-[11px] text-[var(--color-muted)] mt-1">
+                      Grow your workspace by adding collaborators
+                    </p>
                   </div>
-                  <span className="text-[13px] font-medium text-[var(--color-muted)] group-hover:text-[#f0f0f5] transition-colors">
-                    Invite more team members
-                  </span>
-                  <p className="text-[11px] text-[var(--color-muted)] mt-1">
-                    Grow your workspace by adding collaborators
-                  </p>
                 </div>
-              </div>
+              </RoleGate>
             )}
           </>
         )}

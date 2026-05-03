@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import Link from "next/link";
-import { Plus, Settings, Shield, ShieldAlert, UserCircle, Users } from "lucide-react";
+import { Briefcase, Plus, Settings, Shield, ShieldAlert, UserCircle, Users } from "lucide-react";
 
 const pulse = "animate-pulse bg-white/[0.06]";
 
@@ -300,6 +300,7 @@ export function SettingsPageSkeleton() {
 const TEAM_STAT_META = [
   { label: "Total Members", Icon: Users, color: "#4f7cff" },
   { label: "Admins", Icon: Shield, color: "#a259ff" },
+  { label: "Project Managers", Icon: Briefcase, color: "#ff9f43" },
   { label: "Members", Icon: UserCircle, color: "#00d4aa" },
 ] as const;
 
@@ -307,7 +308,7 @@ const TEAM_STAT_META = [
 export function TeamDataSkeleton() {
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {TEAM_STAT_META.map(({ label, Icon, color }) => (
           <div
             key={label}

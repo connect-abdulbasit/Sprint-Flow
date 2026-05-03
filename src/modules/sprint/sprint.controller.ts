@@ -3,7 +3,12 @@ import { getCurrentUser } from "@/lib/auth";
 import { sprintService } from "@/modules/sprint/sprint.service";
 
 function sprintErrorStatus(message: string) {
-  if (message.includes("access denied") || message.includes("Project not found")) return 403;
+  if (
+    message.includes("Forbidden") ||
+    message.includes("access denied") ||
+    message.includes("Project not found")
+  )
+    return 403;
   if (message.includes("not found")) return 404;
   if (
     message.includes("Cannot") ||
