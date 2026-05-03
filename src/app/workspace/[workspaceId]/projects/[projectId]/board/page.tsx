@@ -684,6 +684,7 @@ export default function ProjectBoardPage() {
       {detailTicketId && (
         <TicketDetailModal
           projectId={pid}
+          workspaceId={wid}
           ticketId={detailTicketId}
           preview={detailPreview}
           members={members}
@@ -714,9 +715,8 @@ export default function ProjectBoardPage() {
                 <div
                   role="separator"
                   aria-orientation="vertical"
-                  className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${
-                    slotActive ? "bg-blue-500/15" : "hover:bg-white/[0.02]"
-                  }`}
+                  className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${slotActive ? "bg-blue-500/15" : "hover:bg-white/[0.02]"
+                    }`}
                   onDragOver={(e) => handleColumnSlotDragOver(e, columnIndex)}
                   onDragLeave={(e) => {
                     if (!e.currentTarget.contains(e.relatedTarget as Node | null))
@@ -725,11 +725,10 @@ export default function ProjectBoardPage() {
                   onDrop={(e) => void handleColumnSlotDrop(e, columnIndex)}
                 >
                   <div
-                    className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${
-                      slotActive
-                        ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
-                        : "h-16 bg-white/[0.06]"
-                    }`}
+                    className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${slotActive
+                      ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                      : "h-16 bg-white/[0.06]"
+                      }`}
                   />
                   <button
                     type="button"
@@ -743,9 +742,8 @@ export default function ProjectBoardPage() {
                 </div>
                 <div className="flex flex-col w-[300px] shrink-0 group/col px-1">
                   <div
-                    className={`flex items-center justify-between mb-3 px-1 gap-1 rounded-lg border border-transparent ${
-                      draggedColumnIndex === columnIndex ? "opacity-50 border-white/[0.08]" : ""
-                    }`}
+                    className={`flex items-center justify-between mb-3 px-1 gap-1 rounded-lg border border-transparent ${draggedColumnIndex === columnIndex ? "opacity-50 border-white/[0.08]" : ""
+                      }`}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-1.5">
                       <div
@@ -795,11 +793,10 @@ export default function ProjectBoardPage() {
                   </div>
 
                   <div
-                    className={`flex-1 space-y-2 overflow-y-auto custom-scrollbar rounded-xl p-2 border transition-all duration-200 min-h-[120px] ${
-                      isOver
-                        ? "bg-blue-500/[0.04] border-blue-500/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]"
-                        : "bg-zinc-900/30 border-white/[0.03]"
-                    }`}
+                    className={`flex-1 space-y-2 overflow-y-auto custom-scrollbar rounded-xl p-2 border transition-all duration-200 min-h-[120px] ${isOver
+                      ? "bg-blue-500/[0.04] border-blue-500/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]"
+                      : "bg-zinc-900/30 border-white/[0.03]"
+                      }`}
                     onDragEnter={(e) => handleColumnDragEnter(e, column.id)}
                     onDragLeave={() => handleColumnDragLeave(column.id)}
                     onDragOver={handleColumnDragOver}
@@ -824,9 +821,8 @@ export default function ProjectBoardPage() {
                             }
                           }}
                           tabIndex={0}
-                          className={`group/card relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#111115] p-3.5 pr-10 shadow-sm transition-all select-none hover:border-white/[0.1] hover:bg-[#141418] active:cursor-grabbing ${
-                            draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
-                          }`}
+                          className={`group/card relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#111115] p-3.5 pr-10 shadow-sm transition-all select-none hover:border-white/[0.1] hover:bg-[#141418] active:cursor-grabbing ${draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
+                            }`}
                         >
                           <div
                             className="pointer-events-none absolute top-2.5 right-2.5 text-zinc-600"
@@ -900,11 +896,10 @@ export default function ProjectBoardPage() {
           <div
             role="separator"
             aria-orientation="vertical"
-            className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${
-              columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
-                ? "bg-blue-500/15"
-                : "hover:bg-white/[0.02]"
-            }`}
+            className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
+              ? "bg-blue-500/15"
+              : "hover:bg-white/[0.02]"
+              }`}
             onDragOver={(e) => handleColumnSlotDragOver(e, boardColumnDefs.length)}
             onDragLeave={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget as Node | null))
@@ -913,11 +908,10 @@ export default function ProjectBoardPage() {
             onDrop={(e) => void handleColumnSlotDrop(e, boardColumnDefs.length)}
           >
             <div
-              className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${
-                columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
-                  ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
-                  : "h-16 bg-white/[0.06]"
-              }`}
+              className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
+                ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
+                : "h-16 bg-white/[0.06]"
+                }`}
             />
             <button
               type="button"

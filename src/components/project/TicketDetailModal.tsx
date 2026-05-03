@@ -65,6 +65,22 @@ function formatHoursParts(hours: number): string {
   return `${h}h ${m}m`;
 }
 
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function formatEntryTimestamp(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -141,6 +157,67 @@ function renderInlineRichText(text: string, keyPrefix: string) {
   }
   if (cursor < text.length) nodes.push(text.slice(cursor));
   return nodes;
+}
+
+function renderCommentContent(content: string, members: ProjectMember[], keyPrefix: string): React.ReactNode {
+  // Get all member names from members prop
+  const memberNames = members
+    .map(m => m.name)
+    .filter(Boolean)
+    .sort((a, b) => (b?.length ?? 0) - (a?.length ?? 0));
+
+  const result: React.ReactNode[] = [];
+  let remaining = content;
+  let keyIndex = 0;
+
+  while (remaining.length > 0) {
+    const atIndex = remaining.indexOf('@');
+
+    if (atIndex === -1) {
+      result.push(<span key={`${keyPrefix}-${keyIndex++}`}>{remaining}</span>);
+      break;
+    }
+
+    // Add text before @
+    if (atIndex > 0) {
+      result.push(
+        <span key={`${keyPrefix}-${keyIndex++}`}>
+          {remaining.slice(0, atIndex)}
+        </span>
+      );
+    }
+
+    // Try to match a member name after @
+    const afterAt = remaining.slice(atIndex + 1);
+    let matched = false;
+
+    for (const name of memberNames) {
+      if (
+        name &&
+        afterAt.toLowerCase().startsWith(name.toLowerCase())
+      ) {
+        result.push(
+          <span
+            key={`${keyPrefix}-${keyIndex++}`}
+            className="text-blue-400 font-medium"
+          >
+            @{name}{' '}
+          </span>
+        );
+        remaining = remaining.slice(atIndex + 1 + name.length);
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      // @ but no member match - show as plain text
+      result.push(<span key={`${keyPrefix}-${keyIndex++}`}>@</span>);
+      remaining = remaining.slice(atIndex + 1);
+    }
+  }
+
+  return <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-zinc-200">{result}</div>;
 }
 
 function renderRichTextDescription(text: string) {
@@ -246,7 +323,23 @@ function TicketDetailSkeleton() {
   );
 }
 
+interface CommentData {
+  id: string;
+  taskId: string;
+  workspaceId: string;
+  userId: string;
+  content: string;
+  parentId: string | null;
+  mentionedUserIds: string[] | null;
+  createdAt: string;
+  updatedAt: string;
+  userName: string;
+  userAvatarUrl: string | null;
+  canDelete?: boolean;
+}
+
 export interface TicketDetailModalProps {
+  workspaceId?: string;
   projectId: string;
   ticketId: string | null;
   /** Shown immediately while fetching */
@@ -265,6 +358,7 @@ export interface TicketDetailModalProps {
 }
 
 export default function TicketDetailModal({
+  workspaceId,
   projectId,
   ticketId,
   preview: _preview,
@@ -305,6 +399,117 @@ export default function TicketDetailModal({
   const [timeLogError, setTimeLogError] = useState<string | null>(null);
   const [deletingTimeEntryId, setDeletingTimeEntryId] = useState<string | null>(null);
   const [descriptionToolError, setDescriptionToolError] = useState<string | null>(null);
+
+  // Comments section states
+  const [comments, setComments] = useState<CommentData[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionResults, setMentionResults] = useState<ProjectMember[]>([]);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleCommentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewComment(value);
+    const lastAtIndex = value.lastIndexOf('@');
+    if (lastAtIndex !== -1) {
+      const afterAt = value.slice(lastAtIndex + 1);
+      const searchText = afterAt.split(' ')[0].toLowerCase();
+      if (searchText && !afterAt.includes(' ')) {
+        const filtered = members.filter((m) =>
+          m.name.toLowerCase().includes(searchText)
+        );
+        setMentionResults(filtered.slice(0, 5));
+        setShowMentionDropdown(filtered.length > 0);
+        setMentionSearch(searchText);
+        return;
+      }
+    }
+    setShowMentionDropdown(false);
+    setMentionResults([]);
+  }, [members]);
+
+  const insertMention = useCallback((member: ProjectMember) => {
+    if (!member.name) return;
+    const lastAtIndex = newComment.lastIndexOf('@');
+    if (lastAtIndex === -1) return;
+    const beforeAt = newComment.slice(0, lastAtIndex);
+    setNewComment(beforeAt + '@' + member.name + ' ');
+    setShowMentionDropdown(false);
+    setMentionResults([]);
+    setMentionSearch('');
+    setTimeout(() => {
+      commentInputRef.current?.focus();
+      const len = (beforeAt + '@' + member.name + ' ').length;
+      commentInputRef.current?.setSelectionRange(len, len);
+    }, 0);
+  }, [newComment]);
+
+  // Fetch comments
+  const fetchComments = useCallback(async () => {
+    if (!workspaceId || !ticketId) return;
+    setCommentsLoading(true);
+    setCommentError(null);
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceId}/tasks/${ticketId}/comments`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      // Assume data is array of CommentData, sort by createdAt desc
+      const sorted = data.sort((a: CommentData, b: CommentData) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setComments(sorted);
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : 'Failed to load comments');
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [workspaceId, ticketId]);
+
+  // Add comment
+  const handleAddComment = useCallback(async () => {
+    if (!workspaceId || !ticketId || !newComment.trim()) return;
+    setSubmittingComment(true);
+    setCommentError(null);
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceId}/tasks/${ticketId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newComment.trim(), parentId: replyingToId || null }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const newCommentData = await response.json();
+      setComments([newCommentData, ...comments]);
+      setNewComment('');
+      setReplyingToId(null);
+      commentInputRef.current?.focus();
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : 'Failed to add comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  }, [workspaceId, ticketId, newComment, replyingToId, comments]);
+
+  // Delete comment
+  const handleDeleteComment = useCallback(async (commentId: string) => {
+    if (!workspaceId || !ticketId) return;
+    if (!confirm('Delete this comment?')) return;
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceId}/tasks/${ticketId}/comments/${commentId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setComments(comments.filter(c => c.id !== commentId));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete comment');
+    }
+  }, [workspaceId, ticketId, comments]);
+
+  useEffect(() => {
+    fetchComments();
+  }, [fetchComments]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
@@ -433,7 +638,7 @@ export default function TicketDetailModal({
       imageFile !== null ||
       clearImage ||
       JSON.stringify(sortedIds(dependsOnIds)) !==
-        JSON.stringify(sortedIds(detail.dependsOn?.map((d) => d.id) ?? []))
+      JSON.stringify(sortedIds(detail.dependsOn?.map((d) => d.id) ?? []))
     );
   }, [
     detail,
@@ -905,25 +1110,147 @@ export default function TicketDetailModal({
                     )}
                   </div>
 
-                  <div className="mt-8 border-t border-white/[0.06] pt-6">
+                  <div className="mt-8 border-t border-white/[0.06] pb-6 pt-6">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <h2 className="text-[13px] font-semibold text-zinc-300">Activity</h2>
-                      <span className="text-[11px] font-medium text-zinc-600">Comments</span>
+                      <h2 className="text-[13px] font-semibold text-zinc-300 mr-2">Comments</h2>
+                      <span className="bg-white/[0.06] text-zinc-400 text-[11px] px-2 py-0.5 rounded-full">
+                        {commentsLoading ? 'Loading…' : `${comments.length}`}
+                      </span>
                     </div>
-                    <div className="flex gap-3 rounded-lg border border-dashed border-white/[0.08] bg-[#0c0c0f] p-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-[11px] font-semibold text-zinc-400">
-                        …
+
+                    {commentError && (
+                      <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+                        {commentError}
                       </div>
-                      <textarea
-                        disabled
-                        rows={2}
-                        placeholder="Add a comment…"
-                        className="min-h-[52px] flex-1 resize-none border-0 bg-transparent text-[14px] text-zinc-500 placeholder:text-zinc-600"
-                      />
+                    )}
+
+                    {/* New comment input */}
+                    <div className="rounded-xl border border-white/[0.08] bg-[#0f0f12] p-4 mb-4 flex gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 ring-1 ring-white/10">
+                        {members[0] ? (
+                          <span className="text-[11px] font-semibold text-zinc-200">
+                            {initialsFromName(members[0].name)}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-semibold text-zinc-400">You</span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        {replyingToId && (
+                          <div className="mb-2 flex items-center gap-2 rounded-md bg-zinc-900/50 px-3 py-1.5 text-[12px] text-zinc-400">
+                            Replying to{' '}
+                            <span className="font-medium text-zinc-200">
+                              {comments.find(c => c.id === replyingToId)?.userName}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setReplyingToId(null)}
+                              className="ml-auto flex h-5 w-5 items-center justify-center rounded hover:bg-white/10"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                        <div className="relative flex-1">
+                          <textarea
+                            ref={commentInputRef}
+                            value={newComment}
+                            onChange={handleCommentChange}
+                            placeholder={replyingToId ? "Write a reply…" : "Add a comment…"}
+                            rows={replyingToId ? 3 : 2}
+                            className="min-h-[52px] w-full resize-none border border-white/[0.08] bg-[#0f0f12] p-3 rounded-lg text-[14px] text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500/35 focus:outline-none focus:ring-0"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                e.preventDefault();
+                                handleAddComment();
+                              }
+                            }}
+                          />
+                          {showMentionDropdown && mentionResults.length > 0 && (
+                            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-lg border border-white/[0.1] bg-[#1a1a1f] shadow-xl">
+                              {mentionResults.map((member) => (
+                                <button
+                                  key={member.userId}
+                                  type="button"
+                                  onClick={() => insertMention(member)}
+                                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-white/[0.06] transition-colors"
+                                >
+                                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-700 text-[11px] font-semibold text-zinc-300">
+                                    {initialsFromName(member.name)}
+                                  </div>
+                                  <span className="text-[13px] text-zinc-200">{member.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={submittingComment || !newComment.trim()}
+                            onClick={handleAddComment}
+                            className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/20 px-3 py-1.5 text-[12px] font-medium text-blue-300 hover:bg-blue-500/30 disabled:opacity-40"
+                          >
+                            {submittingComment && <Loader2 className="h-3 w-3 animate-spin" />}
+                            {replyingToId ? 'Reply' : 'Comment'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <p className="mt-2 text-[11px] text-zinc-600">
-                      Comments will be available in a future update.
-                    </p>
+
+                    {/* Comments list */}
+                    <div className="custom-scrollbar max-h-[400px] space-y-3 overflow-y-auto pr-1">
+                      {commentsLoading ? (
+                        <div className="flex items-start gap-3 py-3">
+                          <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-zinc-800" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 w-24 animate-pulse rounded bg-zinc-800/70" />
+                            <div className="h-20 w-full animate-pulse rounded-lg bg-zinc-800/60" />
+                          </div>
+                        </div>
+                      ) : comments.length === 0 ? (
+                        <p className="text-center text-[13px] text-zinc-500 py-8">No comments yet</p>
+                      ) : (
+                        comments.map((comment) => (
+                          <div key={comment.id} className="flex gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 ring-1 ring-white/10">
+                              {comment.userAvatarUrl ? (
+                                <img
+                                  src={comment.userAvatarUrl}
+                                  alt=""
+                                  className="h-10 w-10 rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-[11px] font-semibold text-zinc-200">
+                                  {initialsFromName(comment.userName)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex min-w-0 flex-1 flex-col">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-zinc-100">{comment.userName}</span>
+                                <span className="text-[12px] text-zinc-500">
+                                  {formatRelativeTime(new Date(comment.createdAt))}
+                                </span>
+                              </div>
+                              <div className="mt-1">
+                                {renderCommentContent(comment.content, members, `comment-${comment.id}`)}
+                              </div>
+                              {comment.canDelete && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(comment.id)}
+                                  className="ml-auto mt-2 flex h-7 w-7 items-center justify-center self-start rounded hover:bg-red-500/10 hover:text-red-300"
+                                  title="Delete comment"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
 
                   {formError && (
@@ -1087,7 +1414,7 @@ export default function TicketDetailModal({
                               step={0.25}
                               value={
                                 Number.isFinite(Number(logHours.replace(",", "."))) &&
-                                Number(logHours.replace(",", ".")) >= 0.25
+                                  Number(logHours.replace(",", ".")) >= 0.25
                                   ? Number(logHours.replace(",", "."))
                                   : 1
                               }

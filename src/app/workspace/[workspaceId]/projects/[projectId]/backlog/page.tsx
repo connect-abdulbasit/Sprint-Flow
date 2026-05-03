@@ -321,6 +321,7 @@ export default function ProjectBacklogPage() {
       {detailTicketId && (
         <TicketDetailModal
           projectId={pid}
+          workspaceId={wid}
           ticketId={detailTicketId}
           preview={detailPreview}
           members={members}
