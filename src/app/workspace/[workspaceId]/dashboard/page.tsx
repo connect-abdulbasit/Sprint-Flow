@@ -267,15 +267,18 @@ type TeamMember = {
   completedTasks: number;
 };
 
+type SprintInfo = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  daysLeft: number;
+  projectName: string;
+};
+
 type DashboardData = {
-  activeSprint: {
-    id: string;
-    name: string;
-    startDate: string;
-    endDate: string;
-    daysLeft: number;
-    projectName: string;
-  } | null;
+  activeSprint: SprintInfo | null;
+  activeSprints?: SprintInfo[];
   stats: {
     completed: number;
     inProgress: number;
@@ -294,6 +297,11 @@ type DashboardData = {
   };
   memberCount: number;
 };
+
+function extractItems<T>(payload: T[] | { items?: T[] }) {
+  if (Array.isArray(payload)) return payload;
+  return Array.isArray(payload?.items) ? payload.items : [];
+}
 
 export default function DashboardPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -316,8 +324,8 @@ export default function DashboardPage() {
           setWorkspace({ name: data.name, color: data.color ?? "#4f7cff" });
         }
         if (actRes.ok) {
-          const data = await actRes.json();
-          setActivities(data ?? []);
+          const data = extractItems<ActivityItem>(await actRes.json());
+          setActivities(data);
         }
         if (dashRes.ok) {
           const data = await dashRes.json();
@@ -334,7 +342,22 @@ export default function DashboardPage() {
   }, [workspaceId]);
 
   const ws = workspace ?? { name: workspaceId, color: "#4f7cff" };
-  const sprint = dashboard?.activeSprint ?? null;
+  const fallbackSprint = dashboard?.activeSprint ?? null;
+  const activeSprints =
+    dashboard?.activeSprints && dashboard.activeSprints.length > 0
+      ? dashboard.activeSprints
+      : fallbackSprint
+        ? [fallbackSprint]
+        : [];
+  const sprint = activeSprints[0] ?? null;
+  const hasMultipleSprints = activeSprints.length > 1;
+  const sprintNamesPreview = activeSprints
+    .slice(0, 2)
+    .map((s) => s.name)
+    .join(" · ");
+  const remainingSprintsCount = Math.max(0, activeSprints.length - 2);
+  const earliestSprintEndDays =
+    activeSprints.length > 0 ? Math.min(...activeSprints.map((s) => s.daysLeft)) : null;
   const stats = dashboard?.stats ?? {
     completed: 0,
     inProgress: 0,
@@ -380,6 +403,8 @@ export default function DashboardPage() {
   const burndown = dashboard?.burndown ?? { actual: [], ideal: [], totalDays: 0, currentDay: 0 };
   const recentTasks = dashboard?.recentTasks ?? [];
   const teamWorkload = dashboard?.teamWorkload ?? [];
+  const burndownRemaining =
+    burndown.actual.length > 0 ? burndown.actual[burndown.actual.length - 1] : 0;
 
   if (!loaded) {
     return (
@@ -391,46 +416,38 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 transition-all duration-700 opacity-100 translate-y-0">
-        <div>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ background: ws.color, boxShadow: `0 0 8px ${ws.color}` }}
-              />
-              <span className="text-xs font-medium text-[var(--color-muted)]">
-                {ws.name} workspace
-              </span>
-            </div>
-            <p className="text-sm text-[var(--color-muted)]">
-              Your workspace dashboard with sprint metrics and team updates.
-            </p>
-          </div>
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-end gap-4 transition-all duration-700 opacity-100 translate-y-0">
         {sprint && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 sm:ml-auto">
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm">
               <Timer className="w-4 h-4 text-[var(--color-accent)]" />
-              <span className="font-semibold text-[#f0f0f5]">{sprint.name}</span>
+              <span className="font-semibold text-[#f0f0f5]">
+                {hasMultipleSprints ? `${activeSprints.length} Active Sprints` : sprint.name}
+              </span>
               <span className="text-[var(--color-muted)] text-xs">
-                {sprint.startDate} – {sprint.endDate}
+                {hasMultipleSprints
+                  ? `${sprintNamesPreview}${remainingSprintsCount > 0 ? ` +${remainingSprintsCount} more` : ""}`
+                  : `${sprint.startDate} – ${sprint.endDate}`}
               </span>
               <span
                 className="ml-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
                 style={{
                   background:
-                    sprint.daysLeft <= 3 ? "rgba(255,79,124,0.12)" : "rgba(79,124,255,0.12)",
-                  color: sprint.daysLeft <= 3 ? "#ff4f7c" : "#4f7cff",
+                    (earliestSprintEndDays ?? sprint.daysLeft) <= 3
+                      ? "rgba(255,79,124,0.12)"
+                      : "rgba(79,124,255,0.12)",
+                  color: (earliestSprintEndDays ?? sprint.daysLeft) <= 3 ? "#ff4f7c" : "#4f7cff",
                 }}
               >
-                {sprint.daysLeft}d left
+                {hasMultipleSprints
+                  ? `next ends in ${earliestSprintEndDays ?? 0}d`
+                  : `${sprint.daysLeft}d left`}
               </span>
             </div>
           </div>
         )}
         {!sprint && (
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm sm:ml-auto">
             <Timer className="w-4 h-4 text-[var(--color-muted)]" />
             <span className="text-[var(--color-muted)] text-xs">No active sprint</span>
           </div>
@@ -485,7 +502,9 @@ export default function DashboardPage() {
                 Sprint Progress
               </h2>
               <span className="text-[10px] font-medium text-[var(--color-muted)] bg-white/[0.04] px-2 py-1 rounded-md">
-                {sprint?.name ?? "No sprint"}
+                {hasMultipleSprints
+                  ? `${activeSprints.length} sprints`
+                  : (sprint?.name ?? "No sprint")}
               </span>
             </div>
             <div className="flex items-center justify-center mb-6">
@@ -547,7 +566,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="text-[11px] text-[var(--color-muted)] mb-4">
-            {stats.totalTasks - stats.completed} tasks remaining
+            {hasMultipleSprints && sprint
+              ? `${burndownRemaining} tasks remaining in ${sprint.name}`
+              : `${stats.totalTasks - stats.completed} tasks remaining`}
             {sprint && sprint.daysLeft > 0 ? ` · ${sprint.daysLeft}d left` : ""}
           </p>
           <div className="h-[180px]">

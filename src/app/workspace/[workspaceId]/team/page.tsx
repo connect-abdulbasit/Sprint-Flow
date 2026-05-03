@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import {
   Users,
@@ -61,6 +61,11 @@ function avatarColor(name: string) {
   return colors[Math.abs(hash) % colors.length];
 }
 
+function extractItems<T>(payload: T[] | { items?: T[] }) {
+  if (Array.isArray(payload)) return payload;
+  return Array.isArray(payload?.items) ? payload.items : [];
+}
+
 export default function TeamPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
@@ -69,7 +74,8 @@ export default function TeamPage() {
   const [error, setError] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [loaded, setLoaded] = useState(false);
+  const query = search.trim().toLowerCase();
+  const hasSearch = query.length > 0;
 
   useEffect(() => {
     async function fetchData() {
@@ -80,8 +86,8 @@ export default function TeamPage() {
         ]);
 
         if (membersRes.ok) {
-          const data = await membersRes.json();
-          setMembers(Array.isArray(data) ? data : []);
+          const data = extractItems<WorkspaceMember>(await membersRes.json());
+          setMembers(data);
         } else {
           const data = await membersRes.json();
           setError(data.error || "Failed to load members.");
@@ -95,18 +101,23 @@ export default function TeamPage() {
         setError("Network error. Could not load team data.");
       } finally {
         setLoading(false);
-        setTimeout(() => setLoaded(true), 50);
       }
     }
 
     if (workspaceId) fetchData();
   }, [workspaceId]);
 
-  const filtered = members.filter(
-    (m) =>
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    if (!hasSearch) return members;
+    return members.filter((m) => {
+      const roleLabel = roleConfig[m.role]?.label ?? m.role;
+      return (
+        m.name.toLowerCase().includes(query) ||
+        m.email.toLowerCase().includes(query) ||
+        roleLabel.toLowerCase().includes(query)
+      );
+    });
+  }, [members, hasSearch, query]);
 
   const adminCount = members.filter((m) => m.role === "admin").length;
   const projectManagerCount = members.filter((m) => m.role === "project_manager").length;
@@ -164,15 +175,7 @@ export default function TeamPage() {
         {loading ? (
           <>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search members by name or email…"
-                disabled
-                className="w-full pl-11 pr-4 py-3 bg-[var(--color-surface)] border border-white/[0.06] rounded-xl text-sm text-[#f0f0f5] placeholder-[var(--color-muted)] focus:outline-none focus:border-[#4f7cff]/40 focus:ring-1 focus:ring-[#4f7cff]/15 transition-all duration-200 disabled:opacity-50"
-              />
+              <Skeleton className="h-12 w-full rounded-xl" />
             </div>
             <TeamDataSkeleton />
           </>
@@ -205,11 +208,10 @@ export default function TeamPage() {
                   icon: UserCircle,
                   color: "#00d4aa",
                 },
-              ].map((stat, i) => (
+              ].map((stat) => (
                 <div
                   key={stat.label}
-                  className={`group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-500 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-                  style={{ transitionDelay: `${150 + i * 80}ms` }}
+                  className="group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-500 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5"
                 >
                   <div
                     className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
@@ -236,10 +238,7 @@ export default function TeamPage() {
             </div>
 
             {/* ── Search Bar ─────────────────────────────────────── */}
-            <div
-              className={`transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-              style={{ transitionDelay: "400ms" }}
-            >
+            <div>
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
                 <input
@@ -253,15 +252,12 @@ export default function TeamPage() {
             </div>
 
             {/* ── Members List ───────────────────────────────────── */}
-            <div
-              className={`rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-              style={{ transitionDelay: "500ms" }}
-            >
+            <div className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden">
               {/* Table Header */}
               <div className="flex items-center gap-4 px-6 py-3 border-b border-white/[0.05] text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-[0.1em]">
                 <div className="w-10" />
                 <div className="flex-1">Member</div>
-                <div className="w-24 hidden sm:block">Role</div>
+                <div className="w-36 hidden sm:block">Role</div>
                 <div className="w-28 hidden md:block">Joined</div>
                 <div className="w-8" />
               </div>
@@ -292,11 +288,12 @@ export default function TeamPage() {
                   >
                     <Users className="w-6 h-6 text-[#4f7cff]" />
                   </div>
-                  {search ? (
+                  {hasSearch ? (
                     <>
                       <p className="text-sm text-[#f0f0f5] font-medium mb-1">No matches found</p>
                       <p className="text-xs text-[var(--color-muted)] max-w-[240px]">
-                        No team members match &quot;{search}&quot;. Try a different search term.
+                        No team members match &quot;{search.trim()}&quot;. Try a different search
+                        term.
                       </p>
                     </>
                   ) : (
@@ -324,14 +321,13 @@ export default function TeamPage() {
 
               {/* Member Rows */}
               {!error &&
-                filtered.map((member, i) => {
+                filtered.map((member) => {
                   const rc = roleConfig[member.role] || roleConfig.member;
                   const color = avatarColor(member.name);
                   return (
                     <div
                       key={member.userId}
-                      className={`group flex items-center gap-4 px-6 py-4 border-b border-white/[0.03] last:border-b-0 hover:bg-white/[0.02] transition-all duration-300 ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
-                      style={{ transitionDelay: `${550 + i * 40}ms` }}
+                      className="group flex items-center gap-4 px-6 py-4 border-b border-white/[0.03] last:border-b-0 hover:bg-white/[0.02] transition-all duration-300"
                     >
                       {/* Avatar */}
                       <div
@@ -356,7 +352,7 @@ export default function TeamPage() {
                       </div>
 
                       {/* Role Badge */}
-                      <div className="w-24 hidden sm:block">
+                      <div className="w-36 hidden sm:block">
                         <span
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider"
                           style={{
@@ -378,7 +374,7 @@ export default function TeamPage() {
 
                       {/* Actions */}
                       <div className="w-8 flex items-center justify-center">
-                        <button className="p-1.5 text-[var(--color-muted)] hover:text-[#f0f0f5] hover:bg-white/[0.05] rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200">
+                        <button className="p-1.5 text-[var(--color-muted)] hover:text-[#f0f0f5] hover:bg-white/[0.05] rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
                           <MoreHorizontal className="w-4 h-4" />
                         </button>
                       </div>
@@ -391,8 +387,7 @@ export default function TeamPage() {
             {!error && members.length > 0 && (
               <RoleGate workspaceId={workspaceId} allowedRoles={["admin", "project_manager"]}>
                 <div
-                  className={`border border-dashed border-white/[0.06] rounded-2xl flex items-center justify-center py-10 group hover:border-[#4f7cff]/20 hover:bg-[#4f7cff]/[0.02] transition-all duration-300 cursor-pointer ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-                  style={{ transitionDelay: "700ms" }}
+                  className="border border-dashed border-white/[0.06] rounded-2xl flex items-center justify-center py-10 group hover:border-[#4f7cff]/20 hover:bg-[#4f7cff]/[0.02] transition-all duration-300 cursor-pointer"
                   onClick={() => setInviteOpen(true)}
                 >
                   <div className="flex flex-col items-center text-center">

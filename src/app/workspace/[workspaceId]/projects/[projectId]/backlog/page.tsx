@@ -8,7 +8,7 @@ import TicketFormModal from "@/components/project/TicketFormModal";
 import AlertDialog from "@/components/ui/AlertDialog";
 import { Calendar, Rocket, Layers } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchWorkspaceMembers,
@@ -60,6 +60,9 @@ function sortSprintsForBoard(list: ProjectSprint[]) {
 
 export default function ProjectBacklogPage() {
   const { workspaceId, projectId } = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const wid = typeof workspaceId === "string" ? workspaceId : (workspaceId?.[0] ?? "");
   const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
   const [tickets, setTickets] = useState<ProjectTicket[]>([]);
@@ -174,7 +177,16 @@ export default function ProjectBacklogPage() {
   const closeDetail = useCallback(() => {
     setDetailTicketId(null);
     setDetailPreview(null);
-  }, []);
+    router.replace(pathname);
+  }, [router, pathname]);
+
+  useEffect(() => {
+    const queryTicketId = searchParams.get("ticketId");
+    if (!queryTicketId) return;
+    setCreateModalOpen(false);
+    setDetailTicketId(queryTicketId);
+    setDetailPreview(tickets.find((ticket) => ticket.id === queryTicketId) ?? null);
+  }, [searchParams, tickets]);
 
   const handleSaved = useCallback((ticket: ProjectTicket) => {
     setTickets((prev) => {
@@ -332,6 +344,7 @@ export default function ProjectBacklogPage() {
           sprintPickerOptions={sprintPickerOptions}
           statusOptions={statusFormOptions}
           linkableTickets={tickets}
+          focusCommentId={searchParams.get("commentId")}
           isOpen={Boolean(detailTicketId)}
           onClose={closeDetail}
           onUpdated={handleSaved}

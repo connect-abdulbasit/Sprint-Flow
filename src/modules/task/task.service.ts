@@ -8,6 +8,7 @@ import { normalizeTicketPriority, type TicketPriority } from "@/lib/ticket-prior
 import { timeEntryService } from "@/modules/time_entry/time_entry.service";
 import type { SerializedTimeEntry } from "@/modules/time_entry/time_entry.types";
 import { hasRole, type WorkspaceRole } from "@/lib/auth/rbac";
+import { notificationService } from "@/modules/notification/notification.service";
 
 export function parseImagePayload(imageBase64: unknown, imageMimeType: unknown) {
   if (imageBase64 === null) {
@@ -132,6 +133,27 @@ function prerequisitesReachTask(
 }
 
 export class TaskService {
+  private async notifyWithFallback(
+    params: Parameters<typeof notificationService.createNotificationWithType>[0]
+  ) {
+    try {
+      await notificationService.createNotificationWithType(params);
+    } catch (error) {
+      console.error("Create notification error:", error);
+    }
+  }
+
+  private ticketDetailUrl(
+    workspaceId: string,
+    projectId: string,
+    ticketId: string,
+    commentId?: string | null
+  ) {
+    const params = new URLSearchParams({ ticketId });
+    if (commentId) params.set("commentId", commentId);
+    return `/workspace/${workspaceId}/projects/${projectId}/backlog?${params.toString()}`;
+  }
+
   async listTickets(userId: string, projectId: string) {
     const project = await projectRepository.getProjectIfMember(userId, projectId);
     if (!project) {
@@ -323,6 +345,20 @@ export class TaskService {
       entityName: created.title,
     });
 
+    if (created.assigneeId && created.assigneeId !== userId) {
+      await this.notifyWithFallback({
+        workspaceId: project.workspaceId,
+        userId: created.assigneeId,
+        originUserId: userId,
+        type: "task_assignment",
+        targetType: "task",
+        targetId: created.id,
+        redirectUrl: this.ticketDetailUrl(project.workspaceId, projectId, created.id),
+        title: `Task assigned: ${ticketKey(project.name, created.ticketNumber)}`,
+        message: `You were assigned "${created.title}".`,
+      });
+    }
+
     return this.getTicket(userId, projectId, created.id, false);
   }
 
@@ -445,6 +481,47 @@ export class TaskService {
         entityId: updated.id,
         entityName: updated.title,
       });
+    }
+
+    if (
+      body.assigneeId !== undefined &&
+      updated.assigneeId &&
+      updated.assigneeId !== existing.assigneeId
+    ) {
+      if (updated.assigneeId !== userId) {
+        await this.notifyWithFallback({
+          workspaceId: workspaceIdForActivity,
+          userId: updated.assigneeId,
+          originUserId: userId,
+          type: "task_assignment",
+          targetType: "task",
+          targetId: updated.id,
+          redirectUrl: this.ticketDetailUrl(workspaceIdForActivity, projectId, updated.id),
+          title: `Task assigned: ${ticketKey(membership.project.name, updated.ticketNumber)}`,
+          message: `You were assigned "${updated.title}".`,
+        });
+      }
+    }
+
+    if (body.status !== undefined && body.status !== existing.status) {
+      const recipients = new Set<string>();
+      if (updated.assigneeId) recipients.add(updated.assigneeId);
+      if (updated.reporterId) recipients.add(updated.reporterId);
+      recipients.delete(userId);
+
+      for (const recipientId of recipients) {
+        await this.notifyWithFallback({
+          workspaceId: workspaceIdForActivity,
+          userId: recipientId,
+          originUserId: userId,
+          type: "task_status",
+          targetType: "task",
+          targetId: updated.id,
+          redirectUrl: this.ticketDetailUrl(workspaceIdForActivity, projectId, updated.id),
+          title: `Status updated: ${ticketKey(membership.project.name, updated.ticketNumber)}`,
+          message: `"${updated.title}" moved from ${existing.status} to ${updated.status}.`,
+        });
+      }
     }
 
     return this.getTicket(userId, projectId, ticketId, false);

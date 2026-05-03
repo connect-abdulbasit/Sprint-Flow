@@ -146,7 +146,7 @@ export default function WorkspaceSettings() {
   if (loading) {
     return (
       <div className="flex flex-col h-full bg-[#09090b] min-h-0">
-        <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-5 bg-[#0c0c0f]/60 backdrop-blur-xl">
+        <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-6 bg-[#0c0c0f]/60 backdrop-blur-xl">
           <Link
             href={`/workspace/${workspaceId}/dashboard`}
             className="inline-flex items-center gap-1 text-[12px] font-medium text-zinc-500 hover:text-blue-400 transition-colors cursor-pointer"
@@ -154,10 +154,15 @@ export default function WorkspaceSettings() {
             <ChevronRight className="w-3.5 h-3.5 rotate-180" />
             Back to workspace
           </Link>
-          <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-3">
-            Workspace settings
-          </h1>
-          <Skeleton className="mt-2 h-[13px] w-48 max-w-full rounded" />
+          <div className="mt-4 flex items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+              <Settings className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Settings</h1>
+              <Skeleton className="mt-2 h-[13px] w-48 max-w-full rounded" />
+            </div>
+          </div>
         </header>
 
         <div className="flex-1 flex overflow-hidden min-h-0">
@@ -234,7 +239,7 @@ export default function WorkspaceSettings() {
 
   return (
     <div className="flex flex-col h-full bg-[#09090b] min-h-0">
-      <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-5 bg-[#0c0c0f]/60 backdrop-blur-xl">
+      <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-6 bg-[#0c0c0f]/60 backdrop-blur-xl">
         <Link
           href={`/workspace/${workspaceId}/dashboard`}
           className="inline-flex items-center gap-1 text-[12px] font-medium text-zinc-500 hover:text-blue-400 transition-colors cursor-pointer"
@@ -242,8 +247,15 @@ export default function WorkspaceSettings() {
           <ChevronRight className="w-3.5 h-3.5 rotate-180" />
           Back to workspace
         </Link>
-        <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-3">Workspace settings</h1>
-        <p className="text-[13px] text-zinc-500 mt-0.5">{workspace.name}</p>
+        <div className="mt-4 flex items-center gap-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+            <Settings className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Settings</h1>
+            <p className="mt-1 text-[13px] text-zinc-500">{workspace.name}</p>
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden min-h-0">

@@ -14,14 +14,14 @@ import {
   ChevronRight,
   Bell,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import OrgWorkspaceSwitcher from "./org-workspace-switcher";
 
 interface NavItemDef {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
-  badge?: string;
+  badge?: number;
 }
 
 interface NavSectionDef {
@@ -33,11 +33,55 @@ interface NavSectionDef {
 export default function Sidebar() {
   const pathname = usePathname() || "";
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const { workspaceIdForNav } = useWorkspaceNav();
 
   const workspaceBase = workspaceIdForNav
     ? `/workspace/${workspaceIdForNav}`
     : "/onboarding/workspace";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUnreadCount() {
+      if (!workspaceIdForNav) {
+        setUnreadNotificationsCount(0);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/workspaces/${workspaceIdForNav}/notifications`, {
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          if (!cancelled) setUnreadNotificationsCount(0);
+          return;
+        }
+
+        const data = (await res.json()) as
+          | Array<{ isRead: boolean }>
+          | { unreadCount?: number; items?: Array<{ isRead: boolean }> };
+        if (!cancelled) {
+          if (Array.isArray(data)) {
+            setUnreadNotificationsCount(data.filter((item) => !item.isRead).length);
+          } else if (typeof data.unreadCount === "number") {
+            setUnreadNotificationsCount(data.unreadCount);
+          } else {
+            setUnreadNotificationsCount((data.items ?? []).filter((item) => !item.isRead).length);
+          }
+        }
+      } catch {
+        if (!cancelled) setUnreadNotificationsCount(0);
+      }
+    }
+
+    void loadUnreadCount();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceIdForNav, pathname]);
 
   // ── Sidebar Sections ─────────────────────────────────
 
@@ -64,7 +108,7 @@ export default function Sidebar() {
           name: "Notifications",
           href: `${workspaceBase}/notifications`,
           icon: Bell,
-          badge: "3",
+          badge: unreadNotificationsCount > 0 ? unreadNotificationsCount : undefined,
         },
       ],
     },
@@ -127,7 +171,7 @@ export default function Sidebar() {
           }`}
         />
         {!isCollapsed && <span className="flex-1 truncate relative z-10">{item.name}</span>}
-        {!isCollapsed && item.badge && (
+        {!isCollapsed && typeof item.badge === "number" && item.badge > 0 && (
           <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[var(--color-accent)]/15 text-[var(--color-accent)] text-[10px] font-bold px-1">
             {item.badge}
           </span>

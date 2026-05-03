@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { taskRepository } from "@/modules/task/task.repository";
 import { ticketKey } from "@/lib/ticket-key";
+import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
 export const runtime = "nodejs";
 
@@ -39,7 +40,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       updatedAt: row.updatedAt,
     }));
 
-    return NextResponse.json(tasks);
+    const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+      defaultPageSize: 50,
+      maxPageSize: 200,
+    });
+
+    return NextResponse.json(paginateArray(tasks, pagination));
   } catch (error) {
     console.error("My tasks fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch tasks" }, { status: 500 });

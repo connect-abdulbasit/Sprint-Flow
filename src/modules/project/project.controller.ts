@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { normalizeBoardColumns } from "@/lib/board-columns";
 import { projectService } from "./project.service";
+import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
 function serializeProject(project: {
   id: string;
@@ -57,9 +58,14 @@ export class ProjectController {
       }
 
       const projects = await projectService.getWorkspaceProjects(user.id, workspaceId);
-      return NextResponse.json(
-        projects.map((p) => serializeProject(p as Parameters<typeof serializeProject>[0]))
+      const serialized = projects.map((p) =>
+        serializeProject(p as Parameters<typeof serializeProject>[0])
       );
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 20,
+        maxPageSize: 100,
+      });
+      return NextResponse.json(paginateArray(serialized, pagination));
     } catch (error) {
       console.error("List projects error:", error);
       return NextResponse.json(

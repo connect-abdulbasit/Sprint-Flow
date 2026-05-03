@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { FolderKanban, Plus, Search, Filter, AlertCircle, X } from "lucide-react";
+import { FolderKanban, Plus, Search, AlertCircle, X } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import ProjectCard from "@/components/project/ProjectCard";
 import ProjectModal from "@/components/project/ProjectModal";
@@ -14,6 +14,8 @@ export default function ProjectsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
+  const hasSearch = query.length > 0;
 
   const handleOpenCreate = () => {
     setIsModalOpen(true);
@@ -23,23 +25,24 @@ export default function ProjectsPage() {
     await createProject(data);
   };
 
-  const filteredProjects = projects.filter(
-    (p) =>
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      (p.description ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredProjects = projects.filter((p) => {
+    if (!hasSearch) return true;
+    return (
+      p.name.toLowerCase().includes(query) || (p.description ?? "").toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
-      <div className="px-10 py-10 border-b border-white/[0.04] bg-[#0c0c0f]/50 backdrop-blur-xl sticky top-0 z-10">
-        <div className="flex items-center justify-between mb-10">
-          <div className="flex items-center gap-5">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-              <FolderKanban className="w-6 h-6" />
+      <div className="px-10 py-8 border-b border-white/[0.04] bg-[#0c0c0f]/50 backdrop-blur-xl sticky top-0 z-10">
+        <div className="flex items-end justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+              <FolderKanban className="w-5 h-5" />
             </div>
             <div>
               <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">Projects</h1>
-              <p className="text-[13px] text-zinc-500 flex items-center gap-2 mt-0.5">
+              <p className="mt-1 flex items-center gap-2 text-[13px] text-zinc-500">
                 Workspace Central <span className="w-1 h-1 rounded-full bg-zinc-800" />{" "}
                 {projects.length} {projects.length === 1 ? "Project" : "Projects"}
               </p>
@@ -67,10 +70,6 @@ export default function ProjectsPage() {
               className="bg-white/[0.03] border border-white/[0.06] rounded-lg pl-9 pr-4 py-2 text-[13px] text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all w-[280px]"
             />
           </div>
-          <button className="flex items-center gap-2 px-3 py-2 bg-white/[0.03] border border-white/[0.06] rounded-lg text-[13px] font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05] transition-all border-dashed">
-            <Filter className="w-3.5 h-3.5" />
-            Filter
-          </button>
         </div>
       </div>
 
@@ -91,7 +90,7 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-10 py-10 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto px-10 py-8 custom-scrollbar">
         {loading && projects.length === 0 ? (
           <ProjectGridSkeleton count={6} />
         ) : filteredProjects.length === 0 && !loading ? (
@@ -100,14 +99,14 @@ export default function ProjectsPage() {
               <FolderKanban className="w-8 h-8" />
             </div>
             <h3 className="text-lg font-semibold text-zinc-300 mb-2">
-              {search ? "No projects match your search" : "No projects yet"}
+              {hasSearch ? "No projects match your search" : "No projects yet"}
             </h3>
             <p className="text-[13px] text-zinc-500 mb-6 max-w-xs">
-              {search
+              {hasSearch
                 ? "Try adjusting your search query."
                 : "Create your first project to start organizing your work."}
             </p>
-            {!search && (
+            {!hasSearch && (
               <button
                 onClick={handleOpenCreate}
                 className="flex items-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 text-[13px] font-semibold rounded-lg transition-all"

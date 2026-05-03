@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authService } from "./auth.service";
 import { authRepository } from "./auth.repository";
 import { setAuthCookies, clearAuthCookies, hashPassword, verifyPassword } from "@/lib/auth";
+import { signAccessToken } from "@/lib/jwt";
 
 export class AuthController {
   async signup(req: NextRequest) {
@@ -100,7 +101,7 @@ export class AuthController {
         return NextResponse.json({ error: "User not found" }, { status: 401 });
       }
 
-      const { accessToken, session: newSession } = await authService.signin(user.email);
+      const accessToken = await signAccessToken(user);
 
       const response = NextResponse.json({
         user: { id: user.id, name: user.name, email: user.email },
@@ -109,8 +110,8 @@ export class AuthController {
       setAuthCookies({
         response,
         accessToken,
-        refreshToken: newSession.refreshToken,
-        refreshTokenExpiresAt: newSession.expiresAt,
+        refreshToken: session.refreshToken,
+        refreshTokenExpiresAt: session.expiresAt,
       });
 
       return response;

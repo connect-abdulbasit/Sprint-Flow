@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { workspaceService } from "./workspace.service";
 import { getCurrentUser, getCurrentUserWithRole } from "@/lib/auth";
 import { hasRole, isValidRole, type WorkspaceRole } from "@/lib/auth/rbac";
+import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
 export class WorkspaceController {
   async create(req: NextRequest) {
@@ -48,7 +49,11 @@ export class WorkspaceController {
 
     try {
       const workspaces = await workspaceService.getUserWorkspaces(user.id);
-      return NextResponse.json(workspaces);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 20,
+        maxPageSize: 100,
+      });
+      return NextResponse.json(paginateArray(workspaces, pagination));
     } catch (error) {
       console.error("Fetch workspaces error:", error);
       return NextResponse.json(
@@ -134,7 +139,11 @@ export class WorkspaceController {
     try {
       const { id: workspaceId } = await params;
       const members = await workspaceService.getWorkspaceMembers(user.id, workspaceId);
-      return NextResponse.json(members);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 50,
+        maxPageSize: 200,
+      });
+      return NextResponse.json(paginateArray(members, pagination));
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to list members";
       console.error("List members error:", error);
@@ -317,7 +326,11 @@ export class WorkspaceController {
     try {
       const { id: workspaceId } = await params;
       const invites = await workspaceService.getWorkspaceInvites(user.id, workspaceId);
-      return NextResponse.json(invites);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 20,
+        maxPageSize: 100,
+      });
+      return NextResponse.json(paginateArray(invites, pagination));
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to list invites";
       const status = message.includes("Forbidden") ? 403 : 400;
