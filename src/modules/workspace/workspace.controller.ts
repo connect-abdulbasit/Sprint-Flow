@@ -168,7 +168,6 @@ export class WorkspaceController {
         workspaceId: id,
         defaultView: "board" as const,
         statuses: ["To Do", "In Progress", "Done"],
-        labels: [] as string[],
         tags: [] as string[],
       });
     } catch (error) {
@@ -197,7 +196,6 @@ export class WorkspaceController {
         workspaceId: id,
         defaultView: (body.defaultView as string) ?? "board",
         statuses: (body.statuses as string[]) ?? ["To Do", "In Progress", "Done"],
-        labels: (body.labels as string[]) ?? [],
         tags: (body.tags as string[]) ?? [],
       });
     } catch (error) {
