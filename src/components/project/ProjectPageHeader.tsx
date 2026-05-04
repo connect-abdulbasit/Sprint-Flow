@@ -71,6 +71,11 @@ export default function ProjectPageHeader() {
   const name = project?.name ?? "Project";
   const keyPrefix = project ? projectKeyPrefix(project.name) : "…";
   const statusLabel = project?.status === "active" ? "Active" : "On hold";
+  const createIssueHref = (() => {
+    if (pathname.includes("/backlog")) return `${pathname}?new=1`;
+    if (pathname.includes("/board")) return `${pathname}?new=1`;
+    return `/workspace/${wid}/projects/${pid}/board?new=1`;
+  })();
 
   return (
     <div className="px-10 pt-6 pb-0 border-b border-white/[0.04] bg-[#0c0c0f]/60 backdrop-blur-xl sticky top-0 z-10">
@@ -129,7 +134,7 @@ export default function ProjectPageHeader() {
 
           {canCreateIssue && (
             <Link
-              href={`/workspace/${wid}/projects/${pid}/board?new=1`}
+              href={createIssueHref}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-white text-zinc-950 text-[13px] font-semibold rounded-lg transition-all active:scale-[0.98] shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />

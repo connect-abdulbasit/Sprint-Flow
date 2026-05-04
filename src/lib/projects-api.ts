@@ -1,10 +1,3 @@
-/**
- * projects-api.ts — Typed API client for the /api/projects endpoints.
- * All network logic lives here so components stay clean.
- */
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 export interface BoardColumnConfig {
   id: string;
   title: string;
@@ -18,7 +11,6 @@ export interface Project {
   description: string | null;
   status: string;
   createdBy: string;
-  /** Kanban columns; present on single-project GET (defaults applied server-side). */
   boardColumns?: BoardColumnConfig[];
   createdAt: string;
   updatedAt: string;
@@ -36,8 +28,6 @@ export interface UpdateProjectPayload {
   boardColumns?: BoardColumnConfig[];
 }
 
-// ─── Error helper ────────────────────────────────────────────────────────────
-
 class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -52,7 +42,6 @@ async function handleResponse<T>(res: Response): Promise<T> {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new ApiError(body.error ?? "Something went wrong", res.status);
   }
-  // 204 No Content — nothing to parse
   if (res.status === 204) return undefined as T;
   return res.json();
 }
@@ -62,8 +51,6 @@ function extractItems<T>(payload: T[] | PaginatedResponse<T>): T[] {
   if (payload && Array.isArray(payload.items)) return payload.items;
   return [];
 }
-
-// ─── API functions ───────────────────────────────────────────────────────────
 
 export async function fetchProjects(workspaceId: string): Promise<Project[]> {
   const res = await fetch(`/api/projects?workspaceId=${encodeURIComponent(workspaceId)}`);
@@ -101,8 +88,6 @@ export async function fetchProject(id: string): Promise<Project> {
   return handleResponse<Project>(res);
 }
 
-// ─── My Tasks ────────────────────────────────────────────────────────────────
-
 export interface MyTask {
   id: string;
   projectId: string;
@@ -134,7 +119,6 @@ export async function fetchMyTasks(workspaceId: string): Promise<MyTask[]> {
 
 export type TicketType = "task" | "bug" | "feature" | "improvement";
 
-/** Linked ticket shown on detail (blocked-by / blocks). */
 export interface TicketDependencyLink {
   id: string;
   key: string;
@@ -160,7 +144,6 @@ export interface ProjectTicket {
   dueDate: string | null;
   storyPoints: number | null;
   hasImage: boolean;
-  /** True when this ticket lists prerequisites that are not yet marked done (may still proceed in the UI). */
   blockedByOpenDependencies?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -180,7 +163,6 @@ export interface ProjectSprint {
   updatedAt: string;
 }
 
-/** UI grouping for backlog / sprint sections. */
 export interface SprintGroup {
   id: string;
   name: string;
@@ -229,7 +211,6 @@ export interface CreateTicketPayload {
   storyPoints?: number | null;
   imageBase64?: string | null;
   imageMimeType?: string | null;
-  /** Prerequisites in this project; those tickets should be finished before this one. */
   dependsOnTaskIds?: string[];
 }
 
@@ -239,7 +220,6 @@ export async function fetchTickets(projectId: string): Promise<ProjectTicket[]> 
   return extractItems(data);
 }
 
-/** Logged work on a ticket (see time entries API). */
 export interface TicketTimeEntry {
   id: string;
   hours: number;
@@ -250,7 +230,6 @@ export interface TicketTimeEntry {
   canDelete: boolean;
 }
 
-/** Single ticket; `includeImage` adds `imageBase64` for clients that need it (optional). */
 export type ProjectTicketDetail = ProjectTicket & {
   imageBase64?: string;
   dependsOn?: TicketDependencyLink[];

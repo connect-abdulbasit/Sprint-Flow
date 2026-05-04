@@ -98,8 +98,6 @@ export class WorkspaceRepository {
     return results;
   }
 
-  // ── Workspace Invite Repository Methods ──────────────────────────
-
   async createInvite(data: typeof workspaceInvitesTable.$inferInsert) {
     const [invite] = await db.insert(workspaceInvitesTable).values(data).returning().execute();
     return invite;

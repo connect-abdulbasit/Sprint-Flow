@@ -7,9 +7,7 @@ import type { Project } from "@/lib/projects-api";
 interface ProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Called with form data. Throw to keep the modal open and show an error. */
   onSubmit: (_data: { name: string; description: string }) => Promise<void>;
-  /** If provided, the modal opens in "Edit" mode with prefilled values. */
   projectToEdit?: Project | null;
 }
 
@@ -28,7 +26,6 @@ export default function ProjectModal({
 
   const isEditMode = Boolean(projectToEdit);
 
-  // Sync form fields when modal opens / changes mode
   useEffect(() => {
     if (isOpen) {
       setClosing(false);
@@ -40,7 +37,6 @@ export default function ProjectModal({
         setName("");
         setDescription("");
       }
-      // Auto-focus name input after animation starts
       setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [isOpen, projectToEdit]);
@@ -73,7 +69,6 @@ export default function ProjectModal({
     }
   };
 
-  // Escape key closes modal
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {

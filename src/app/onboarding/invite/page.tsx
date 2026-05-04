@@ -40,8 +40,7 @@ export default function InviteTeamPage() {
 
   const handleSendInvites = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate sending invites
-    router.push("/dashboard"); // or wherever the user goes next
+    router.push("/dashboard");
   };
 
   const activeInvitesCount = invites.filter((inv) => inv.email.trim() !== "").length;

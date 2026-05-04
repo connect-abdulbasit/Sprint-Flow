@@ -1,3 +1,4 @@
+import Link from "next/link";
 import BoardMockup from "./BoardMockup";
 
 export default function Hero() {
@@ -59,22 +60,12 @@ export default function Hero() {
 
       {/* Actions */}
       <div className="flex items-center gap-3.5 animate-[fadeUp_0.6s_0.3s_ease_both] opacity-0">
-        <button className="px-7 py-3.5 text-[0.95rem] font-medium text-white bg-[#4f7cff] rounded-xl hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer border-none font-[inherit]">
+        <Link
+          href="/signin"
+          className="px-7 py-3.5 text-[0.95rem] font-medium text-white bg-[#4f7cff] rounded-xl hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer border-none font-[inherit] no-underline inline-block"
+        >
           Get started →
-        </button>
-        <button className="flex items-center gap-2 px-7 py-3.5 text-[0.95rem] text-[#f0f0f5] bg-transparent border border-white/7 rounded-xl hover:border-white/20 hover:bg-[#18181f] transition-all duration-200 cursor-pointer font-[inherit]">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-          Watch demo
-        </button>
+        </Link>
       </div>
 
       {/* Board Mockup */}

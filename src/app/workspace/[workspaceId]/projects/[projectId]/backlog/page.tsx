@@ -188,6 +188,14 @@ export default function ProjectBacklogPage() {
     setDetailPreview(tickets.find((ticket) => ticket.id === queryTicketId) ?? null);
   }, [searchParams, tickets]);
 
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    setDetailTicketId(null);
+    setDetailPreview(null);
+    setCreateDefaultSprintId(null);
+    setCreateModalOpen(true);
+  }, [searchParams]);
+
   const handleSaved = useCallback((ticket: ProjectTicket) => {
     setTickets((prev) => {
       const i = prev.findIndex((t) => t.id === ticket.id);
@@ -320,7 +328,10 @@ export default function ProjectBacklogPage() {
           statusOptions={statusFormOptions}
           linkableTickets={tickets}
           isOpen={createModalOpen}
-          onClose={() => setCreateModalOpen(false)}
+          onClose={() => {
+            setCreateModalOpen(false);
+            router.replace(pathname);
+          }}
           onSaved={handleSaved}
         />
       )}

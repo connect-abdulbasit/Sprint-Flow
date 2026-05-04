@@ -27,13 +27,14 @@ interface NavItemDef {
 interface NavSectionDef {
   label: string;
   items: NavItemDef[];
-  dot?: string; // optional colored dot next to section label
+  dot?: string;
 }
 
 export default function Sidebar() {
   const pathname = usePathname() || "";
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
   const { workspaceIdForNav } = useWorkspaceNav();
 
   const workspaceBase = workspaceIdForNav
@@ -83,7 +84,47 @@ export default function Sidebar() {
     };
   }, [workspaceIdForNav, pathname]);
 
-  // ── Sidebar Sections ─────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCurrentUser() {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!res.ok) {
+          if (!cancelled) setCurrentUser(null);
+          return;
+        }
+
+        const data = (await res.json()) as {
+          user?: { name?: string | null; email?: string | null } | null;
+        };
+        const name = data.user?.name?.trim();
+        const email = data.user?.email?.trim();
+
+        if (!cancelled && name && email) {
+          setCurrentUser({ name, email });
+        } else if (!cancelled) {
+          setCurrentUser(null);
+        }
+      } catch {
+        if (!cancelled) setCurrentUser(null);
+      }
+    }
+
+    void loadCurrentUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const userInitials =
+    currentUser?.name
+      ?.split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "U";
 
   const sections: NavSectionDef[] = [
     {
@@ -139,15 +180,11 @@ export default function Sidebar() {
     },
   ];
 
-  // ── Active state logic ────────────────────────────────
-
   const isItemActive = (item: NavItemDef) => {
     if (item.name === "Dashboard") return pathname === item.href;
     if (item.name === "Projects") return pathname.startsWith(item.href);
     return pathname === item.href;
   };
-
-  // ── NavItem Component ─────────────────────────────────
 
   const NavItem = ({ item }: { item: NavItemDef }) => {
     const active = isItemActive(item);
@@ -180,8 +217,6 @@ export default function Sidebar() {
     );
   };
 
-  // ── Section Label ─────────────────────────────────────
-
   const SectionLabel = ({ label, dot }: { label: string; dot?: string }) => {
     if (isCollapsed) {
       return <div className="mx-auto w-5 h-px bg-[#333339] my-2" />;
@@ -199,18 +234,14 @@ export default function Sidebar() {
     );
   };
 
-  // ── Render ────────────────────────────────────────────
-
   return (
     <aside
       className={`relative flex flex-col h-full bg-[#111118]/60 backdrop-blur-2xl text-[#f0f0f5] border-r border-[#333339] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)] transition-all duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] z-40 ${
         isCollapsed ? "w-[68px]" : "w-[252px]"
       }`}
     >
-      {/* ── Org / Workspace Switcher ── */}
       <OrgWorkspaceSwitcher isCollapsed={isCollapsed} />
 
-      {/* ── Navigation ── */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
         {sections.map((section) => (
           <div key={section.label} className="space-y-0.5">
@@ -222,7 +253,6 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* ── Collapse Toggle ── */}
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="absolute -right-3 top-7 w-6 h-6 rounded-full bg-[#18181f] border border-white/[0.08] shadow-lg flex items-center justify-center text-[#9090a8] hover:text-white hover:border-[var(--color-accent)]/40 transition-all duration-200 z-50 hover:scale-110"
@@ -234,7 +264,6 @@ export default function Sidebar() {
         )}
       </button>
 
-      {/* ── User Profile Footer ── */}
       <div className="px-4 py-3 border-t border-[#333339]">
         <div
           className={`flex items-center gap-3 cursor-pointer hover:bg-white/[0.04] p-2 rounded-xl transition-colors ${
@@ -242,12 +271,16 @@ export default function Sidebar() {
           }`}
         >
           <div className="w-8 h-8 rounded-full bg-[var(--color-surface2)] border border-white/[0.08] flex items-center justify-center text-xs font-bold text-[var(--color-muted2)] shrink-0">
-            AB
+            {userInitials}
           </div>
           {!isCollapsed && (
             <div className="flex-1 overflow-hidden">
-              <div className="text-[13px] font-semibold truncate text-[#f0f0f5]">Abdul Basit</div>
-              <div className="text-[11px] text-[#6b6b80] truncate">abdul@example.com</div>
+              <div className="text-[13px] font-semibold truncate text-[#f0f0f5]">
+                {currentUser?.name ?? "User"}
+              </div>
+              <div className="text-[11px] text-[#6b6b80] truncate">
+                {currentUser?.email ?? "No email"}
+              </div>
             </div>
           )}
         </div>

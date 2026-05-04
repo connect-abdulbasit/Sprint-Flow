@@ -8,7 +8,6 @@ export function Skeleton({ className = "", ...props }: ComponentProps<"div">) {
   return <div className={`rounded-md ${pulse} ${className}`} {...props} />;
 }
 
-/** API-loaded organization cards — page renders logo, titles, and buttons. */
 export function OrganizationCardsSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -33,7 +32,6 @@ export function OrganizationCardsSkeleton({ count = 6 }: { count?: number }) {
 /** @deprecated Use OrganizationCardsSkeleton */
 export const OrganizationsGridSkeleton = OrganizationCardsSkeleton;
 
-/** Org name, stats, and workspace cards from API — page renders back link, invite. */
 export function OrganizationDetailDataSkeleton({
   settingsHref,
 }: {
@@ -107,7 +105,6 @@ export const OrganizationDetailSkeleton = OrganizationDetailDataSkeleton;
 
 const DASH_STAT_LABELS = ["Tasks Completed", "In Progress", "Story Points", "Blocked"];
 
-/** Dashboard metrics from API — static intro copy is rendered in this component. */
 export function DashboardPageSkeleton() {
   return (
     <>
@@ -232,7 +229,6 @@ export function DashboardPageSkeleton() {
   );
 }
 
-/** Workspace/org settings — API values only; page renders header, sidebar, nav. */
 export function SettingsFormSkeleton({ variant }: { variant: "workspace" | "organization" }) {
   return (
     <div className="max-w-4xl mx-auto space-y-16 pb-24">
@@ -293,7 +289,6 @@ const TEAM_STAT_META = [
   { label: "Members", Icon: UserCircle, color: "#00d4aa" },
 ] as const;
 
-/** Member counts + rows from API — page renders Team header and search. */
 export function TeamDataSkeleton() {
   return (
     <div className="flex flex-col gap-6">
@@ -368,7 +363,6 @@ export function NotificationListSkeleton({ rows = 6 }: { rows?: number }) {
   );
 }
 
-/** Invitation payload from API — accept/decline labels stay real on the page. */
 export function InviteCardSkeleton() {
   return (
     <div className="flex flex-col gap-4 py-4">
@@ -388,7 +382,6 @@ export function InviteCardSkeleton() {
   );
 }
 
-/** Sprint names/dates from API — page renders static page title + toolbar. */
 export function SprintTimelineSkeleton() {
   return (
     <div className="space-y-2">
@@ -408,7 +401,6 @@ export function SprintTimelineSkeleton() {
   );
 }
 
-/** Kanban columns + tickets from API */
 export function BoardColumnsSkeleton() {
   return (
     <div className="flex flex-nowrap gap-0 px-6 py-6">
@@ -440,7 +432,6 @@ export function BoardColumnsSkeleton() {
   );
 }
 
-/** Ticket lists inside sprints — page renders static roadmap heading + actions. */
 export function BacklogSectionsSkeleton() {
   return (
     <div className="space-y-8">
@@ -493,7 +484,6 @@ export function ProjectStatGridSkeleton({ cols = 3 }: { cols?: 3 | 4 }) {
   );
 }
 
-/** Charts + lists — page renders static overview banner. */
 export function ProjectOverviewDataSkeleton() {
   return (
     <div className="space-y-8">
@@ -516,7 +506,6 @@ export function ProjectOverviewDataSkeleton() {
 /** @deprecated Use ProjectOverviewDataSkeleton */
 export const ProjectOverviewBodySkeleton = ProjectOverviewDataSkeleton;
 
-/** Charts — page renders static Reports title */
 export function ProjectReportsDataSkeleton() {
   return (
     <div className="space-y-8">
@@ -542,7 +531,6 @@ export function ProjectReportsDataSkeleton() {
 /** @deprecated Use ProjectReportsDataSkeleton */
 export const ProjectReportsBodySkeleton = ProjectReportsDataSkeleton;
 
-/** Form fields from API — page renders project nav sidebar. */
 export function ProjectSettingsFormSkeleton() {
   return (
     <main className="flex-1 overflow-y-auto custom-scrollbar px-6 py-10 sm:px-12 lg:px-20">
