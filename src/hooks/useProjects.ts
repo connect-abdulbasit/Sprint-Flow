@@ -27,7 +27,6 @@ export function useProjects(workspaceId: string): UseProjectsReturn {
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
-  // Cleanup on unmount
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -35,7 +34,6 @@ export function useProjects(workspaceId: string): UseProjectsReturn {
     };
   }, []);
 
-  // ── Initial fetch ──────────────────────────────────────────────────────────
   const loadProjects = useCallback(async () => {
     if (!workspaceId) return;
     try {
@@ -56,7 +54,6 @@ export function useProjects(workspaceId: string): UseProjectsReturn {
     loadProjects();
   }, [loadProjects]);
 
-  // ── Create ─────────────────────────────────────────────────────────────────
   const createProject = useCallback(
     async (payload: Omit<CreateProjectPayload, "workspaceId">): Promise<Project> => {
       setError(null);
@@ -67,18 +64,15 @@ export function useProjects(workspaceId: string): UseProjectsReturn {
     [workspaceId]
   );
 
-  // ── Update ─────────────────────────────────────────────────────────────────
   const updateProject = useCallback(
     async (id: string, payload: UpdateProjectPayload): Promise<Project> => {
       setError(null);
-      // Optimistic update
       setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...payload } : p)));
       try {
         const updated = await apiUpdate(id, payload);
         setProjects((prev) => prev.map((p) => (p.id === id ? updated : p)));
         return updated;
       } catch (err) {
-        // Rollback on failure — refetch to be safe
         await loadProjects();
         throw err;
       }
@@ -86,17 +80,14 @@ export function useProjects(workspaceId: string): UseProjectsReturn {
     [loadProjects]
   );
 
-  // ── Delete ─────────────────────────────────────────────────────────────────
   const deleteProject = useCallback(
     async (id: string): Promise<void> => {
       setError(null);
-      // Optimistic removal
       const snapshot = projects;
       setProjects((prev) => prev.filter((p) => p.id !== id));
       try {
         await apiDelete(id);
       } catch (err) {
-        // Rollback
         setProjects(snapshot);
         throw err;
       }

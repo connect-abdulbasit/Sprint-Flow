@@ -67,7 +67,6 @@ export default function DeleteConfirmDialog({
       await onConfirm();
       succeeded = true;
     } catch {
-      // Parent sets `error` and rethrows; keep dialog open
     } finally {
       setDeleting(false);
     }

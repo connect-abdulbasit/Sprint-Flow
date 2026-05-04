@@ -42,7 +42,6 @@ export default function SignUpForm() {
         throw new Error(body?.error ?? "Failed to create account");
       }
 
-      // Pick org/workspace from the app after organizations load (avoids invalid "default" workspace URLs)
       window.location.href = "/organizations";
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong";

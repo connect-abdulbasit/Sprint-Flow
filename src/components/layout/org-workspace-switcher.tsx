@@ -32,14 +32,12 @@ interface Workspace {
   memberCount: number;
 }
 
-/** API list row before mapping into `Organization` */
 interface ApiOrganizationRow {
   id: string;
   name: string;
   role?: string;
 }
 
-/** API list row before mapping into `Workspace` */
 interface ApiWorkspaceRow {
   id: string;
   name: string;
@@ -181,8 +179,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
     const workspaces = realWorkspacesByOrg[orgIdFromPath] ?? [];
     syncWorkspaceSelection(orgIdFromPath, workspaces);
   }, [isLoading, pathname, realOrganizations, realWorkspacesByOrg, syncWorkspaceSelection]);
-
-  // ── Global Event Listeners (Hooks must be above returns) ──
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

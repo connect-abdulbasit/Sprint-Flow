@@ -107,7 +107,6 @@ export default function InviteAcceptPage() {
 
       if (!res.ok) {
         if (res.status === 401) {
-          // Not logged in — redirect to sign in with callback
           router.push(`/signin?callbackUrl=/invite/${token}`);
           return;
         }

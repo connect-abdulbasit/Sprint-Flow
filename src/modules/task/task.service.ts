@@ -459,7 +459,6 @@ export class TaskService {
       throw new Error("Ticket not found");
     }
 
-    // Log activity: completed
     if (body.status === "done" && existing.status !== "done") {
       await activityService.logActivity({
         workspaceId: workspaceIdForActivity,
@@ -471,7 +470,6 @@ export class TaskService {
       });
     }
 
-    // Log activity: assigned
     if (body.assigneeId !== undefined && body.assigneeId !== existing.assigneeId) {
       await activityService.logActivity({
         workspaceId: workspaceIdForActivity,

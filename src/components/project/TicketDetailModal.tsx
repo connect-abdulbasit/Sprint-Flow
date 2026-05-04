@@ -58,7 +58,6 @@ function dueDateToInput(d: string | null | undefined): string {
   return d.length >= 10 ? d.slice(0, 10) : d;
 }
 
-/** Human-readable duration from decimal hours (e.g. 1.5 → "1h 30m"). */
 function formatHoursParts(hours: number): string {
   if (!Number.isFinite(hours) || hours <= 0) return "0m";
   const h = Math.floor(hours);
@@ -167,7 +166,6 @@ function renderCommentContent(
   members: ProjectMember[],
   keyPrefix: string
 ): React.ReactNode {
-  // Get all member names from members prop
   const memberNames = members
     .map((m) => m.name)
     .filter(Boolean)
@@ -185,12 +183,10 @@ function renderCommentContent(
       break;
     }
 
-    // Add text before @
     if (atIndex > 0) {
       result.push(<span key={`${keyPrefix}-${keyIndex++}`}>{remaining.slice(0, atIndex)}</span>);
     }
 
-    // Try to match a member name after @
     const afterAt = remaining.slice(atIndex + 1);
     let matched = false;
 
@@ -208,7 +204,6 @@ function renderCommentContent(
     }
 
     if (!matched) {
-      // @ but no member match - show as plain text
       result.push(<span key={`${keyPrefix}-${keyIndex++}`}>@</span>);
       remaining = remaining.slice(atIndex + 1);
     }
@@ -347,14 +342,10 @@ export interface TicketDetailModalProps {
   projectId: string;
   ticketId: string | null;
   focusCommentId?: string | null;
-  /** Shown immediately while fetching */
   preview?: ProjectTicket | null;
   members: ProjectMember[];
-  /** Backlog (null) plus open sprints; include current sprint if completed so the value stays valid. */
   sprintPickerOptions?: { id: string | null; name: string }[];
-  /** Project board columns as status options; defaults when omitted. */
   statusOptions?: { value: string; label: string }[];
-  /** Other tickets in this project — used to pick prerequisites (“do these first”). */
   linkableTickets?: ProjectTicket[];
   isOpen: boolean;
   onClose: () => void;
@@ -392,7 +383,6 @@ export default function TicketDetailModal({
   const [ticketSprintId, setTicketSprintId] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [clearImage, setClearImage] = useState(false);
-  /** Prerequisite ticket ids (“this ticket waits on these”). */
   const [dependsOnIds, setDependsOnIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -406,7 +396,6 @@ export default function TicketDetailModal({
   const [deletingTimeEntryId, setDeletingTimeEntryId] = useState<string | null>(null);
   const [descriptionToolError, setDescriptionToolError] = useState<string | null>(null);
 
-  // Comments section states
   const [comments, setComments] = useState<CommentData[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newComment, setNewComment] = useState("");
@@ -458,7 +447,6 @@ export default function TicketDetailModal({
     [newComment]
   );
 
-  // Fetch comments
   const fetchComments = useCallback(async () => {
     if (!workspaceId || !ticketId) return;
     setCommentsLoading(true);
@@ -479,7 +467,6 @@ export default function TicketDetailModal({
     }
   }, [workspaceId, ticketId]);
 
-  // Add comment
   const handleAddComment = useCallback(async () => {
     if (!workspaceId || !ticketId || !newComment.trim()) return;
     setSubmittingComment(true);
@@ -503,7 +490,6 @@ export default function TicketDetailModal({
     }
   }, [workspaceId, ticketId, newComment, replyingToId]);
 
-  // Delete comment
   const handleDeleteComment = useCallback(
     async (commentId: string) => {
       if (!workspaceId || !ticketId) return;
@@ -759,6 +745,16 @@ export default function TicketDetailModal({
       .filter((t) => t.id !== ticketId)
       .sort((a, b) => a.ticketNumber - b.ticketNumber);
   }, [linkableTickets, ticketId]);
+
+  const blockedDependencyOptions = useMemo(
+    () => linkPickerOptions.filter((ticket) => dependsOnIds.includes(ticket.id)),
+    [linkPickerOptions, dependsOnIds]
+  );
+
+  const openDependencies = useMemo(
+    () => (detail?.dependsOn ?? []).filter((dependency) => dependency.status !== "done"),
+    [detail?.dependsOn]
+  );
 
   const dirty = useMemo(() => {
     if (!detail) return false;
@@ -1774,9 +1770,9 @@ export default function TicketDetailModal({
                       <p className="mb-2 text-[12px] leading-snug text-zinc-500">
                         This ticket should start after its prerequisites are completed.
                       </p>
-                      {canEdit && linkPickerOptions.length > 0 ? (
+                      {canEdit && blockedDependencyOptions.length > 0 ? (
                         <div className="custom-scrollbar max-h-[180px] space-y-1.5 overflow-y-auto pr-0.5">
-                          {linkPickerOptions.map((t) => (
+                          {blockedDependencyOptions.map((t) => (
                             <label
                               key={t.id}
                               className={`flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:bg-white/[0.03] ${dependsOnIds.includes(t.id) ? "border-amber-500/25 bg-amber-500/5" : "border-white/[0.06]"}`}
@@ -1804,9 +1800,9 @@ export default function TicketDetailModal({
                         </div>
                       ) : (
                         <>
-                          {(detail?.dependsOn?.length ?? 0) > 0 ? (
+                          {openDependencies.length > 0 ? (
                             <ul className="space-y-1">
-                              {detail!.dependsOn!.map((l) => (
+                              {openDependencies.map((l) => (
                                 <li
                                   key={l.id}
                                   className={`flex flex-col rounded-md border border-white/[0.06] px-2 py-1.5 ${l.status !== "done" ? "border-amber-500/15 bg-amber-500/5" : ""}`}

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function CTA() {
   return (
     <section className="py-32 px-12 text-center relative overflow-hidden">
@@ -22,9 +24,12 @@ export default function CTA() {
         Get your team set up in minutes.
       </p>
       <div className="flex items-center justify-center gap-3.5 reveal relative z-10">
-        <button className="px-7 py-3.5 text-[0.95rem] font-medium text-white bg-[#4f7cff] rounded-xl hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer border-none font-[inherit]">
+        <Link
+          href="/signin"
+          className="px-7 py-3.5 text-[0.95rem] font-medium text-white bg-[#4f7cff] rounded-xl hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer no-underline inline-block"
+        >
           Create your workspace →
-        </button>
+        </Link>
       </div>
     </section>
   );

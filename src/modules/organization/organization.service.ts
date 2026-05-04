@@ -15,8 +15,6 @@ export class OrganizationService {
       role: "owner",
     });
 
-    // Create a workspace for the organization
-    // Default to "General" if not provided
     const ws = await workspaceService.createWorkspace(userId, {
       name: workspace?.name || "General",
       organizationId: organization.id,
@@ -106,13 +104,11 @@ export class OrganizationService {
       throw new Error("Forbidden: Only the owner can delete the organization");
     }
 
-    // Delete related workspaces first (cascades to workspace_members, prefs, notif_settings)
     const workspaces = await workspaceRepository.getWorkspacesByOrganizationId(orgId);
     for (const ws of workspaces) {
       await workspaceRepository.deleteWorkspace(ws.id);
     }
 
-    // Delete organization (cascades to organization_members)
     await organizationRepository.deleteOrganization(orgId);
 
     return { success: true };

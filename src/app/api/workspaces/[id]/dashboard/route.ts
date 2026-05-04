@@ -47,12 +47,10 @@ function computeBurndown(
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter((t) => t.status === "done");
 
-  // Ideal burndown: straight line from totalTasks to 0 over totalDays
   const ideal = Array.from({ length: totalDays }, (_, i) =>
     Math.round(totalTasks - (totalTasks / Math.max(totalDays - 1, 1)) * i)
   );
 
-  // Actual burndown: for each elapsed day, count tasks remaining (not yet done at end of that day)
   const actual: number[] = [];
   for (let day = 0; day <= currentDay; day++) {
     const dayEnd = new Date(start);

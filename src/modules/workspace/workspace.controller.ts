@@ -272,13 +272,11 @@ export class WorkspaceController {
   async sendInvite(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id: workspaceId } = await params;
 
-    // RBAC: Resolve user + workspace role in one shot
     const userWithRole = await getCurrentUserWithRole(req, workspaceId);
     if (!userWithRole) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Enforce: only admin and project_manager can send invites
     if (!hasRole(userWithRole.workspaceRole, "project_manager")) {
       return NextResponse.json(
         { error: "Forbidden: You do not have permission to invite users." },

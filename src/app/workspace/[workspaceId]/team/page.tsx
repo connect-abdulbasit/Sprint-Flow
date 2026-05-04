@@ -51,7 +51,6 @@ function formatDate(iso: string) {
   });
 }
 
-// Deterministic color from name
 function avatarColor(name: string) {
   const colors = ["#4f7cff", "#a259ff", "#00d4aa", "#ff9f43", "#ff4f7c", "#00b4d8"];
   let hash = 0;
@@ -127,7 +126,6 @@ export default function TeamPage() {
   return (
     <>
       <div className="flex flex-col gap-6 pb-12">
-        {/* ── Header ─────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
@@ -181,7 +179,6 @@ export default function TeamPage() {
           </>
         ) : (
           <>
-            {/* ── Stat Cards ─────────────────────────────────────── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 {
@@ -237,7 +234,6 @@ export default function TeamPage() {
               ))}
             </div>
 
-            {/* ── Search Bar ─────────────────────────────────────── */}
             <div>
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
@@ -251,9 +247,7 @@ export default function TeamPage() {
               </div>
             </div>
 
-            {/* ── Members List ───────────────────────────────────── */}
             <div className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden">
-              {/* Table Header */}
               <div className="flex items-center gap-4 px-6 py-3 border-b border-white/[0.05] text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-[0.1em]">
                 <div className="w-10" />
                 <div className="flex-1">Member</div>
@@ -262,7 +256,6 @@ export default function TeamPage() {
                 <div className="w-8" />
               </div>
 
-              {/* Error State */}
               {error && (
                 <div className="flex flex-col items-center justify-center py-16 text-center px-6">
                   <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
@@ -275,7 +268,6 @@ export default function TeamPage() {
                 </div>
               )}
 
-              {/* Empty State */}
               {!error && filtered.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-16 text-center px-6">
                   <div
@@ -319,7 +311,6 @@ export default function TeamPage() {
                 </div>
               )}
 
-              {/* Member Rows */}
               {!error &&
                 filtered.map((member) => {
                   const rc = roleConfig[member.role] || roleConfig.member;
@@ -329,7 +320,6 @@ export default function TeamPage() {
                       key={member.userId}
                       className="group flex items-center gap-4 px-6 py-4 border-b border-white/[0.03] last:border-b-0 hover:bg-white/[0.02] transition-all duration-300"
                     >
-                      {/* Avatar */}
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 border border-white/[0.06]"
                         style={{
@@ -340,7 +330,6 @@ export default function TeamPage() {
                         {getInitials(member.name)}
                       </div>
 
-                      {/* Name & Email */}
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-[#f0f0f5] truncate">
                           {member.name}
@@ -351,7 +340,6 @@ export default function TeamPage() {
                         </div>
                       </div>
 
-                      {/* Role Badge */}
                       <div className="w-36 hidden sm:block">
                         <span
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold uppercase tracking-wider"
@@ -366,13 +354,11 @@ export default function TeamPage() {
                         </span>
                       </div>
 
-                      {/* Joined Date */}
                       <div className="w-28 hidden md:flex items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
                         <Calendar className="w-3 h-3 shrink-0" />
                         {formatDate(member.joinedAt)}
                       </div>
 
-                      {/* Actions */}
                       <div className="w-8 flex items-center justify-center">
                         <button className="p-1.5 text-[var(--color-muted)] hover:text-[#f0f0f5] hover:bg-white/[0.05] rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
                           <MoreHorizontal className="w-4 h-4" />
@@ -383,7 +369,6 @@ export default function TeamPage() {
                 })}
             </div>
 
-            {/* ── Invite CTA Card ────────────────────────────────── */}
             {!error && members.length > 0 && (
               <RoleGate workspaceId={workspaceId} allowedRoles={["admin", "project_manager"]}>
                 <div
@@ -408,7 +393,6 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* ── Invite Modal ──────────────────────────────────────── */}
       <InviteModal
         isOpen={inviteOpen}
         onClose={() => setInviteOpen(false)}

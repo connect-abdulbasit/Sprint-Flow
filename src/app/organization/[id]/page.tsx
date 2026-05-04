@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { writeSelectedOrgId, writeWorkspaceIdForOrg } from "@/lib/workspace-prefs";
 import { OrganizationDetailDataSkeleton } from "@/components/ui/skeleton";
+import CreateWorkspaceModal from "@/components/workspace/CreateWorkspaceModal";
 
 function getInitials(name: string) {
   return name
@@ -79,12 +80,14 @@ export default function OrganizationPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
-  const [workspaceActionError, setWorkspaceActionError] = useState<string | null>(null);
+  const [isCreateWorkspaceModalOpen, setIsCreateWorkspaceModalOpen] = useState(false);
 
-  useEffect(() => {
-    async function fetchOrgDashboard() {
+  const fetchOrgDashboard = useCallback(
+    async (showLoading = false) => {
       if (!id) return;
+      if (showLoading) {
+        setIsLoading(true);
+      }
       try {
         const dashboardRes = await fetch(`/api/organizations/${id}/dashboard`);
         if (!dashboardRes.ok) {
@@ -96,14 +99,21 @@ export default function OrganizationPage() {
         setOrgWorkspaces(dashboardData.workspaces ?? []);
         setOrgMembers(dashboardData.members ?? []);
         setOrgStats(dashboardData.stats);
+        setError(null);
       } catch (err) {
         setError((err as Error).message);
       } finally {
-        setIsLoading(false);
+        if (showLoading) {
+          setIsLoading(false);
+        }
       }
-    }
-    fetchOrgDashboard();
-  }, [id]);
+    },
+    [id]
+  );
+
+  useEffect(() => {
+    fetchOrgDashboard(true);
+  }, [fetchOrgDashboard]);
 
   const stats = [
     {
@@ -130,51 +140,6 @@ export default function OrganizationPage() {
     if (!id) return;
     writeSelectedOrgId(id);
     writeWorkspaceIdForOrg(id, workspaceId);
-  };
-
-  const makeSlug = (name: string) =>
-    name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
-  const handleCreateWorkspace = async () => {
-    if (!id || isCreatingWorkspace) return;
-
-    const rawName = window.prompt("Workspace name");
-    if (rawName === null) return;
-
-    const name = rawName.trim();
-    if (!name) return;
-
-    const slugBase = makeSlug(name);
-    const slug = slugBase || `workspace-${Date.now()}`;
-
-    setWorkspaceActionError(null);
-    setIsCreatingWorkspace(true);
-    try {
-      const res = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, organizationId: id, slug }),
-      });
-
-      const data = (await res.json().catch(() => ({}))) as {
-        id?: string;
-        error?: string;
-      } & ApiWorkspace;
-      if (!res.ok || !data.id) {
-        throw new Error(data.error || "Failed to create workspace");
-      }
-
-      setOrgWorkspaces((prev) => [data, ...prev]);
-      setOrgStats((prev) => ({ ...prev, workspaceCount: prev.workspaceCount + 1 }));
-    } catch (err) {
-      setWorkspaceActionError((err as Error).message || "Could not create workspace.");
-    } finally {
-      setIsCreatingWorkspace(false);
-    }
   };
 
   if (isLoading) {
@@ -279,17 +244,13 @@ export default function OrganizationPage() {
           </h2>
           <button
             type="button"
-            onClick={handleCreateWorkspace}
-            disabled={isCreatingWorkspace}
+            onClick={() => setIsCreateWorkspaceModalOpen(true)}
             className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent)] hover:text-[var(--color-accent)]/80 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
-            {isCreatingWorkspace ? "Creating..." : "New workspace"}
+            New workspace
           </button>
         </div>
-        {workspaceActionError && (
-          <p className="text-xs text-red-400 mb-3">{workspaceActionError}</p>
-        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {orgWorkspaces.length === 0 ? (
             <p className="text-sm text-[var(--color-muted)] md:col-span-3 py-6 px-1">
@@ -326,6 +287,14 @@ export default function OrganizationPage() {
           )}
         </div>
       </section>
+      <CreateWorkspaceModal
+        isOpen={isCreateWorkspaceModalOpen}
+        onClose={() => setIsCreateWorkspaceModalOpen(false)}
+        organizationId={id}
+        onSuccess={() => {
+          void fetchOrgDashboard();
+        }}
+      />
 
       <section>
         <div className="flex items-center justify-between mb-4">

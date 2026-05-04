@@ -18,13 +18,8 @@ import {
 } from "@/lib/workspace-prefs";
 
 type WorkspaceNavContextValue = {
-  /** Workspace id from URL when on `/workspace/...`, otherwise last persisted workspace for the selected org */
   workspaceIdForNav: string;
   setNavWorkspaceId: (_workspaceId: string) => void;
-  /**
-   * Persists org, picks stored workspace for that org or the first in the list, persists it, and updates nav fallback.
-   * @returns chosen workspace id (may be empty if there are no workspaces)
-   */
   syncWorkspaceSelection: (_orgId: string, _workspaces: readonly { id: string }[]) => string;
 };
 

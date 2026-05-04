@@ -77,7 +77,6 @@ export default function InviteModal({
         setInvitations(data);
       }
     } catch {
-      // silently fail - invitations list is non-critical
     } finally {
       setLoadingInvitations(false);
     }
@@ -127,7 +126,6 @@ export default function InviteModal({
         );
       }
 
-      // Refresh the invitations list
       fetchInvitations();
     } catch {
       setError("Network error. Please try again.");
@@ -144,7 +142,6 @@ export default function InviteModal({
 
   const handleRevoke = async (id: string) => {
     setRevokingId(id);
-    // For now, remove from UI (revoke API can be added later)
     await new Promise((r) => setTimeout(r, 400));
     setInvitations((prev) => prev.filter((inv) => inv.id !== id));
     setRevokingId(null);

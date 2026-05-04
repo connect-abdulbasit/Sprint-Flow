@@ -21,7 +21,7 @@ export default function Navbar() {
       }`}
     >
       {/* Logo */}
-      <a href="#" className="flex items-center gap-2.5 no-underline">
+      <Link href="/" className="flex items-center gap-2.5 no-underline">
         <div className="w-7 h-7 rounded-[7px] bg-gradient-to-br from-[#4f7cff] to-[#a259ff] flex items-center justify-center text-xs font-black text-white">
           SF
         </div>
@@ -31,43 +31,7 @@ export default function Navbar() {
         >
           SprintFlow
         </span>
-      </a>
-
-      {/* Links */}
-      <ul className="hidden md:flex items-center gap-9 list-none">
-        <li key="Features">
-          <a
-            href="#features"
-            className="text-[#9090a8] text-sm hover:text-[#f0f0f5] transition-colors duration-200 no-underline"
-          >
-            Features
-          </a>
-        </li>
-        <li key="How it works">
-          <a
-            href="#how-it-works"
-            className="text-[#9090a8] text-sm hover:text-[#f0f0f5] transition-colors duration-200 no-underline"
-          >
-            How it works
-          </a>
-        </li>
-        <li key="Docs">
-          <a
-            href="#"
-            className="text-[#9090a8] text-sm hover:text-[#f0f0f5] transition-colors duration-200 no-underline"
-          >
-            Docs
-          </a>
-        </li>
-        <li key="Changelog">
-          <a
-            href="#"
-            className="text-[#9090a8] text-sm hover:text-[#f0f0f5] transition-colors duration-200 no-underline"
-          >
-            Changelog
-          </a>
-        </li>
-      </ul>
+      </Link>
 
       {/* CTA */}
       <div className="flex items-center gap-3">
@@ -77,9 +41,12 @@ export default function Navbar() {
         >
           Sign in
         </Link>
-        <button className="px-5 py-2 text-sm font-medium text-white bg-[#4f7cff] rounded-lg hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer border-none font-[inherit]">
+        <Link
+          href="/signin"
+          className="px-5 py-2 text-sm font-medium text-white bg-[#4f7cff] rounded-lg hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer no-underline"
+        >
           Get started
-        </button>
+        </Link>
       </div>
     </nav>
   );

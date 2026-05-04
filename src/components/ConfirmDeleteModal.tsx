@@ -1,4 +1,3 @@
-// ConfirmDeleteModal.tsx
 import { AlertCircle } from "lucide-react";
 
 interface ConfirmDeleteModalProps {

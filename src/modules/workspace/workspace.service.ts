@@ -17,8 +17,6 @@ export class WorkspaceService {
       ...data,
     });
 
-    // Seed workspace admins from organization owner/admins.
-    // Keep creator as admin even if org role lookup is stale/missing.
     const privilegedMembers = await workspaceRepository.getPrivilegedOrgMembers(
       data.organizationId
     );
@@ -43,11 +41,8 @@ export class WorkspaceService {
     const workspace = await workspaceRepository.getWorkspaceById(id);
     if (!workspace) return null;
 
-    // Optional: Check if user is a member of the workspace or organization
     const member = await workspaceRepository.getMember(userId, workspace.id);
     if (!member) {
-      // You might want to allow org admins to see all workspaces in their org
-      // For now, strict membership check
       return null;
     }
 
@@ -80,10 +75,7 @@ export class WorkspaceService {
     return workspaceRepository.deleteWorkspace(id);
   }
 
-  // ── Members ────────────────────────────────────────────────
-
   async getWorkspaceMembers(userId: string, workspaceId: string) {
-    // Verify caller is a member
     const caller = await workspaceRepository.getMember(userId, workspaceId);
     if (!caller) {
       throw new Error("Forbidden: You are not a member of this workspace.");
@@ -100,31 +92,25 @@ export class WorkspaceService {
     }));
   }
 
-  // ── Invite: Send ───────────────────────────────────────────
-
   async sendInvite(
     userId: string,
     data: { workspaceId: string; email: string; role: WorkspaceRole }
   ) {
-    // 1. Email-only validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(data.email)) {
       throw new Error("A valid email address is required.");
     }
 
-    // 2. Verify workspace exists
     const workspace = await workspaceRepository.getWorkspaceById(data.workspaceId);
     if (!workspace) {
       throw new Error("Workspace not found.");
     }
 
-    // 3. RBAC: Only admins and project_managers can send invites
     const sender = await workspaceRepository.getMember(userId, data.workspaceId);
     if (!sender || !hasRole(sender.role as WorkspaceRole, "project_manager")) {
       throw new Error("Forbidden: Only admins and project managers can send invites.");
     }
 
-    // 4. Check if user is already a workspace member (by email)
     const existingUser = await workspaceRepository.findUserByEmail(data.email);
     if (existingUser) {
       const existingMember = await workspaceRepository.getMember(existingUser.id, data.workspaceId);
@@ -133,7 +119,6 @@ export class WorkspaceService {
       }
     }
 
-    // 5. Check for already accepted invite
     const acceptedInvite = await workspaceRepository.findAcceptedInvite(
       data.workspaceId,
       data.email
@@ -142,14 +127,10 @@ export class WorkspaceService {
       throw new Error("This email has already accepted an invite to this workspace.");
     }
 
-    // 6. Role policy before pending-invite handling:
-    // project managers can only invite members, never PM/admin.
     if (sender.role === "project_manager" && data.role !== "member") {
       throw new Error("Forbidden: Project managers can only invite members.");
     }
 
-    // 7. Prevent duplicate pending invites (anti-spam).
-    // If role changed, update pending invite role to match latest intent.
     const pendingInvite = await workspaceRepository.findPendingInvite(data.workspaceId, data.email);
     if (pendingInvite) {
       if (pendingInvite.role !== data.role) {
@@ -174,8 +155,6 @@ export class WorkspaceService {
       };
     }
 
-    // 8. Create the invite
-
     const token = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     const invite = await workspaceRepository.createInvite({
@@ -197,8 +176,6 @@ export class WorkspaceService {
     };
   }
 
-  // ── Invite: Get details by token ──────────────────────────
-
   async getInviteByToken(token: string) {
     const result = await workspaceRepository.getInviteDetailsByToken(token);
     if (!result || !result.invite) {
@@ -210,7 +187,6 @@ export class WorkspaceService {
     const organization = result.organization;
     const inviter = result.inviter;
 
-    // Check if expired
     if (new Date(invite.expiresAt) < new Date()) {
       return { ...invite, status: "expired" as const, workspace, inviter };
     }
@@ -230,8 +206,6 @@ export class WorkspaceService {
     };
   }
 
-  // ── Invite: Accept ────────────────────────────────────────
-
   async acceptInvite(userId: string, token: string) {
     const inviteRow = await workspaceRepository.findInviteByToken(token);
     if (!inviteRow) {
@@ -242,26 +216,21 @@ export class WorkspaceService {
       throw new Error("This invitation has expired.");
     }
 
-    // Get workspace to find the parent org
     const workspace = await workspaceRepository.getWorkspaceById(inviteRow.workspaceId);
     if (!workspace) {
       throw new Error("The workspace for this invitation no longer exists.");
     }
 
-    // Check if already a workspace member
     const existingWorkspaceMember = await workspaceRepository.getMember(
       userId,
       inviteRow.workspaceId
     );
     if (existingWorkspaceMember) {
-      // Mark as accepted anyway
       await workspaceRepository.updateInviteStatus(inviteRow.id, "accepted");
       return { success: true, message: "You are already a member of this workspace." };
     }
 
-    // Transactional: add org member + workspace member + update invite status
     await db.transaction(async (tx) => {
-      // 1. Grant org access if not already a member
       const existingOrgMember = await workspaceRepository.getOrgMember(
         userId,
         workspace.organizationId
@@ -277,7 +246,6 @@ export class WorkspaceService {
           .execute();
       }
 
-      // 2. Grant workspace access
       await tx
         .insert(workspaceMembersTable)
         .values({
@@ -287,7 +255,6 @@ export class WorkspaceService {
         })
         .execute();
 
-      // 3. Update invite status
       await tx
         .update(workspaceInvitesTable)
         .set({ status: "accepted" })
@@ -315,13 +282,11 @@ export class WorkspaceService {
   }
 
   async removeMember(callerUserId: string, workspaceId: string, targetUserId: string) {
-    // RBAC: Only admins can remove members
     const caller = await workspaceRepository.getMember(callerUserId, workspaceId);
     if (!caller || !hasRole(caller.role as WorkspaceRole, "admin")) {
       throw new Error("Forbidden: Only workspace admins can remove members.");
     }
 
-    // Prevent self-removal if you're the only admin
     const members = await workspaceRepository.getWorkspaceMembers(workspaceId);
     const admins = members.filter((m) => m.membership.role === "admin");
     if (targetUserId === callerUserId && admins.length <= 1) {
@@ -352,8 +317,6 @@ export class WorkspaceService {
     return { success: true, message: "Member removed successfully." };
   }
 
-  // ── Invite: Reject ────────────────────────────────────────
-
   async rejectInvite(token: string) {
     const inviteRow = await workspaceRepository.findInviteByToken(token);
     if (!inviteRow) {
@@ -364,10 +327,7 @@ export class WorkspaceService {
     return { success: true, message: "Invitation declined." };
   }
 
-  // ── Invite: list pending for a workspace ──────────────────
-
   async getWorkspaceInvites(userId: string, workspaceId: string) {
-    // RBAC: Admins and project_managers can view invites
     const member = await workspaceRepository.getMember(userId, workspaceId);
     if (!member || !hasRole(member.role as WorkspaceRole, "project_manager")) {
       throw new Error("Forbidden: Only admins and project managers can view invites.");

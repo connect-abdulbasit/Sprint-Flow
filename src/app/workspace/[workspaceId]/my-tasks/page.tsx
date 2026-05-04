@@ -16,8 +16,6 @@ import {
 } from "lucide-react";
 import { fetchMyTasks, type MyTask } from "@/lib/projects-api";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function timeAgo(date: Date | string): string {
   const d = new Date(date);
   const now = Date.now();
@@ -32,8 +30,6 @@ function timeAgo(date: Date | string): string {
   if (days < 7) return `${days}d ago`;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
   const s = status.toLowerCase().replace(/[\s_]+/g, "-");
@@ -118,8 +114,6 @@ function LoadingSkeleton() {
   );
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
-
 export default function MyTasksPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const [tasks, setTasks] = useState<MyTask[]>([]);
@@ -166,7 +160,6 @@ export default function MyTasksPage() {
     return result;
   }, [tasks, hasSearch, query, statusFilter]);
 
-  // Stats
   const stats = useMemo(() => {
     const total = tasks.length;
     const done = tasks.filter((t) => t.status.toLowerCase() === "done").length;
@@ -187,7 +180,6 @@ export default function MyTasksPage() {
 
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
-      {/* ── Header ── */}
       <div className="px-10 py-8 border-b border-white/[0.04] bg-[#0c0c0f]/50 backdrop-blur-xl sticky top-0 z-10">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
@@ -225,7 +217,6 @@ export default function MyTasksPage() {
           )}
         </div>
 
-        {/* ── Search & Filters ── */}
         <div className="flex items-center gap-3">
           <div className="relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 group-focus-within:text-blue-400 transition-colors" />
@@ -264,7 +255,6 @@ export default function MyTasksPage() {
         </div>
       </div>
 
-      {/* ── Content ── */}
       <div className="flex-1 overflow-y-auto px-10 py-8 custom-scrollbar">
         {loading ? (
           <LoadingSkeleton />
@@ -277,7 +267,6 @@ export default function MyTasksPage() {
             <p className="text-[13px] text-zinc-500 max-w-xs">{error}</p>
           </div>
         ) : filteredTasks.length === 0 ? (
-          /* ── Empty State ── */
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="relative mb-6">
               <div className="w-20 h-20 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center text-zinc-600">
@@ -297,9 +286,7 @@ export default function MyTasksPage() {
             </p>
           </div>
         ) : (
-          /* ── Task List ── */
           <div className="space-y-2">
-            {/* Table header */}
             <div className="flex items-center gap-4 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-600">
               <div className="w-10" />
               <div className="flex-1">Ticket</div>

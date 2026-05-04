@@ -7,7 +7,6 @@ import { workspaceRepository } from "@/modules/workspace/workspace.repository";
 
 export class ProjectService {
   async getWorkspaceProjects(userId: string, workspaceId: string) {
-    // Verify workspace access
     const workspace = await workspaceService.getWorkspaceById(userId, workspaceId);
     if (!workspace) {
       throw new Error("Workspace not found or access denied");
@@ -19,7 +18,6 @@ export class ProjectService {
     userId: string,
     payload: { name: string; description?: string; workspaceId: string }
   ) {
-    // Verify workspace access and management permissions
     const workspace = await workspaceService.getWorkspaceById(userId, payload.workspaceId);
     const membership = await workspaceRepository.getMember(userId, payload.workspaceId);
     if (!workspace || !membership) {

@@ -13,7 +13,6 @@ export default function CreateWorkspacePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Auto-generate slug (to lowercase, replace spaces with hyphens)
   const slug = workspaceName
     .toLowerCase()
     .trim()

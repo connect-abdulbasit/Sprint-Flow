@@ -36,8 +36,6 @@ export const activityLogsRelations = relations(activityLogsTable, ({ one }) => (
   }),
 }));
 
-/* ── Workspace-scoped activities table ───────────────────────────── */
-
 export const activitiesTable = pgTable(
   "activities",
   {
