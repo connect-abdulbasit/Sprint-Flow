@@ -53,11 +53,19 @@ Additional design decisions:
 - **Denormalization** — `assigneeName`/`reporterName` stored on the tasks row to eliminate repeated user joins on board render
 - **DB connection pooling** — `globalThis` singleton in `src/lib/db.ts` reuses the pool across hot-reloads in dev
 
-Architecture diagrams are in [`docs/`](docs/):
-- [Entity-Relationship Diagram](docs/ERD.png)
-- [Class Diagram](docs/Class-Diagram.svg)
-- [Sequence Diagram](docs/Sequence-Diagram.png)
-- [Use-Case Diagram](docs/Use-Case-Diagram.png)
+**Design diagrams** — [`docs/diagrams/`](docs/diagrams/) (architecture, data model, and behavior views):
+
+- [Architecture overview](docs/diagrams/Architecture-Diagram.png)
+- [Entity–relationship diagram](docs/diagrams/ERD.png)
+- [Class diagram](docs/diagrams/Class-Diagram.svg)
+- [Sequence diagram](docs/diagrams/Sequence-Diagram.png)
+- [Use-case diagram](docs/diagrams/Use-Case-Diagram.png)
+
+**Project documents** — [`docs/documents/`](docs/documents/) (Word / PDF deliverables; files follow `SprintFlow_<Title>_<optional-version>.<ext>`):
+
+- `SprintFlow_SRS.docx` — software requirements specification
+- `SprintFlow_Project_Report_v2.docx` — project report
+- `SprintFlow_Project_Proposal.pdf` — project proposal
 
 ---
 
@@ -175,15 +183,22 @@ Every route returns JSON. Errors follow `{ "error": "message" }` with an appropr
 ## Project Structure
 
 ```
+docs/
+├── diagrams/             # Visual design: architecture, ERD, class, sequence, use case
+└── documents/            # Written deliverables: SRS, report, proposal (Word / PDF)
+
+drizzle/                  # Generated SQL migrations + Drizzle Kit meta
+
 src/
 ├── app/                  # Next.js App Router (pages + API routes)
-│   ├── api/              # 38 API route handlers
+│   ├── api/              # REST API route handlers
 │   ├── workspace/        # Workspace pages (board, sprints, settings…)
 │   ├── organization/     # Organization pages
 │   ├── onboarding/       # First-run onboarding flow
-│   └── signin|signup/    # Auth pages
+│   ├── signin/           # Sign-in page
+│   └── signup/           # Sign-up page
 ├── modules/              # 14 feature modules (controller/service/repository)
-├── components/           # 32 React UI components
+├── components/           # React UI components
 ├── hooks/                # Custom React hooks
 ├── contexts/             # React context providers
 ├── lib/                  # Shared utilities (JWT, RBAC, rate limiter, pagination…)
