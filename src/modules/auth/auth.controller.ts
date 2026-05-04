@@ -2,9 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 import { authService } from "./auth.service";
 import { authRepository } from "./auth.repository";
 import { setAuthCookies, clearAuthCookies, hashPassword, verifyPassword } from "@/lib/auth";
+import { signAccessToken } from "@/lib/jwt";
+import { authRateLimiter } from "@/lib/rate-limiter";
+
+function getClientIp(req: NextRequest): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown"
+  );
+}
 
 export class AuthController {
   async signup(req: NextRequest) {
+    const ip = getClientIp(req);
+    const limit = authRateLimiter.check(`signup:${ip}`);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Too many attempts. Please try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(Math.ceil(limit.resetAfterMs / 1000)) },
+        }
+      );
+    }
+
     try {
       const body = await req.json();
       const { email, password, name } = body;
@@ -42,6 +64,18 @@ export class AuthController {
   }
 
   async signin(req: NextRequest) {
+    const ip = getClientIp(req);
+    const limit = authRateLimiter.check(`signin:${ip}`);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: "Too many attempts. Please try again later." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(Math.ceil(limit.resetAfterMs / 1000)) },
+        }
+      );
+    }
+
     try {
       const body = await req.json();
       const { email, password } = body;
@@ -100,7 +134,7 @@ export class AuthController {
         return NextResponse.json({ error: "User not found" }, { status: 401 });
       }
 
-      const { accessToken, session: newSession } = await authService.signin(user.email);
+      const accessToken = await signAccessToken(user);
 
       const response = NextResponse.json({
         user: { id: user.id, name: user.name, email: user.email },
@@ -109,8 +143,8 @@ export class AuthController {
       setAuthCookies({
         response,
         accessToken,
-        refreshToken: newSession.refreshToken,
-        refreshTokenExpiresAt: newSession.expiresAt,
+        refreshToken: session.refreshToken,
+        refreshTokenExpiresAt: session.expiresAt,
       });
 
       return response;

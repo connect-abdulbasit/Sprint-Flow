@@ -20,6 +20,7 @@ function formatDate(dateStr: string): string {
 
 type SprintTask = {
   id: string;
+  sprintId: string | null;
   status: string;
   storyPoints: number | null;
   assigneeId: string | null;
@@ -127,25 +128,35 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const projectIds = projects.map((p) => p.id);
     const projectNameById = new Map(projects.map((p) => [p.id, p.name]));
 
-    const activeSprint = projectIds.length
-      ? await dashboardRepository.getActiveSprintForProjects(projectIds)
-      : null;
+    const activeSprints = projectIds.length
+      ? await dashboardRepository.getActiveSprintsForProjects(projectIds)
+      : [];
+    const primarySprint = activeSprints[0] ?? null;
 
     let sprintTasks: SprintTask[] = [];
     let sprintInfo = null;
+    let sprintInfos: Array<{
+      id: string;
+      name: string;
+      startDate: string;
+      endDate: string;
+      daysLeft: number;
+      projectName: string;
+    }> = [];
 
-    if (activeSprint) {
-      const rawTasks = await dashboardRepository.getSprintTasks(activeSprint.id);
-      sprintTasks = rawTasks;
-
-      sprintInfo = {
-        id: activeSprint.id,
-        name: activeSprint.name,
-        startDate: formatDate(activeSprint.startDate),
-        endDate: formatDate(activeSprint.endDate),
-        daysLeft: daysLeft(activeSprint.endDate),
-        projectName: activeSprint.projectName,
-      };
+    if (activeSprints.length > 0) {
+      sprintTasks = await dashboardRepository.getSprintTasksForSprints(
+        activeSprints.map((s) => s.id)
+      );
+      sprintInfos = activeSprints.map((s) => ({
+        id: s.id,
+        name: s.name,
+        startDate: formatDate(s.startDate),
+        endDate: formatDate(s.endDate),
+        daysLeft: daysLeft(s.endDate),
+        projectName: s.projectName,
+      }));
+      sprintInfo = sprintInfos[0] ?? null;
     }
 
     const rawRecent = await dashboardRepository.getRecentWorkspaceTasks(projectIds, 5);
@@ -161,14 +172,19 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
     const stats = computeStats(sprintTasks);
     const teamWorkload = computeTeamWorkload(sprintTasks);
-    const burndown = activeSprint
-      ? computeBurndown(sprintTasks, activeSprint.startDate, activeSprint.endDate)
+    const burndown = primarySprint
+      ? computeBurndown(
+          sprintTasks.filter((task) => task.sprintId === primarySprint.id),
+          primarySprint.startDate,
+          primarySprint.endDate
+        )
       : { actual: [], ideal: [], totalDays: 0, currentDay: 0 };
 
     const memberCount = await dashboardRepository.getWorkspaceMemberCount(workspaceId);
 
     return NextResponse.json({
       activeSprint: sprintInfo,
+      activeSprints: sprintInfos,
       stats,
       recentTasks,
       teamWorkload,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { organizationService } from "./organization.service";
 import { getCurrentUser } from "@/lib/auth";
+import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
 export class OrganizationController {
   async create(req: NextRequest) {
@@ -48,7 +49,11 @@ export class OrganizationController {
 
     try {
       const organizations = await organizationService.getUserOrganizations(user.id);
-      return NextResponse.json(organizations);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 20,
+        maxPageSize: 100,
+      });
+      return NextResponse.json(paginateArray(organizations, pagination));
     } catch (error) {
       console.error("Fetch organizations error:", error);
       return NextResponse.json(
@@ -91,63 +96,6 @@ export class OrganizationController {
       console.error("Fetch organization dashboard error:", error);
       return NextResponse.json(
         { error: (error as Error)?.message ?? "Failed to fetch organization dashboard" },
-        { status: 500 }
-      );
-    }
-  }
-
-  async sendInvite(req: NextRequest) {
-    const user = await getCurrentUser(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    try {
-      const body = await req.json();
-      const organizationId = String(body.organizationId ?? "").trim();
-      const email = String(body.email ?? "")
-        .trim()
-        .toLowerCase();
-      const role = String(body.role ?? "").trim() as "member" | "admin" | "owner";
-
-      if (!organizationId || !email || !role) {
-        return NextResponse.json(
-          { error: "organizationId, email, and role required" },
-          { status: 400 }
-        );
-      }
-
-      const invite = await organizationService.sendInvite(user.id, { organizationId, email, role });
-      return NextResponse.json(invite);
-    } catch (error) {
-      console.error("Create invite error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to create invite" },
-        { status: 500 }
-      );
-    }
-  }
-
-  async acceptInvite(req: NextRequest) {
-    const user = await getCurrentUser(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    try {
-      const body = await req.json();
-      const token = String(body.token ?? "").trim();
-
-      if (!token) {
-        return NextResponse.json({ error: "Token required" }, { status: 400 });
-      }
-
-      const result = await organizationService.acceptInvite(user.id, token);
-      return NextResponse.json(result);
-    } catch (error) {
-      console.error("Accept invite error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to accept invite" },
         { status: 500 }
       );
     }

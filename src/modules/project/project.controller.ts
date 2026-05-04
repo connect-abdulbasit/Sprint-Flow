@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { normalizeBoardColumns } from "@/lib/board-columns";
 import { projectService } from "./project.service";
+import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
 function serializeProject(project: {
   id: string;
@@ -25,7 +26,12 @@ function serializeProject(project: {
 }
 
 function projectUpdateErrorStatus(message: string) {
-  if (message.includes("access denied") || message.includes("not found")) return 403;
+  if (
+    message.includes("Forbidden") ||
+    message.includes("access denied") ||
+    message.includes("not found")
+  )
+    return 403;
   if (
     message.includes("Board") ||
     message.includes("column") ||
@@ -52,9 +58,14 @@ export class ProjectController {
       }
 
       const projects = await projectService.getWorkspaceProjects(user.id, workspaceId);
-      return NextResponse.json(
-        projects.map((p) => serializeProject(p as Parameters<typeof serializeProject>[0]))
+      const serialized = projects.map((p) =>
+        serializeProject(p as Parameters<typeof serializeProject>[0])
       );
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 20,
+        maxPageSize: 100,
+      });
+      return NextResponse.json(paginateArray(serialized, pagination));
     } catch (error) {
       console.error("List projects error:", error);
       return NextResponse.json(
@@ -91,11 +102,12 @@ export class ProjectController {
         }
       );
     } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to create project";
       console.error("Create project error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to create project" },
-        { status: 500 }
-      );
+      if (message.includes("Forbidden")) {
+        return NextResponse.json({ error: message }, { status: 403 });
+      }
+      return NextResponse.json({ error: message }, { status: 500 });
     }
   }
 
@@ -160,6 +172,9 @@ export class ProjectController {
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to delete project";
       console.error("Delete project error:", error);
+      if (message.includes("Forbidden")) {
+        return NextResponse.json({ error: message }, { status: 403 });
+      }
       if (message.includes("access denied") || message.includes("not found")) {
         return NextResponse.json({ error: message }, { status: 404 });
       }

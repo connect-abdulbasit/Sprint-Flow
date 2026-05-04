@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 import Link from "next/link";
-import { Plus, Settings, Shield, ShieldAlert, UserCircle, Users } from "lucide-react";
+import { Briefcase, Plus, Settings, Shield, ShieldAlert, UserCircle, Users } from "lucide-react";
 
 const pulse = "animate-pulse bg-white/[0.06]";
 
@@ -112,17 +112,6 @@ export function DashboardPageSkeleton() {
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <Skeleton className="w-2 h-2 rounded-full shrink-0" />
-              <Skeleton className="h-3 w-40 rounded" />
-            </div>
-            <p className="text-sm text-[var(--color-muted)]">
-              Your workspace dashboard with sprint metrics and team updates.
-            </p>
-          </div>
-        </div>
         <Skeleton className="h-11 w-56 rounded-xl shrink-0" />
       </div>
 
@@ -300,6 +289,7 @@ export function SettingsPageSkeleton() {
 const TEAM_STAT_META = [
   { label: "Total Members", Icon: Users, color: "#4f7cff" },
   { label: "Admins", Icon: Shield, color: "#a259ff" },
+  { label: "Project Managers", Icon: Briefcase, color: "#ff9f43" },
   { label: "Members", Icon: UserCircle, color: "#00d4aa" },
 ] as const;
 
@@ -307,7 +297,7 @@ const TEAM_STAT_META = [
 export function TeamDataSkeleton() {
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {TEAM_STAT_META.map(({ label, Icon, color }) => (
           <div
             key={label}
@@ -332,7 +322,7 @@ export function TeamDataSkeleton() {
         <div className="flex items-center gap-4 px-6 py-3 border-b border-white/[0.05] text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-[0.1em]">
           <div className="w-10" />
           <div className="flex-1">Member</div>
-          <div className="w-24 hidden sm:block">Role</div>
+          <div className="w-36 hidden sm:block">Role</div>
           <div className="w-28 hidden md:block">Joined</div>
           <div className="w-8" />
         </div>
@@ -340,12 +330,13 @@ export function TeamDataSkeleton() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex items-center gap-4 px-6 py-4">
               <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-40 rounded" />
-                <Skeleton className="h-3 w-48 rounded sm:hidden" />
+              <div className="flex-1 space-y-2 min-w-0">
+                <Skeleton className="h-4 w-40 max-w-full rounded" />
+                <Skeleton className="h-3 w-48 max-w-full rounded" />
               </div>
-              <Skeleton className="h-4 w-16 rounded hidden sm:block" />
+              <Skeleton className="h-6 w-24 rounded-lg hidden sm:block" />
               <Skeleton className="h-4 w-20 rounded hidden md:block" />
+              <Skeleton className="h-7 w-7 rounded-lg shrink-0" />
             </div>
           ))}
         </div>

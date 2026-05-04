@@ -8,7 +8,7 @@ import TicketFormModal from "@/components/project/TicketFormModal";
 import AlertDialog from "@/components/ui/AlertDialog";
 import { Calendar, Rocket, Layers } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchWorkspaceMembers,
@@ -27,6 +27,7 @@ import {
 } from "@/lib/projects-api";
 import { normalizeBoardColumns, statusOptionsFromColumns } from "@/lib/board-columns";
 import { BacklogSectionsSkeleton } from "@/components/ui/skeleton";
+import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 
 function buildSprintPickerOptions(sprints: ProjectSprint[], currentSprintId: string | null) {
   const opts: { id: string | null; name: string }[] = [{ id: null, name: "Backlog" }];
@@ -59,6 +60,9 @@ function sortSprintsForBoard(list: ProjectSprint[]) {
 
 export default function ProjectBacklogPage() {
   const { workspaceId, projectId } = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const wid = typeof workspaceId === "string" ? workspaceId : (workspaceId?.[0] ?? "");
   const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
   const [tickets, setTickets] = useState<ProjectTicket[]>([]);
@@ -72,6 +76,9 @@ export default function ProjectBacklogPage() {
   const [detailPreview, setDetailPreview] = useState<ProjectTicket | null>(null);
   const [actionAlert, setActionAlert] = useState<{ title: string; message: string } | null>(null);
   const [backlogReady, setBacklogReady] = useState(false);
+  const { hasRole, isLoading: roleLoading } = useWorkspaceRole(wid);
+  const canManageSprintAndTickets = !roleLoading && hasRole("project_manager");
+  const canDelete = !roleLoading && hasRole("admin");
 
   const load = useCallback(() => {
     if (!pid || !wid) return;
@@ -170,7 +177,16 @@ export default function ProjectBacklogPage() {
   const closeDetail = useCallback(() => {
     setDetailTicketId(null);
     setDetailPreview(null);
-  }, []);
+    router.replace(pathname);
+  }, [router, pathname]);
+
+  useEffect(() => {
+    const queryTicketId = searchParams.get("ticketId");
+    if (!queryTicketId) return;
+    setCreateModalOpen(false);
+    setDetailTicketId(queryTicketId);
+    setDetailPreview(tickets.find((ticket) => ticket.id === queryTicketId) ?? null);
+  }, [searchParams, tickets]);
 
   const handleSaved = useCallback((ticket: ProjectTicket) => {
     setTickets((prev) => {
@@ -321,12 +337,14 @@ export default function ProjectBacklogPage() {
       {detailTicketId && (
         <TicketDetailModal
           projectId={pid}
+          workspaceId={wid}
           ticketId={detailTicketId}
           preview={detailPreview}
           members={members}
           sprintPickerOptions={sprintPickerOptions}
           statusOptions={statusFormOptions}
           linkableTickets={tickets}
+          focusCommentId={searchParams.get("commentId")}
           isOpen={Boolean(detailTicketId)}
           onClose={closeDetail}
           onUpdated={handleSaved}
@@ -354,6 +372,7 @@ export default function ProjectBacklogPage() {
             <button
               type="button"
               onClick={() => setSprintModalOpen(true)}
+              disabled={!canManageSprintAndTickets}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-500/10 border border-blue-500/15 rounded-lg text-[12px] font-medium text-blue-400 hover:bg-blue-500/15 transition-all"
             >
               <Rocket className="w-3.5 h-3.5" />
@@ -377,19 +396,27 @@ export default function ProjectBacklogPage() {
                   <SprintSection
                     key={group.id}
                     sprint={group}
-                    onCreateTask={() => openCreate(group.id)}
+                    onCreateTask={
+                      canManageSprintAndTickets ? () => openCreate(group.id) : undefined
+                    }
                     onTicketSelect={openDetail}
-                    onStartSprint={handleStartSprint}
-                    onCompleteSprint={handleCompleteSprint}
-                    onDeleteSprint={handleDeleteSprint}
-                    ticketMoveOptions={moveOptionsForSprintTicket(group.id)}
-                    onMoveTicket={handleMoveTicket}
-                    enableTicketDrag
-                    onTicketDrop={(ticketId) => {
-                      const t = tickets.find((x) => x.id === ticketId);
-                      if (t?.sprintId === group.id) return;
-                      void handleMoveTicket(ticketId, group.id);
-                    }}
+                    onStartSprint={canManageSprintAndTickets ? handleStartSprint : undefined}
+                    onCompleteSprint={canManageSprintAndTickets ? handleCompleteSprint : undefined}
+                    onDeleteSprint={canDelete ? handleDeleteSprint : undefined}
+                    ticketMoveOptions={
+                      canManageSprintAndTickets ? moveOptionsForSprintTicket(group.id) : []
+                    }
+                    onMoveTicket={canManageSprintAndTickets ? handleMoveTicket : undefined}
+                    enableTicketDrag={canManageSprintAndTickets}
+                    onTicketDrop={
+                      canManageSprintAndTickets
+                        ? (ticketId) => {
+                            const t = tickets.find((x) => x.id === ticketId);
+                            if (t?.sprintId === group.id) return;
+                            void handleMoveTicket(ticketId, group.id);
+                          }
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -416,16 +443,20 @@ export default function ProjectBacklogPage() {
               <SprintSection
                 sprint={backlog}
                 isBacklog
-                onCreateTask={() => openCreate(null)}
+                onCreateTask={canManageSprintAndTickets ? () => openCreate(null) : undefined}
                 onTicketSelect={openDetail}
-                ticketMoveOptions={moveOptionsForBacklogTicket()}
-                onMoveTicket={handleMoveTicket}
-                enableTicketDrag
-                onTicketDrop={(ticketId) => {
-                  const t = tickets.find((x) => x.id === ticketId);
-                  if (!t || t.sprintId === null) return;
-                  void handleMoveTicket(ticketId, null);
-                }}
+                ticketMoveOptions={canManageSprintAndTickets ? moveOptionsForBacklogTicket() : []}
+                onMoveTicket={canManageSprintAndTickets ? handleMoveTicket : undefined}
+                enableTicketDrag={canManageSprintAndTickets}
+                onTicketDrop={
+                  canManageSprintAndTickets
+                    ? (ticketId) => {
+                        const t = tickets.find((x) => x.id === ticketId);
+                        if (!t || t.sprintId === null) return;
+                        void handleMoveTicket(ticketId, null);
+                      }
+                    : undefined
+                }
               />
             </div>
 
@@ -441,11 +472,13 @@ export default function ProjectBacklogPage() {
                     <SprintSection
                       key={group.id}
                       sprint={group}
-                      onCreateTask={() => openCreate(null)}
+                      onCreateTask={canManageSprintAndTickets ? () => openCreate(null) : undefined}
                       onTicketSelect={openDetail}
-                      ticketMoveOptions={moveOptionsForSprintTicket(group.id)}
-                      onMoveTicket={handleMoveTicket}
-                      enableTicketDrag
+                      ticketMoveOptions={
+                        canManageSprintAndTickets ? moveOptionsForSprintTicket(group.id) : []
+                      }
+                      onMoveTicket={canManageSprintAndTickets ? handleMoveTicket : undefined}
+                      enableTicketDrag={canManageSprintAndTickets}
                     />
                   ))}
                 </div>

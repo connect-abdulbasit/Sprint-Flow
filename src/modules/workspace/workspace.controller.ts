@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { workspaceService } from "./workspace.service";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getCurrentUserWithRole } from "@/lib/auth";
+import { hasRole, isValidRole, type WorkspaceRole } from "@/lib/auth/rbac";
+import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
 export class WorkspaceController {
   async create(req: NextRequest) {
@@ -47,7 +49,11 @@ export class WorkspaceController {
 
     try {
       const workspaces = await workspaceService.getUserWorkspaces(user.id);
-      return NextResponse.json(workspaces);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 20,
+        maxPageSize: 100,
+      });
+      return NextResponse.json(paginateArray(workspaces, pagination));
     } catch (error) {
       console.error("Fetch workspaces error:", error);
       return NextResponse.json(
@@ -99,11 +105,10 @@ export class WorkspaceController {
       });
       return NextResponse.json(updated);
     } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to update workspace";
       console.error("Update workspace error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to update workspace" },
-        { status: 500 }
-      );
+      const status = message.includes("Forbidden") ? 403 : 500;
+      return NextResponse.json({ error: message }, { status });
     }
   }
 
@@ -118,11 +123,10 @@ export class WorkspaceController {
       await workspaceService.deleteWorkspace(user.id, id);
       return NextResponse.json({ success: true });
     } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to delete workspace";
       console.error("Delete workspace error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to delete workspace" },
-        { status: 500 }
-      );
+      const status = message.includes("Forbidden") ? 403 : 500;
+      return NextResponse.json({ error: message }, { status });
     }
   }
 
@@ -135,7 +139,11 @@ export class WorkspaceController {
     try {
       const { id: workspaceId } = await params;
       const members = await workspaceService.getWorkspaceMembers(user.id, workspaceId);
-      return NextResponse.json(members);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 50,
+        maxPageSize: 200,
+      });
+      return NextResponse.json(paginateArray(members, pagination));
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to list members";
       console.error("List members error:", error);
@@ -160,7 +168,6 @@ export class WorkspaceController {
         workspaceId: id,
         defaultView: "board" as const,
         statuses: ["To Do", "In Progress", "Done"],
-        labels: [] as string[],
         tags: [] as string[],
       });
     } catch (error) {
@@ -189,7 +196,6 @@ export class WorkspaceController {
         workspaceId: id,
         defaultView: (body.defaultView as string) ?? "board",
         statuses: (body.statuses as string[]) ?? ["To Do", "In Progress", "Done"],
-        labels: (body.labels as string[]) ?? [],
         tags: (body.tags as string[]) ?? [],
       });
     } catch (error) {
@@ -264,24 +270,37 @@ export class WorkspaceController {
   }
 
   async sendInvite(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const user = await getCurrentUser(req);
-    if (!user) {
+    const { id: workspaceId } = await params;
+
+    // RBAC: Resolve user + workspace role in one shot
+    const userWithRole = await getCurrentUserWithRole(req, workspaceId);
+    if (!userWithRole) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Enforce: only admin and project_manager can send invites
+    if (!hasRole(userWithRole.workspaceRole, "project_manager")) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have permission to invite users." },
+        { status: 403 }
+      );
+    }
+
     try {
-      const { id: workspaceId } = await params;
       const body = await req.json();
       const email = String(body.email ?? "")
         .trim()
         .toLowerCase();
-      const role = (body.role === "admin" ? "admin" : "member") as "member" | "admin";
+      const rawRole = String(body.role ?? "member")
+        .trim()
+        .toLowerCase();
+      const role: WorkspaceRole = isValidRole(rawRole) ? rawRole : "member";
 
       if (!email) {
         return NextResponse.json({ error: "Email is required" }, { status: 400 });
       }
 
-      const result = await workspaceService.sendInvite(user.id, {
+      const result = await workspaceService.sendInvite(userWithRole.id, {
         workspaceId,
         email,
         role,
@@ -305,7 +324,11 @@ export class WorkspaceController {
     try {
       const { id: workspaceId } = await params;
       const invites = await workspaceService.getWorkspaceInvites(user.id, workspaceId);
-      return NextResponse.json(invites);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 20,
+        maxPageSize: 100,
+      });
+      return NextResponse.json(paginateArray(invites, pagination));
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to list invites";
       const status = message.includes("Forbidden") ? 403 : 400;
@@ -315,6 +338,11 @@ export class WorkspaceController {
   }
 
   async getInviteByToken(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     try {
       const { token } = await params;
       const invite = await workspaceService.getInviteByToken(token);

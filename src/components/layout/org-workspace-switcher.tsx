@@ -27,8 +27,30 @@ interface Workspace {
   id: string;
   name: string;
   color: string;
+  role?: string;
   taskCount: number;
   memberCount: number;
+}
+
+/** API list row before mapping into `Organization` */
+interface ApiOrganizationRow {
+  id: string;
+  name: string;
+  role?: string;
+}
+
+/** API list row before mapping into `Workspace` */
+interface ApiWorkspaceRow {
+  id: string;
+  name: string;
+  color: string | null;
+  organizationId: string;
+  role?: string;
+}
+
+function extractItems<T>(payload: T[] | { items?: T[] }) {
+  if (Array.isArray(payload)) return payload;
+  return Array.isArray(payload?.items) ? payload.items : [];
 }
 
 function getInitials(name: string) {
@@ -51,6 +73,18 @@ const GRADIENTS = [
 function getGradient(id: string) {
   const charSum = id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return GRADIENTS[charSum % GRADIENTS.length];
+}
+
+function getOrganizationRoleLabel(role: string | null | undefined) {
+  if (role === "owner") return "Org Owner";
+  if (role === "admin") return "Org Admin";
+  return "Org Member";
+}
+
+function getWorkspaceRoleLabel(role: string | null | undefined) {
+  if (role === "admin") return "Admin";
+  if (role === "project_manager") return "Project Manager";
+  return "Member";
 }
 
 export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
@@ -76,30 +110,34 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
 
         if (!orgsRes.ok || !wsRes.ok) throw new Error("Failed to fetch");
 
-        const orgsData = await orgsRes.json();
-        const wsData = await wsRes.json();
+        const orgsPayload = (await orgsRes.json()) as
+          | ApiOrganizationRow[]
+          | { items?: ApiOrganizationRow[] };
+        const wsPayload = (await wsRes.json()) as ApiWorkspaceRow[] | { items?: ApiWorkspaceRow[] };
 
-        const mappedOrgs = orgsData.map((org: { id: string; name: string }) => ({
+        const orgsData = extractItems<ApiOrganizationRow>(orgsPayload);
+        const wsData = extractItems<ApiWorkspaceRow>(wsPayload);
+
+        const mappedOrgs = orgsData.map((org) => ({
           id: org.id,
           name: org.name,
           initials: getInitials(org.name),
-          role: "Owner",
+          role: getOrganizationRoleLabel(org.role),
           gradient: getGradient(org.id),
         }));
 
         const wsByOrg: Record<string, Workspace[]> = {};
-        wsData.forEach(
-          (ws: { id: string; name: string; color: string | null; organizationId: string }) => {
-            if (!wsByOrg[ws.organizationId]) wsByOrg[ws.organizationId] = [];
-            wsByOrg[ws.organizationId].push({
-              id: ws.id,
-              name: ws.name,
-              color: ws.color || "#4f7cff",
-              taskCount: 0,
-              memberCount: 1,
-            });
-          }
-        );
+        wsData.forEach((ws) => {
+          if (!wsByOrg[ws.organizationId]) wsByOrg[ws.organizationId] = [];
+          wsByOrg[ws.organizationId].push({
+            id: ws.id,
+            name: ws.name,
+            color: ws.color || "#4f7cff",
+            role: ws.role,
+            taskCount: 0,
+            memberCount: 1,
+          });
+        });
 
         if (mappedOrgs.length > 0) {
           setRealOrganizations(mappedOrgs);
@@ -269,6 +307,10 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                   }}
                 />
                 <span className="text-[11px] text-[#8888a0] truncate">{currentWorkspace.name}</span>
+                <span className="text-[11px] text-[#6b6b80]">•</span>
+                <span className="text-[11px] text-[#6b6b80] truncate">
+                  {getWorkspaceRoleLabel(currentWorkspace.role)}
+                </span>
               </>
             )}
             {!currentWorkspace && (
@@ -326,7 +368,6 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                   <span className="text-[12.5px] font-semibold truncate block leading-tight">
                     {org.name}
                   </span>
-                  <span className="text-[10px] text-[#6b6b80]">{org.role}</span>
                 </div>
                 {isSelected && (
                   <Check className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />
@@ -377,6 +418,9 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                 <div className="flex-1 min-w-0">
                   <span className="text-[12.5px] font-medium truncate block leading-tight">
                     {ws.name}
+                  </span>
+                  <span className="text-[10px] text-[#6b6b80] truncate">
+                    {getWorkspaceRoleLabel(ws.role)}
                   </span>
                 </div>
                 <span className="text-[10px] text-[#6b6b80] tabular-nums shrink-0">

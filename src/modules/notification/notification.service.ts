@@ -2,6 +2,10 @@ import { notificationRepository } from "./notification.repository";
 import { workspaceRepository } from "@/modules/workspace/workspace.repository";
 import type { NotificationCreateInput, NotificationCreateParams } from "./notification.types";
 import { buildNotificationContent } from "./notification.types";
+import type {
+  NotificationPaginatedResult,
+  NotificationPaginationInput,
+} from "./notification.repository";
 
 export class NotificationService {
   async createNotification(data: NotificationCreateInput) {
@@ -24,17 +28,39 @@ export class NotificationService {
     });
   }
 
-  async getUserNotifications(userId: string) {
-    return notificationRepository.getNotificationsForUser(userId);
+  async getUserNotifications(
+    userId: string,
+    pagination: NotificationPaginationInput
+  ): Promise<NotificationPaginatedResult> {
+    return notificationRepository.getNotificationsForUser(userId, pagination);
   }
 
-  async getWorkspaceNotifications(userId: string, workspaceId: string) {
+  async getWorkspaceNotifications(
+    userId: string,
+    workspaceId: string,
+    pagination: NotificationPaginationInput
+  ): Promise<NotificationPaginatedResult> {
     const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
     if (!workspace) {
-      return [];
+      return {
+        items: [],
+        pagination: {
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          total: 0,
+          totalPages: 1,
+          hasPreviousPage: pagination.page > 1,
+          hasNextPage: false,
+        },
+        unreadCount: 0,
+      };
     }
 
-    return notificationRepository.getNotificationsForUserAndWorkspace(userId, workspace.id);
+    return notificationRepository.getNotificationsForUserAndWorkspace(
+      userId,
+      workspace.id,
+      pagination
+    );
   }
 
   async markNotificationAsRead(notificationId: string, userId: string) {

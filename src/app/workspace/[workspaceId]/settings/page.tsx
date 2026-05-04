@@ -16,6 +16,7 @@ import {
   Info,
 } from "lucide-react";
 import { SettingsFormSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 
 interface Workspace {
   id: string;
@@ -29,6 +30,8 @@ export default function WorkspaceSettings() {
   const workspaceIdRaw = params.workspaceId;
   const workspaceId =
     typeof workspaceIdRaw === "string" ? workspaceIdRaw : (workspaceIdRaw?.[0] ?? "");
+  const { hasRole, isLoading: roleLoading } = useWorkspaceRole(workspaceId);
+  const canManageWorkspace = !roleLoading && hasRole("admin");
 
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [editName, setEditName] = useState("");
@@ -143,7 +146,7 @@ export default function WorkspaceSettings() {
   if (loading) {
     return (
       <div className="flex flex-col h-full bg-[#09090b] min-h-0">
-        <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-5 bg-[#0c0c0f]/60 backdrop-blur-xl">
+        <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-6 bg-[#0c0c0f]/60 backdrop-blur-xl">
           <Link
             href={`/workspace/${workspaceId}/dashboard`}
             className="inline-flex items-center gap-1 text-[12px] font-medium text-zinc-500 hover:text-blue-400 transition-colors cursor-pointer"
@@ -151,10 +154,15 @@ export default function WorkspaceSettings() {
             <ChevronRight className="w-3.5 h-3.5 rotate-180" />
             Back to workspace
           </Link>
-          <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-3">
-            Workspace settings
-          </h1>
-          <Skeleton className="mt-2 h-[13px] w-48 max-w-full rounded" />
+          <div className="mt-4 flex items-center gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+              <Settings className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Settings</h1>
+              <Skeleton className="mt-2 h-[13px] w-48 max-w-full rounded" />
+            </div>
+          </div>
         </header>
 
         <div className="flex-1 flex overflow-hidden min-h-0">
@@ -231,7 +239,7 @@ export default function WorkspaceSettings() {
 
   return (
     <div className="flex flex-col h-full bg-[#09090b] min-h-0">
-      <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-5 bg-[#0c0c0f]/60 backdrop-blur-xl">
+      <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-6 bg-[#0c0c0f]/60 backdrop-blur-xl">
         <Link
           href={`/workspace/${workspaceId}/dashboard`}
           className="inline-flex items-center gap-1 text-[12px] font-medium text-zinc-500 hover:text-blue-400 transition-colors cursor-pointer"
@@ -239,8 +247,15 @@ export default function WorkspaceSettings() {
           <ChevronRight className="w-3.5 h-3.5 rotate-180" />
           Back to workspace
         </Link>
-        <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-3">Workspace settings</h1>
-        <p className="text-[13px] text-zinc-500 mt-0.5">{workspace.name}</p>
+        <div className="mt-4 flex items-center gap-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+            <Settings className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Settings</h1>
+            <p className="mt-1 text-[13px] text-zinc-500">{workspace.name}</p>
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden min-h-0">
@@ -252,7 +267,16 @@ export default function WorkspaceSettings() {
             <nav className="space-y-1">
               {[
                 { id: "general" as const, label: "General", icon: Settings },
-                { id: "danger" as const, label: "Danger Zone", icon: ShieldAlert, danger: true },
+                ...(canManageWorkspace
+                  ? [
+                      {
+                        id: "danger" as const,
+                        label: "Danger Zone",
+                        icon: ShieldAlert,
+                        danger: true,
+                      },
+                    ]
+                  : []),
               ].map((item) => (
                 <button
                   key={item.id}
@@ -320,9 +344,11 @@ export default function WorkspaceSettings() {
                     <input
                       value={editName}
                       onChange={(e) => {
+                        if (!canManageWorkspace) return;
                         setEditName(e.target.value);
                         setIsDirty(true);
                       }}
+                      readOnly={!canManageWorkspace}
                       className="w-full bg-[#0f0f12] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all"
                       placeholder="Workspace name"
                     />
@@ -334,15 +360,22 @@ export default function WorkspaceSettings() {
                     <textarea
                       value={editDesc}
                       onChange={(e) => {
+                        if (!canManageWorkspace) return;
                         setEditDesc(e.target.value);
                         setIsDirty(true);
                       }}
+                      readOnly={!canManageWorkspace}
                       rows={4}
                       className="w-full bg-[#0f0f12] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all resize-none leading-relaxed"
                       placeholder="What is this workspace for?"
                     />
                   </div>
-                  {isDirty && (
+                  {!canManageWorkspace && (
+                    <p className="text-[12px] text-zinc-500">
+                      Only workspace admins can update these settings.
+                    </p>
+                  )}
+                  {isDirty && canManageWorkspace && (
                     <div className="flex flex-wrap items-center gap-3 pt-2">
                       <button
                         type="button"
@@ -371,35 +404,39 @@ export default function WorkspaceSettings() {
               </div>
             </section>
 
-            <section ref={sections.danger} className="space-y-8 pt-8">
-              <div className="border-b border-red-500/10 pb-6 text-red-400">
-                <h2 className="text-2xl font-bold tracking-tight">Danger Zone</h2>
-                <p className="text-[14px] text-red-500/60 mt-1">
-                  Actions here are permanent and cannot be undone.
-                </p>
-              </div>
-
-              <div className="p-8 rounded-2xl bg-red-500/[0.03] border border-red-500/10 flex flex-col md:flex-row items-center gap-8 shadow-[0_0_30px_rgba(239,68,68,0.02)]">
-                <div className="flex-1 text-center md:text-left">
-                  <h3 className="text-[16px] font-bold text-red-400 mb-2">Delete this workspace</h3>
-                  <p className="text-[13px] text-zinc-500 leading-relaxed">
-                    Permanently remove this workspace and its projects. This action is{" "}
-                    <span className="text-red-400/80 font-bold italic">irreversible</span>.
+            {canManageWorkspace && (
+              <section ref={sections.danger} className="space-y-8 pt-8">
+                <div className="border-b border-red-500/10 pb-6 text-red-400">
+                  <h2 className="text-2xl font-bold tracking-tight">Danger Zone</h2>
+                  <p className="text-[14px] text-red-500/60 mt-1">
+                    Actions here are permanent and cannot be undone.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteError(null);
-                    setDeleteDialogOpen(true);
-                  }}
-                  className="shrink-0 px-6 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[13px] font-bold rounded-xl border border-red-500/20 transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete workspace
-                </button>
-              </div>
-            </section>
+
+                <div className="p-8 rounded-2xl bg-red-500/[0.03] border border-red-500/10 flex flex-col md:flex-row items-center gap-8 shadow-[0_0_30px_rgba(239,68,68,0.02)]">
+                  <div className="flex-1 text-center md:text-left">
+                    <h3 className="text-[16px] font-bold text-red-400 mb-2">
+                      Delete this workspace
+                    </h3>
+                    <p className="text-[13px] text-zinc-500 leading-relaxed">
+                      Permanently remove this workspace and its projects. This action is{" "}
+                      <span className="text-red-400/80 font-bold italic">irreversible</span>.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteError(null);
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="shrink-0 px-6 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[13px] font-bold rounded-xl border border-red-500/20 transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete workspace
+                  </button>
+                </div>
+              </section>
+            )}
 
             <div className="h-20" />
           </div>

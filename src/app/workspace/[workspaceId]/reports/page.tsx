@@ -335,21 +335,21 @@ export default function ReportsPage() {
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
       <div className="px-10 py-8 border-b border-white/[0.04] bg-[#0c0c0f]/50 backdrop-blur-xl sticky top-0 z-10">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-end justify-between gap-4">
           <div className="flex items-center gap-4">
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center border"
+              className="w-11 h-11 rounded-xl flex items-center justify-center border"
               style={{
                 background: `${workspaceColor}14`,
                 borderColor: `${workspaceColor}33`,
                 color: workspaceColor,
               }}
             >
-              <BarChart3 className="w-6 h-6" />
+              <BarChart3 className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight">Reports</h1>
-              <p className="text-[13px] text-zinc-500 mt-0.5">
+              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Reports</h1>
+              <p className="mt-1 text-[13px] text-zinc-500">
                 {workspaceName} analytics across projects, tasks, and sprints
               </p>
             </div>

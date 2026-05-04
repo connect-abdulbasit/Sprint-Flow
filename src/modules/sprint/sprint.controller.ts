@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { sprintService } from "@/modules/sprint/sprint.service";
+import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
 function sprintErrorStatus(message: string) {
-  if (message.includes("access denied") || message.includes("Project not found")) return 403;
+  if (
+    message.includes("Forbidden") ||
+    message.includes("access denied") ||
+    message.includes("Project not found")
+  )
+    return 403;
   if (message.includes("not found")) return 404;
   if (
     message.includes("Cannot") ||
@@ -27,7 +33,11 @@ export class SprintController {
     try {
       const { id: projectId } = await context.params;
       const sprints = await sprintService.listSprints(user.id, projectId);
-      return NextResponse.json(sprints);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 20,
+        maxPageSize: 100,
+      });
+      return NextResponse.json(paginateArray(sprints, pagination));
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to list sprints";
       console.error("List sprints error:", error);

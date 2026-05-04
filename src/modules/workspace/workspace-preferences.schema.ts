@@ -12,7 +12,6 @@ export const workspacePreferencesTable = pgTable(
       .references(() => workspacesTable.id, { onDelete: "cascade" }),
     defaultView: defaultViewEnum("default_view").default("board"),
     statuses: jsonb("statuses").default('["To Do", "In Progress", "Done"]'),
-    labels: jsonb("labels").default("[]"),
     tags: jsonb("tags").default("[]"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },

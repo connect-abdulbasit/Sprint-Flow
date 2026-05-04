@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Bug,
+  ChevronDown,
+  ChevronRight,
   CircleDot,
+  CornerDownRight,
   Clock,
   Link2,
   ListTodo,
@@ -63,6 +66,22 @@ function formatHoursParts(hours: number): string {
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
+}
+
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function formatEntryTimestamp(value: string): string {
@@ -141,6 +160,63 @@ function renderInlineRichText(text: string, keyPrefix: string) {
   }
   if (cursor < text.length) nodes.push(text.slice(cursor));
   return nodes;
+}
+
+function renderCommentContent(
+  content: string,
+  members: ProjectMember[],
+  keyPrefix: string
+): React.ReactNode {
+  // Get all member names from members prop
+  const memberNames = members
+    .map((m) => m.name)
+    .filter(Boolean)
+    .sort((a, b) => (b?.length ?? 0) - (a?.length ?? 0));
+
+  const result: React.ReactNode[] = [];
+  let remaining = content;
+  let keyIndex = 0;
+
+  while (remaining.length > 0) {
+    const atIndex = remaining.indexOf("@");
+
+    if (atIndex === -1) {
+      result.push(<span key={`${keyPrefix}-${keyIndex++}`}>{remaining}</span>);
+      break;
+    }
+
+    // Add text before @
+    if (atIndex > 0) {
+      result.push(<span key={`${keyPrefix}-${keyIndex++}`}>{remaining.slice(0, atIndex)}</span>);
+    }
+
+    // Try to match a member name after @
+    const afterAt = remaining.slice(atIndex + 1);
+    let matched = false;
+
+    for (const name of memberNames) {
+      if (name && afterAt.toLowerCase().startsWith(name.toLowerCase())) {
+        result.push(
+          <span key={`${keyPrefix}-${keyIndex++}`} className="text-blue-400 font-medium">
+            @{name}{" "}
+          </span>
+        );
+        remaining = remaining.slice(atIndex + 1 + name.length);
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      // @ but no member match - show as plain text
+      result.push(<span key={`${keyPrefix}-${keyIndex++}`}>@</span>);
+      remaining = remaining.slice(atIndex + 1);
+    }
+  }
+
+  return (
+    <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-zinc-200">{result}</div>
+  );
 }
 
 function renderRichTextDescription(text: string) {
@@ -246,9 +322,31 @@ function TicketDetailSkeleton() {
   );
 }
 
+interface CommentData {
+  id: string;
+  taskId: string;
+  workspaceId: string;
+  userId: string;
+  content: string;
+  parentId: string | null;
+  mentionedUserIds: string[] | null;
+  createdAt: string;
+  updatedAt: string;
+  userName: string;
+  userAvatarUrl: string | null;
+  canDelete?: boolean;
+}
+
+function extractItems<T>(payload: T[] | { items?: T[] }) {
+  if (Array.isArray(payload)) return payload;
+  return Array.isArray(payload?.items) ? payload.items : [];
+}
+
 export interface TicketDetailModalProps {
+  workspaceId?: string;
   projectId: string;
   ticketId: string | null;
+  focusCommentId?: string | null;
   /** Shown immediately while fetching */
   preview?: ProjectTicket | null;
   members: ProjectMember[];
@@ -265,8 +363,10 @@ export interface TicketDetailModalProps {
 }
 
 export default function TicketDetailModal({
+  workspaceId,
   projectId,
   ticketId,
+  focusCommentId,
   preview: _preview,
   members,
   sprintPickerOptions,
@@ -305,6 +405,258 @@ export default function TicketDetailModal({
   const [timeLogError, setTimeLogError] = useState<string | null>(null);
   const [deletingTimeEntryId, setDeletingTimeEntryId] = useState<string | null>(null);
   const [descriptionToolError, setDescriptionToolError] = useState<string | null>(null);
+
+  // Comments section states
+  const [comments, setComments] = useState<CommentData[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [collapsedCommentIds, setCollapsedCommentIds] = useState<Set<string>>(new Set());
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionResults, setMentionResults] = useState<ProjectMember[]>([]);
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+  const commentInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleCommentChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      setNewComment(value);
+      const lastAtIndex = value.lastIndexOf("@");
+      if (lastAtIndex !== -1) {
+        const afterAt = value.slice(lastAtIndex + 1);
+        const searchText = afterAt.split(" ")[0].toLowerCase();
+        if (searchText && !afterAt.includes(" ")) {
+          const filtered = members.filter((m) => m.name.toLowerCase().includes(searchText));
+          setMentionResults(filtered.slice(0, 5));
+          setShowMentionDropdown(filtered.length > 0);
+          return;
+        }
+      }
+      setShowMentionDropdown(false);
+      setMentionResults([]);
+    },
+    [members]
+  );
+
+  const insertMention = useCallback(
+    (member: ProjectMember) => {
+      if (!member.name) return;
+      const lastAtIndex = newComment.lastIndexOf("@");
+      if (lastAtIndex === -1) return;
+      const beforeAt = newComment.slice(0, lastAtIndex);
+      setNewComment(beforeAt + "@" + member.name + " ");
+      setShowMentionDropdown(false);
+      setMentionResults([]);
+      setTimeout(() => {
+        commentInputRef.current?.focus();
+        const len = (beforeAt + "@" + member.name + " ").length;
+        commentInputRef.current?.setSelectionRange(len, len);
+      }, 0);
+    },
+    [newComment]
+  );
+
+  // Fetch comments
+  const fetchComments = useCallback(async () => {
+    if (!workspaceId || !ticketId) return;
+    setCommentsLoading(true);
+    setCommentError(null);
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceId}/tasks/${ticketId}/comments`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = extractItems<CommentData>(await response.json());
+      const sorted = data.sort(
+        (a: CommentData, b: CommentData) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      setComments(sorted);
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : "Failed to load comments");
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [workspaceId, ticketId]);
+
+  // Add comment
+  const handleAddComment = useCallback(async () => {
+    if (!workspaceId || !ticketId || !newComment.trim()) return;
+    setSubmittingComment(true);
+    setCommentError(null);
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceId}/tasks/${ticketId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: newComment.trim(), parentId: replyingToId || null }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const newCommentData = await response.json();
+      setComments((prev) => [...prev, newCommentData]);
+      setNewComment("");
+      setReplyingToId(null);
+      commentInputRef.current?.focus();
+    } catch (err) {
+      setCommentError(err instanceof Error ? err.message : "Failed to add comment");
+    } finally {
+      setSubmittingComment(false);
+    }
+  }, [workspaceId, ticketId, newComment, replyingToId]);
+
+  // Delete comment
+  const handleDeleteComment = useCallback(
+    async (commentId: string) => {
+      if (!workspaceId || !ticketId) return;
+      if (!confirm("Delete this comment?")) return;
+      try {
+        const response = await fetch(
+          `/api/workspaces/${workspaceId}/tasks/${ticketId}/comments/${commentId}`,
+          {
+            method: "DELETE",
+          }
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+        setCollapsedCommentIds((prev) => {
+          if (!prev.has(commentId)) return prev;
+          const next = new Set(prev);
+          next.delete(commentId);
+          return next;
+        });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed to delete comment");
+      }
+    },
+    [workspaceId, ticketId]
+  );
+
+  useEffect(() => {
+    fetchComments();
+  }, [fetchComments]);
+
+  useEffect(() => {
+    setCollapsedCommentIds(new Set());
+    setReplyingToId(null);
+  }, [ticketId]);
+
+  const commentsById = useMemo(() => {
+    return new Map(comments.map((comment) => [comment.id, comment]));
+  }, [comments]);
+
+  const commentChildrenMap = useMemo(() => {
+    const byParent = new Map<string, CommentData[]>();
+    for (const comment of comments) {
+      if (!comment.parentId) continue;
+      const children = byParent.get(comment.parentId) ?? [];
+      children.push(comment);
+      byParent.set(comment.parentId, children);
+    }
+    return byParent;
+  }, [comments]);
+
+  const rootComments = useMemo(() => {
+    return comments.filter((comment) => {
+      if (!comment.parentId) return true;
+      return !commentsById.has(comment.parentId);
+    });
+  }, [comments, commentsById]);
+
+  const replyTarget = useMemo(
+    () => (replyingToId ? (commentsById.get(replyingToId) ?? null) : null),
+    [replyingToId, commentsById]
+  );
+
+  const getCommentDescendantCount = useCallback(
+    (commentId: string) => {
+      let count = 0;
+      const stack = [...(commentChildrenMap.get(commentId) ?? [])];
+      while (stack.length > 0) {
+        const current = stack.pop();
+        if (!current) continue;
+        count += 1;
+        const children = commentChildrenMap.get(current.id);
+        if (children?.length) stack.push(...children);
+      }
+      return count;
+    },
+    [commentChildrenMap]
+  );
+
+  const expandCommentAncestors = useCallback(
+    (commentId: string) => {
+      const ancestorIds: string[] = [];
+      let cursor = commentsById.get(commentId);
+      while (cursor?.parentId) {
+        ancestorIds.push(cursor.parentId);
+        cursor = commentsById.get(cursor.parentId);
+      }
+      if (ancestorIds.length === 0) return;
+      setCollapsedCommentIds((prev) => {
+        const next = new Set(prev);
+        let changed = false;
+        for (const ancestorId of ancestorIds) {
+          if (next.has(ancestorId)) {
+            next.delete(ancestorId);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    },
+    [commentsById]
+  );
+
+  const toggleCommentCollapse = useCallback((commentId: string) => {
+    setCollapsedCommentIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(commentId)) {
+        next.delete(commentId);
+      } else {
+        next.add(commentId);
+      }
+      return next;
+    });
+  }, []);
+
+  const startReplyToComment = useCallback(
+    (commentId: string) => {
+      setReplyingToId(commentId);
+      expandCommentAncestors(commentId);
+      requestAnimationFrame(() => {
+        commentInputRef.current?.focus();
+      });
+    },
+    [expandCommentAncestors]
+  );
+
+  useEffect(() => {
+    if (!focusCommentId) return;
+    expandCommentAncestors(focusCommentId);
+  }, [focusCommentId, expandCommentAncestors]);
+
+  useEffect(() => {
+    if (!focusCommentId || comments.length === 0) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(`comment-${focusCommentId}`);
+      if (!target) return;
+      setHighlightedCommentId(focusCommentId);
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const timeout = window.setTimeout(() => setHighlightedCommentId(null), 1800);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [focusCommentId, comments, collapsedCommentIds]);
+
+  useEffect(() => {
+    if (!replyingToId) return;
+    if (!commentsById.has(replyingToId)) {
+      setReplyingToId(null);
+      return;
+    }
+    expandCommentAncestors(replyingToId);
+  }, [replyingToId, commentsById, expandCommentAncestors]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
@@ -674,6 +1026,86 @@ export default function TicketDetailModal({
   const imgSrc =
     detail && detail.hasImage && !clearImage ? ticketImageUrl(projectId, ticketId) : null;
   const showPendingImage = Boolean(imagePreviewUrl);
+  const currentUser = members[0];
+  const renderCommentComposer = (inline = false, replyTargetName?: string) => (
+    <div
+      className={`rounded-xl border border-white/[0.08] bg-[#0f0f12] p-4 ${inline ? "mt-3" : "mb-4"} flex gap-3`}
+    >
+      {!inline ? (
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 ring-1 ring-white/10">
+          {currentUser ? (
+            <span className="text-[11px] font-semibold text-zinc-200">
+              {initialsFromName(currentUser.name)}
+            </span>
+          ) : (
+            <span className="text-[11px] font-semibold text-zinc-400">You</span>
+          )}
+        </div>
+      ) : null}
+      <div className="flex-1">
+        {inline && (
+          <div className="mb-2 flex items-center gap-2 rounded-md bg-zinc-900/50 px-3 py-1.5 text-[12px] text-zinc-400">
+            Replying to{" "}
+            <span className="font-medium text-zinc-200">{replyTargetName ?? "comment"}</span>
+          </div>
+        )}
+        <div className="relative flex-1">
+          <textarea
+            ref={commentInputRef}
+            value={newComment}
+            onChange={handleCommentChange}
+            placeholder={inline ? "Write a reply…" : "Add a comment…"}
+            rows={inline ? 3 : 2}
+            className="min-h-[52px] w-full resize-none border border-white/[0.08] bg-[#0f0f12] p-3 rounded-lg text-[14px] text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500/35 focus:outline-none focus:ring-0"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleAddComment();
+              }
+            }}
+          />
+          {showMentionDropdown && mentionResults.length > 0 && (
+            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-lg border border-white/[0.1] bg-[#1a1a1f] shadow-xl">
+              {mentionResults.map((member) => (
+                <button
+                  key={member.userId}
+                  type="button"
+                  onClick={() => insertMention(member)}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-white/[0.06] transition-colors"
+                >
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-700 text-[11px] font-semibold text-zinc-300">
+                    {initialsFromName(member.name)}
+                  </div>
+                  <span className="text-[13px] text-zinc-200">{member.name}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={submittingComment || !newComment.trim()}
+            onClick={handleAddComment}
+            className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/20 px-3 py-1.5 text-[12px] font-medium text-blue-300 hover:bg-blue-500/30 disabled:opacity-40"
+          >
+            {submittingComment && <Loader2 className="h-3 w-3 animate-spin" />}
+            {inline ? "Reply" : "Comment"}
+          </button>
+          {inline ? (
+            <button
+              type="button"
+              disabled={submittingComment}
+              onClick={() => setReplyingToId(null)}
+              className="inline-flex items-center rounded-md px-2 py-1.5 text-[12px] text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300"
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -905,25 +1337,151 @@ export default function TicketDetailModal({
                     )}
                   </div>
 
-                  <div className="mt-8 border-t border-white/[0.06] pt-6">
+                  <div className="mt-8 border-t border-white/[0.06] pb-6 pt-6">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <h2 className="text-[13px] font-semibold text-zinc-300">Activity</h2>
-                      <span className="text-[11px] font-medium text-zinc-600">Comments</span>
+                      <h2 className="text-[13px] font-semibold text-zinc-300 mr-2">Comments</h2>
+                      <span className="bg-white/[0.06] text-zinc-400 text-[11px] px-2 py-0.5 rounded-full">
+                        {commentsLoading ? "Loading…" : `${comments.length}`}
+                      </span>
                     </div>
-                    <div className="flex gap-3 rounded-lg border border-dashed border-white/[0.08] bg-[#0c0c0f] p-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-[11px] font-semibold text-zinc-400">
-                        …
+
+                    {commentError && (
+                      <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+                        {commentError}
                       </div>
-                      <textarea
-                        disabled
-                        rows={2}
-                        placeholder="Add a comment…"
-                        className="min-h-[52px] flex-1 resize-none border-0 bg-transparent text-[14px] text-zinc-500 placeholder:text-zinc-600"
-                      />
+                    )}
+
+                    {!replyingToId ? renderCommentComposer(false) : null}
+
+                    {/* Comments list */}
+                    <div className="custom-scrollbar max-h-[400px] space-y-3 overflow-y-auto pr-1">
+                      {commentsLoading ? (
+                        <div className="flex items-start gap-3 py-3">
+                          <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-zinc-800" />
+                          <div className="flex-1 space-y-2">
+                            <div className="h-4 w-24 animate-pulse rounded bg-zinc-800/70" />
+                            <div className="h-20 w-full animate-pulse rounded-lg bg-zinc-800/60" />
+                          </div>
+                        </div>
+                      ) : comments.length === 0 ? (
+                        <p className="text-center text-[13px] text-zinc-500 py-8">
+                          No comments yet
+                        </p>
+                      ) : (
+                        rootComments.map((comment) => {
+                          const renderThread = (
+                            node: CommentData,
+                            depth: number,
+                            path: Set<string>
+                          ): React.ReactNode => {
+                            if (path.has(node.id)) return null;
+                            const childComments = commentChildrenMap.get(node.id) ?? [];
+                            const hasChildren = childComments.length > 0;
+                            const isCollapsed = collapsedCommentIds.has(node.id);
+                            const descendantCount = hasChildren
+                              ? getCommentDescendantCount(node.id)
+                              : 0;
+                            const nextPath = new Set(path);
+                            nextPath.add(node.id);
+                            return (
+                              <div key={node.id} className={depth > 0 ? "mt-2" : ""}>
+                                <div
+                                  id={`comment-${node.id}`}
+                                  className={`rounded-lg px-1 py-1 transition ${
+                                    highlightedCommentId === node.id
+                                      ? "bg-blue-500/10 ring-1 ring-blue-400/30"
+                                      : ""
+                                  }`}
+                                  style={{ marginLeft: `${depth * 18}px` }}
+                                >
+                                  <div className="flex gap-3">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 ring-1 ring-white/10">
+                                      {node.userAvatarUrl ? (
+                                        <img
+                                          src={node.userAvatarUrl}
+                                          alt=""
+                                          className="h-10 w-10 rounded-full object-cover"
+                                        />
+                                      ) : (
+                                        <span className="text-[11px] font-semibold text-zinc-200">
+                                          {initialsFromName(node.userName)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex min-w-0 flex-1 flex-col">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium text-zinc-100">
+                                          {node.userName}
+                                        </span>
+                                        <span className="text-[12px] text-zinc-500">
+                                          {formatRelativeTime(new Date(node.createdAt))}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1">
+                                        {renderCommentContent(
+                                          node.content,
+                                          members,
+                                          `comment-${node.id}`
+                                        )}
+                                      </div>
+                                      <div className="mt-2 flex flex-wrap items-center gap-3 text-[12px]">
+                                        <button
+                                          type="button"
+                                          onClick={() => startReplyToComment(node.id)}
+                                          className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-200"
+                                        >
+                                          <CornerDownRight className="h-3.5 w-3.5" />
+                                          Reply
+                                        </button>
+                                        {hasChildren ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleCommentCollapse(node.id)}
+                                            className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-200"
+                                          >
+                                            {isCollapsed ? (
+                                              <ChevronRight className="h-3.5 w-3.5" />
+                                            ) : (
+                                              <ChevronDown className="h-3.5 w-3.5" />
+                                            )}
+                                            {isCollapsed
+                                              ? `Show thread (${descendantCount})`
+                                              : "Hide thread"}
+                                          </button>
+                                        ) : null}
+                                        {node.canDelete ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteComment(node.id)}
+                                            className="inline-flex items-center gap-1 text-zinc-500 hover:text-red-300"
+                                            title="Delete comment"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                            Delete
+                                          </button>
+                                        ) : null}
+                                      </div>
+                                      {replyingToId === node.id
+                                        ? renderCommentComposer(true, replyTarget?.userName)
+                                        : null}
+                                    </div>
+                                  </div>
+                                </div>
+                                {hasChildren && !isCollapsed ? (
+                                  <div className="mt-1 border-l border-white/[0.08] pl-1">
+                                    {childComments.map((child) =>
+                                      renderThread(child, depth + 1, nextPath)
+                                    )}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          };
+
+                          return renderThread(comment, 0, new Set());
+                        })
+                      )}
                     </div>
-                    <p className="mt-2 text-[11px] text-zinc-600">
-                      Comments will be available in a future update.
-                    </p>
                   </div>
 
                   {formError && (

@@ -5,9 +5,7 @@ import { verifyAccessToken } from "@/lib/jwt";
 const PUBLIC_PATHS = ["/", "/signin", "/signup"];
 
 function isPublicPath(pathname: string) {
-  if (PUBLIC_PATHS.includes(pathname)) return true;
-  if (pathname.startsWith("/invite/")) return true;
-  return false;
+  return PUBLIC_PATHS.includes(pathname);
 }
 
 const AUTH_PAGES = ["/signin", "/signup"];
@@ -18,7 +16,10 @@ function isAuthPage(pathname: string) {
 
 function isStaticAsset(pathname: string) {
   return (
-    pathname.startsWith("/_next") || pathname.startsWith("/static") || pathname === "/favicon.ico"
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/static") ||
+    pathname === "/favicon.ico" ||
+    /\.[^/]+$/.test(pathname)
   );
 }
 
@@ -27,15 +28,14 @@ function isPublicApi(pathname: string) {
 }
 
 async function getUser(req: NextRequest) {
+  const cookieHeader = req.headers.get("cookie") ?? "";
+  const refreshToken = req.cookies.get("refreshToken")?.value;
   const accessToken = req.cookies.get("accessToken")?.value;
-  if (!accessToken) return { user: null, refreshResponse: null };
 
-  try {
-    const payload = await verifyAccessToken(accessToken);
-    return { user: payload, refreshResponse: null };
-  } catch {
+  async function tryRefresh() {
+    if (!refreshToken) return { user: null, refreshResponse: null };
+
     try {
-      const cookieHeader = req.headers.get("cookie") ?? "";
       const refreshRes = await fetch(new URL("/api/auth/refresh", req.url), {
         method: "POST",
         headers: { cookie: cookieHeader },
@@ -46,7 +46,19 @@ async function getUser(req: NextRequest) {
         return { user: "refreshed", refreshResponse: refreshRes };
       }
     } catch {}
+
     return { user: null, refreshResponse: null };
+  }
+
+  if (!accessToken) {
+    return tryRefresh();
+  }
+
+  try {
+    const payload = await verifyAccessToken(accessToken);
+    return { user: payload, refreshResponse: null };
+  } catch {
+    return tryRefresh();
   }
 }
 

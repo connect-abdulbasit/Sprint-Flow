@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { taskService } from "@/modules/task/task.service";
+import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
 function ticketErrorStatus(message: string) {
-  if (message.includes("access denied") || message.includes("Project not found")) return 403;
+  if (
+    message.includes("Forbidden") ||
+    message.includes("access denied") ||
+    message.includes("Project not found")
+  )
+    return 403;
   if (message.includes("Ticket not found") || message.includes("Ticket image not found"))
     return 404;
   if (
@@ -29,7 +35,11 @@ export class TicketController {
     try {
       const { id: projectId } = await context.params;
       const tickets = await taskService.listTickets(user.id, projectId);
-      return NextResponse.json(tickets);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 50,
+        maxPageSize: 200,
+      });
+      return NextResponse.json(paginateArray(tickets, pagination));
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to list tickets";
       console.error("List tickets error:", error);

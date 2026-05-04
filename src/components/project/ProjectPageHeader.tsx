@@ -3,8 +3,6 @@
 import {
   ChevronRight,
   FolderKanban,
-  Search,
-  Filter,
   Plus,
   LayoutList,
   Columns,
@@ -17,6 +15,7 @@ import { useParams, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchProject, type Project } from "@/lib/projects-api";
 import { projectKeyPrefix } from "@/lib/ticket-key";
+import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 
 const ACCENT = "#6366f1";
 
@@ -27,6 +26,8 @@ export default function ProjectPageHeader() {
   const wid = typeof workspaceId === "string" ? workspaceId : (workspaceId?.[0] ?? "");
 
   const [project, setProject] = useState<Project | null>(null);
+  const { hasRole, isLoading: roleLoading } = useWorkspaceRole(wid);
+  const canCreateIssue = !roleLoading && hasRole("project_manager");
 
   useEffect(() => {
     if (!pid) return;
@@ -124,28 +125,17 @@ export default function ProjectPageHeader() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 group-focus-within:text-blue-400 transition-colors" />
-            <input
-              type="text"
-              placeholder="Search in project..."
-              className="bg-white/[0.03] border border-white/[0.06] rounded-lg pl-9 pr-4 py-1.5 text-[13px] text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all w-[200px]"
-            />
-          </div>
-
-          <button className="p-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05] border border-white/[0.06] rounded-lg transition-all">
-            <Filter className="w-3.5 h-3.5" />
-          </button>
-
           <div className="h-4 w-px bg-white/[0.06] mx-0.5" />
 
-          <Link
-            href={`/workspace/${wid}/projects/${pid}/board?new=1`}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-white text-zinc-950 text-[13px] font-semibold rounded-lg transition-all active:scale-[0.98] shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            New Issue
-          </Link>
+          {canCreateIssue && (
+            <Link
+              href={`/workspace/${wid}/projects/${pid}/board?new=1`}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-white text-zinc-950 text-[13px] font-semibold rounded-lg transition-all active:scale-[0.98] shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              New Issue
+            </Link>
+          )}
         </div>
       </div>
 

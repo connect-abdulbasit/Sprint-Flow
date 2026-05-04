@@ -10,16 +10,24 @@ export class NotificationController {
     }
 
     try {
+      const pageParam = Number.parseInt(req.nextUrl.searchParams.get("page") ?? "1", 10);
+      const pageSizeParam = Number.parseInt(req.nextUrl.searchParams.get("limit") ?? "10", 10);
+      const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+      const pageSize =
+        Number.isFinite(pageSizeParam) && pageSizeParam > 0 ? Math.min(pageSizeParam, 100) : 10;
+      const pagination = { page, pageSize };
+
       if (context?.params) {
         const { id: workspaceId } = await context.params;
         const notifications = await notificationService.getWorkspaceNotifications(
           user.id,
-          workspaceId
+          workspaceId,
+          pagination
         );
         return NextResponse.json(notifications);
       }
 
-      const notifications = await notificationService.getUserNotifications(user.id);
+      const notifications = await notificationService.getUserNotifications(user.id, pagination);
       return NextResponse.json(notifications);
     } catch (error) {
       console.error("Fetch notifications error:", error);
@@ -38,9 +46,18 @@ export class NotificationController {
 
     try {
       const body = await req.json();
+      const markAll = Boolean(body?.markAll);
+      if (markAll) {
+        await notificationService.markAllAsRead(user.id);
+        return NextResponse.json({ success: true });
+      }
+
       const notificationId = String(body.notificationId ?? "").trim();
       if (!notificationId) {
-        return NextResponse.json({ error: "notificationId is required" }, { status: 400 });
+        return NextResponse.json(
+          { error: "notificationId is required unless markAll is true" },
+          { status: 400 }
+        );
       }
 
       await notificationService.markNotificationAsRead(notificationId, user.id);

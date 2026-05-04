@@ -1,20 +1,22 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
+  BellRing,
   CheckCircle2,
   MessageSquare,
   ClipboardList,
   Activity,
   CalendarDays,
-  ArrowRight,
   Clock3,
   Sparkles,
   Inbox,
   ShieldCheck,
+  RefreshCw,
+  CheckCheck,
 } from "lucide-react";
 import { NotificationListSkeleton, Skeleton } from "@/components/ui/skeleton";
 
@@ -30,6 +32,21 @@ type NotificationItem = {
   createdAt: string;
   originUserId: string | null;
   payload: string | null;
+};
+
+type PaginationMeta = {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+
+type NotificationListResponse = {
+  items: NotificationItem[];
+  pagination: PaginationMeta;
+  unreadCount: number;
 };
 
 type IconComponent = ComponentType<{ className?: string }>;
@@ -76,43 +93,134 @@ function formatDate(dateString: string) {
   });
 }
 
+function parsePayload(payload: string | null): Record<string, unknown> | null {
+  if (!payload) return null;
+  try {
+    const parsed = JSON.parse(payload);
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveNotificationHref(notification: NotificationItem, workspaceId: string) {
+  if (notification.redirectUrl) return notification.redirectUrl;
+  const payload = parsePayload(notification.payload);
+  const payloadProjectId =
+    payload && typeof payload.projectId === "string" ? payload.projectId : null;
+  const payloadCommentId =
+    payload && typeof payload.commentId === "string" ? payload.commentId : null;
+
+  if (
+    notification.targetType === "task" &&
+    payloadProjectId &&
+    typeof notification.targetId === "string" &&
+    notification.targetId
+  ) {
+    const params = new URLSearchParams({ ticketId: notification.targetId });
+    if (payloadCommentId) params.set("commentId", payloadCommentId);
+    return `/workspace/${workspaceId}/projects/${payloadProjectId}/backlog?${params.toString()}`;
+  }
+
+  if (notification.type === "sprint_update" || notification.targetType === "sprint") {
+    return `/workspace/${workspaceId}/sprints`;
+  }
+  if (notification.type === "project_update" || notification.targetType === "project") {
+    return payloadProjectId
+      ? `/workspace/${workspaceId}/projects/${payloadProjectId}/backlog`
+      : `/workspace/${workspaceId}/projects`;
+  }
+  if (notification.type === "invite") {
+    return `/workspace/${workspaceId}/team`;
+  }
+  if (
+    notification.type === "task_assignment" ||
+    notification.type === "task_status" ||
+    notification.type === "task_comment" ||
+    notification.type === "mention"
+  ) {
+    return `/workspace/${workspaceId}/my-tasks`;
+  }
+  return `/workspace/${workspaceId}/dashboard`;
+}
+
+type FilterMode = "all" | "unread";
+const PAGE_SIZE = 10;
+
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [pendingReadIds, setPendingReadIds] = useState<Record<string, boolean>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta>({
+    page: 1,
+    pageSize: PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  });
+  const [globalUnreadCount, setGlobalUnreadCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const params = useParams();
-  const workspaceId = params?.workspaceId ?? "";
+  const workspaceId = Array.isArray(params?.workspaceId)
+    ? params.workspaceId[0]
+    : (params?.workspaceId ?? "");
 
-  useEffect(() => {
-    async function loadNotifications() {
-      setLoading(true);
+  const loadNotifications = useCallback(
+    async (page: number, mode: "initial" | "refresh" = "initial") => {
+      if (mode === "initial") {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       setError(null);
 
       try {
-        const res = await fetch(`/api/workspaces/${workspaceId}/notifications`, {
-          cache: "no-store",
-        });
+        const res = await fetch(
+          `/api/workspaces/${workspaceId}/notifications?page=${page}&limit=${PAGE_SIZE}`,
+          {
+            cache: "no-store",
+          }
+        );
         if (!res.ok) {
           const body = await res.json();
           throw new Error(body?.error || "Unable to load notifications");
         }
 
-        const data = (await res.json()) as NotificationItem[];
-        setNotifications(data);
+        const data = (await res.json()) as NotificationListResponse;
+        setNotifications(data.items);
+        setPaginationMeta(data.pagination);
+        setGlobalUnreadCount(data.unreadCount);
       } catch (err) {
         setError((err as Error).message);
       } finally {
-        setLoading(false);
+        if (mode === "initial") {
+          setLoading(false);
+        } else {
+          setRefreshing(false);
+        }
       }
-    }
-
-    loadNotifications();
-  }, []);
-
-  const unreadCount = useMemo(
-    () => notifications.filter((item) => !item.isRead).length,
-    [notifications]
+    },
+    [workspaceId]
   );
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    void loadNotifications(currentPage, "initial");
+  }, [workspaceId, currentPage, loadNotifications]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [workspaceId]);
+
+  const unreadCount = globalUnreadCount;
+  const readCount = Math.max(0, paginationMeta.total - unreadCount);
 
   const summary = useMemo(() => {
     const counts = notifications.reduce(
@@ -122,189 +230,378 @@ export default function NotificationsPage() {
       },
       {} as Record<string, number>
     );
-    return counts;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [notifications]);
 
+  const filteredNotifications = useMemo(() => {
+    if (filterMode === "unread") {
+      return notifications.filter((item) => !item.isRead);
+    }
+    return notifications;
+  }, [notifications, filterMode]);
+
+  const markNotificationAsRead = useCallback(async (notificationId: string) => {
+    setPendingReadIds((prev) => ({ ...prev, [notificationId]: true }));
+    let previousNotifications: NotificationItem[] = [];
+    let didChangeUnread = false;
+    setNotifications((prev) => {
+      previousNotifications = prev;
+      return prev.map((item) => {
+        if (item.id !== notificationId) return item;
+        if (!item.isRead) {
+          didChangeUnread = true;
+        }
+        return { ...item, isRead: true };
+      });
+    });
+    if (didChangeUnread) {
+      setGlobalUnreadCount((prev) => Math.max(0, prev - 1));
+    }
+
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ notificationId }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || "Unable to mark notification as read");
+      }
+    } catch (err) {
+      setNotifications(previousNotifications);
+      if (didChangeUnread) {
+        setGlobalUnreadCount((prev) => prev + 1);
+      }
+      setError((err as Error).message);
+    } finally {
+      setPendingReadIds((prev) => {
+        const next = { ...prev };
+        delete next[notificationId];
+        return next;
+      });
+    }
+  }, []);
+
+  const markAllAsRead = useCallback(async () => {
+    if (unreadCount === 0 || markingAllRead) return;
+
+    setMarkingAllRead(true);
+    let previousNotifications: NotificationItem[] = [];
+    const previousUnreadCount = unreadCount;
+    setNotifications((prev) => {
+      previousNotifications = prev;
+      return prev.map((item) => ({ ...item, isRead: true }));
+    });
+    setGlobalUnreadCount(0);
+
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ markAll: true }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || "Unable to mark all notifications as read");
+      }
+    } catch (err) {
+      setNotifications(previousNotifications);
+      setGlobalUnreadCount(previousUnreadCount);
+      setError((err as Error).message);
+    } finally {
+      setMarkingAllRead(false);
+    }
+  }, [unreadCount, markingAllRead]);
+
   return (
-    <div className="flex flex-col gap-6 pt-4 pb-8">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="max-w-2xl text-sm text-[var(--color-muted)]">
-            Stay on top of task updates, mentions, sprint changes, and invites across the workspace.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2">
-          <div className="rounded-3xl border border-[#2a2a38] bg-[#111118]/70 p-4 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.7)]">
-            <p className="text-xs uppercase tracking-[0.2em] text-[#7c7c92]">Unread</p>
-            {loading ? (
-              <Skeleton className="mt-3 h-9 w-16 rounded-lg" />
-            ) : (
-              <p className="mt-3 text-3xl font-semibold text-white">{unreadCount}</p>
-            )}
+    <div className="flex h-full flex-col bg-[#09090b]">
+      <div className="sticky top-0 z-10 border-b border-white/[0.04] bg-[#0c0c0f]/50 px-10 py-8 backdrop-blur-xl">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-500/25 bg-blue-500/10 text-blue-400">
+              <BellRing className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Notifications</h1>
+              <p className="mt-1 text-[13px] text-zinc-500">
+                Mentions, task updates, sprint changes, and invites across your workspace.
+              </p>
+            </div>
           </div>
-          <div className="rounded-3xl border border-[#2a2a38] bg-[#111118]/70 p-4 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.7)]">
-            <p className="text-xs uppercase tracking-[0.2em] text-[#7c7c92]">Total</p>
-            {loading ? (
-              <Skeleton className="mt-3 h-9 w-16 rounded-lg" />
-            ) : (
-              <p className="mt-3 text-3xl font-semibold text-white">{notifications.length}</p>
-            )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFilterMode("all")}
+              className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition ${
+                filterMode === "all"
+                  ? "bg-white/[0.08] text-zinc-100"
+                  : "bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"
+              }`}
+            >
+              All ({paginationMeta.total})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode("unread")}
+              className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition ${
+                filterMode === "unread"
+                  ? "bg-blue-500/15 text-blue-300"
+                  : "bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"
+              }`}
+            >
+              Unread ({unreadCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => void loadNotifications(currentPage, "refresh")}
+              disabled={loading || refreshing}
+              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3.5 py-2 text-[13px] font-medium text-zinc-300 transition hover:bg-white/[0.04] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </button>
+            <button
+              type="button"
+              onClick={() => void markAllAsRead()}
+              disabled={loading || unreadCount === 0 || markingAllRead}
+              className="inline-flex items-center gap-2 rounded-lg border border-blue-500/25 bg-blue-500/10 px-3.5 py-2 text-[13px] font-medium text-blue-200 transition hover:bg-blue-500/15 hover:text-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <CheckCheck className={`h-3.5 w-3.5 ${markingAllRead ? "animate-pulse" : ""}`} />
+              {markingAllRead ? "Marking..." : "Mark all as read"}
+            </button>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
-        <section className="rounded-[32px] border border-[#2a2a38] bg-[#12121d]/80 p-5 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.7)]">
-          <div className="flex items-center justify-between gap-4 pb-3 mb-5 border-b border-[#2b2b39]">
-            <div>
-              <p className="text-sm font-semibold text-white">Latest updates</p>
-              <p className="text-[13px] text-[var(--color-muted)]">
-                Your notification stream from every project and sprint.
-              </p>
-            </div>
-            <Link
-              href={`/workspace/${workspaceId}/notifications`}
-              className="inline-flex items-center gap-2 rounded-full border border-[#2b2b39] bg-white/5 px-3 py-2 text-xs text-white transition hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
-            >
-              Refresh
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-
-          {loading ? (
-            <NotificationListSkeleton rows={6} />
-          ) : error ? (
-            <div className="rounded-3xl border border-red-500/20 bg-red-500/5 p-8 text-center text-sm text-red-200">
-              {error}
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-[#3a3a4e] bg-[#141423]/80 p-12 text-center text-sm text-[var(--color-muted)]">
-              No notifications yet. Check back when there are new mentions, tasks, or sprint
-              updates.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {notifications.map((notification) => {
-                const Icon = typeIconMap[notification.type] || Activity;
-                return (
-                  <article
-                    key={notification.id}
-                    className={`rounded-3xl border px-5 py-4 transition-all duration-200 ${
-                      notification.isRead
-                        ? "border-[#2b2b39] bg-[#111118]/80"
-                        : "border-[var(--color-accent)]/20 bg-[rgba(79,124,255,0.08)]"
-                    }`}
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/5 text-[var(--color-accent)] shadow-[0_12px_24px_-20px_rgba(79,124,255,0.9)]">
-                          <Icon className="h-5 w-5" />
-                        </span>
-                        <div>
-                          <p className="text-sm font-semibold text-white">{notification.title}</p>
-                          <p className="mt-1 text-xs text-[var(--color-muted)]">
-                            {getTypeLabel(notification.type)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
-                        <span>{formatDate(notification.createdAt)}</span>
-                        {!notification.isRead && (
-                          <span className="inline-flex rounded-full bg-[var(--color-accent)]/15 px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
-                            New
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="max-w-2xl text-sm leading-6 text-[#d7d7e3]">
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center gap-3">
-                        {notification.redirectUrl ? (
-                          <Link
-                            href={notification.redirectUrl}
-                            className="text-sm font-semibold text-[var(--color-accent)] transition hover:text-white"
-                          >
-                            Open details
-                          </Link>
-                        ) : (
-                          <span className="text-sm text-[var(--color-muted)]">No direct link</span>
-                        )}
-                        <span className="rounded-full bg-white/5 px-2 py-1 text-[11px] uppercase tracking-[0.14em] text-[#7c7c92]">
-                          {notification.targetType || "general"}
-                        </span>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <aside className="space-y-6">
-          <div className="rounded-[32px] border border-[#2a2a38] bg-[#12121d]/80 p-5 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.7)]">
-            <div className="flex items-center gap-3 text-white">
-              <CheckCircle2 className="h-5 w-5 text-[var(--color-accent)]" />
-              <div>
-                <p className="font-semibold">Notification overview</p>
-                <p className="text-sm text-[var(--color-muted)]">
-                  Quick counts by type and redirect targets.
-                </p>
+      <div className="custom-scrollbar flex-1 overflow-y-auto px-10 py-8">
+        <div className="grid gap-6 xl:grid-cols-[1.75fr_1fr]">
+          <section className="space-y-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-4">
+                <p className="text-[11px] uppercase tracking-[0.13em] text-zinc-500">Unread</p>
+                {loading ? (
+                  <Skeleton className="mt-3 h-8 w-14 rounded-md" />
+                ) : (
+                  <p className="mt-3 text-3xl font-semibold text-zinc-100">{unreadCount}</p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-4">
+                <p className="text-[11px] uppercase tracking-[0.13em] text-zinc-500">Read</p>
+                {loading ? (
+                  <Skeleton className="mt-3 h-8 w-14 rounded-md" />
+                ) : (
+                  <p className="mt-3 text-3xl font-semibold text-zinc-100">{readCount}</p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-4">
+                <p className="text-[11px] uppercase tracking-[0.13em] text-zinc-500">Total</p>
+                {loading ? (
+                  <Skeleton className="mt-3 h-8 w-14 rounded-md" />
+                ) : (
+                  <p className="mt-3 text-3xl font-semibold text-zinc-100">
+                    {paginationMeta.total}
+                  </p>
+                )}
+              </div>
+              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-4">
+                <p className="text-[11px] uppercase tracking-[0.13em] text-zinc-500">Categories</p>
+                {loading ? (
+                  <Skeleton className="mt-3 h-8 w-14 rounded-md" />
+                ) : (
+                  <p className="mt-3 text-3xl font-semibold text-zinc-100">{summary.length}</p>
+                )}
               </div>
             </div>
-            <div className="mt-5 space-y-3">
-              {Object.entries(summary).map(([key, count]) => {
-                const Icon = typeIconMap[key] || Activity;
-                return (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between rounded-3xl border border-[#2e2e40] bg-[#111118]/75 px-4 py-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-white/5 text-[var(--color-accent)]">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold text-white">{getTypeLabel(key)}</p>
-                        <p className="text-xs text-[var(--color-muted)]">Notifications</p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-semibold text-white">{count}</span>
+
+            <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)]">
+              <div className="flex items-center justify-between border-b border-white/[0.05] px-5 py-4">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-100">
+                    {filterMode === "unread" ? "Unread notifications" : "Latest notifications"}
+                  </p>
+                  <p className="text-xs text-zinc-500">
+                    {filterMode === "unread"
+                      ? "Items that still need your attention."
+                      : "Ordered by newest updates first."}
+                  </p>
+                </div>
+                <span className="rounded-md bg-white/[0.04] px-2 py-1 text-[11px] text-zinc-400">
+                  {filteredNotifications.length} items
+                </span>
+              </div>
+
+              <div className="p-5">
+                {loading ? (
+                  <NotificationListSkeleton rows={6} />
+                ) : error ? (
+                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/8 p-5 text-sm text-rose-300">
+                    {error}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                ) : filteredNotifications.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] p-10 text-center">
+                    <p className="text-sm font-medium text-zinc-300">
+                      {filterMode === "unread" ? "No unread notifications" : "No notifications yet"}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {filterMode === "unread"
+                        ? "You are all caught up."
+                        : "New mentions and updates will appear here."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredNotifications.map((notification) => {
+                      const Icon = typeIconMap[notification.type] || Activity;
+                      const detailHref = resolveNotificationHref(notification, workspaceId);
+                      return (
+                        <article
+                          key={notification.id}
+                          className={`rounded-xl border px-4 py-4 transition ${
+                            notification.isRead
+                              ? "border-white/[0.06] bg-white/[0.01] hover:bg-white/[0.03]"
+                              : "border-blue-500/30 bg-blue-500/[0.06] hover:bg-blue-500/[0.09]"
+                          }`}
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-start gap-3">
+                              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-blue-300">
+                                <Icon className="h-4.5 w-4.5" />
+                              </span>
+                              <div>
+                                <p className="text-sm font-semibold text-zinc-100">
+                                  {notification.title}
+                                </p>
+                                <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
+                                  <span>{getTypeLabel(notification.type)}</span>
+                                  <span className="h-1 w-1 rounded-full bg-zinc-600" />
+                                  <span>{formatDate(notification.createdAt)}</span>
+                                </div>
+                              </div>
+                            </div>
+                            {!notification.isRead && (
+                              <span className="inline-flex rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-300">
+                                New
+                              </span>
+                            )}
+                          </div>
 
-          <div className="rounded-[32px] border border-[#2a2a38] bg-[#12121d]/80 p-5 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.7)]">
-            <div className="flex items-center gap-3 text-white">
-              <Inbox className="h-5 w-5 text-[var(--color-accent)]" />
-              <div>
-                <p className="font-semibold">How it works</p>
-                <p className="text-sm text-[var(--color-muted)]">
-                  Mentions and updates take you to the exact task, comment, or sprint page.
-                </p>
+                          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="max-w-2xl text-sm leading-6 text-zinc-300">
+                              {notification.message}
+                            </p>
+                            <div className="flex items-center gap-3">
+                              {!notification.isRead && (
+                                <button
+                                  type="button"
+                                  onClick={() => void markNotificationAsRead(notification.id)}
+                                  disabled={Boolean(pendingReadIds[notification.id])}
+                                  className="text-xs font-semibold text-blue-300 transition hover:text-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {pendingReadIds[notification.id] ? "Marking..." : "Mark as read"}
+                                </button>
+                              )}
+                              {detailHref ? (
+                                <Link
+                                  href={detailHref}
+                                  className="text-sm font-semibold text-[var(--color-accent)] transition hover:text-white"
+                                >
+                                  Open details
+                                </Link>
+                              ) : (
+                                <span className="text-sm text-zinc-500">No link</span>
+                              )}
+                              <span className="rounded-md bg-white/[0.04] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-zinc-400">
+                                {notification.targetType || "general"}
+                              </span>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              {!loading && paginationMeta.total > 0 && (
+                <div className="flex items-center justify-between border-t border-white/[0.05] px-5 py-3">
+                  <p className="text-xs text-zinc-500">
+                    Page {paginationMeta.page} of {paginationMeta.totalPages}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={!paginationMeta.hasPreviousPage}
+                      className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs text-zinc-300 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentPage((prev) => (paginationMeta.hasNextPage ? prev + 1 : prev))
+                      }
+                      disabled={!paginationMeta.hasNextPage}
+                      className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs text-zinc-300 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <aside className="space-y-4">
+            <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-5">
+              <div className="flex items-center gap-3 text-zinc-100">
+                <CheckCircle2 className="h-5 w-5 text-[var(--color-accent)]" />
+                <div>
+                  <p className="font-semibold">Notification overview</p>
+                  <p className="text-xs text-zinc-500">Counts by notification type.</p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2.5">
+                {loading ? (
+                  <>
+                    <Skeleton className="h-14 rounded-lg" />
+                    <Skeleton className="h-14 rounded-lg" />
+                    <Skeleton className="h-14 rounded-lg" />
+                  </>
+                ) : summary.length === 0 ? (
+                  <p className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-4 text-xs text-zinc-500">
+                    No categories available yet.
+                  </p>
+                ) : (
+                  summary.map(([key, count]) => {
+                    const Icon = typeIconMap[key] || Activity;
+                    return (
+                      <div
+                        key={key}
+                        className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-3"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.05] text-[var(--color-accent)]">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <span className="text-sm text-zinc-300">{getTypeLabel(key)}</span>
+                        </div>
+                        <span className="text-sm font-semibold text-zinc-100">{count}</span>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
-            <ul className="mt-5 space-y-3 text-sm text-[var(--color-muted)]">
-              <li className="flex items-start gap-2">
-                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--color-accent)]" />
-                Mention notifications link to the comment or task where you were tagged.
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--color-accent)]" />
-                Task assignment and status updates send you to the relevant task detail.
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[var(--color-accent)]" />
-                Sprint and project changes surface the latest activity in that context.
-              </li>
-            </ul>
-          </div>
-        </aside>
+          </aside>
+        </div>
       </div>
     </div>
   );
