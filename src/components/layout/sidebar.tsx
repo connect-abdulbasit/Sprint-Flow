@@ -242,7 +242,7 @@ export default function Sidebar() {
     >
       <OrgWorkspaceSwitcher isCollapsed={isCollapsed} />
 
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-5">
+      <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-4 px-3 space-y-5">
         {sections.map((section) => (
           <div key={section.label} className="space-y-0.5">
             <SectionLabel label={section.label} dot={section.dot} />

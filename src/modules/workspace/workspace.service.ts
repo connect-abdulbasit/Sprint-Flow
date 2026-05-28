@@ -1,4 +1,5 @@
 import { workspaceRepository } from "./workspace.repository";
+import { removeWorkspaceLogoFile, replaceWorkspaceLogoFile } from "@/lib/workspace-logo-storage";
 import { db } from "@/lib/db";
 import { workspaceMembersTable, workspaceInvitesTable } from "@/db";
 import { organizationMembersTable } from "@/modules/organization/organization.schema";
@@ -49,15 +50,37 @@ export class WorkspaceService {
     return workspace;
   }
 
-  async updateWorkspace(userId: string, id: string, data: { name?: string; description?: string }) {
+  async updateWorkspace(
+    userId: string,
+    id: string,
+    data: { name?: string; description?: string; logoUrl?: string | null }
+  ) {
     const member = await workspaceRepository.getMember(userId, id);
     if (!member || !hasRole(member.role as WorkspaceRole, "admin")) {
       throw new Error("Forbidden: only admins can update workspace settings");
     }
 
-    const updateData: Partial<{ name: string; description: string }> = {};
+    const existing = await workspaceRepository.getWorkspaceById(id);
+    if (!existing) {
+      throw new Error("Workspace not found");
+    }
+
+    const updateData: Partial<{ name: string; description: string; logoUrl: string | null }> = {};
     if (data.name !== undefined) updateData.name = data.name.trim();
     if (data.description !== undefined) updateData.description = data.description.trim();
+
+    if (data.logoUrl !== undefined) {
+      const next =
+        data.logoUrl === null || data.logoUrl === "" ? null : String(data.logoUrl).trim();
+      if (
+        existing.logoUrl &&
+        existing.logoUrl.startsWith("/uploads/workspaces/") &&
+        existing.logoUrl !== next
+      ) {
+        await removeWorkspaceLogoFile(existing.logoUrl);
+      }
+      updateData.logoUrl = next;
+    }
 
     if (Object.keys(updateData).length === 0) {
       throw new Error("No fields to update");
@@ -66,10 +89,58 @@ export class WorkspaceService {
     return workspaceRepository.updateWorkspace(id, updateData);
   }
 
+  async uploadWorkspaceLogo(userId: string, workspaceId: string, buffer: Buffer, mimeType: string) {
+    const member = await workspaceRepository.getMember(userId, workspaceId);
+    if (!member || !hasRole(member.role as WorkspaceRole, "admin")) {
+      throw new Error("Forbidden: only admins can update the workspace logo");
+    }
+
+    const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
+    if (!workspace) {
+      throw new Error("Workspace not found");
+    }
+
+    const MAX_BYTES = 2 * 1024 * 1024;
+    if (buffer.length > MAX_BYTES) {
+      throw new Error("Image must be 2MB or smaller");
+    }
+
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(mimeType)) {
+      throw new Error("Only JPG, PNG, WebP, or GIF images are allowed");
+    }
+
+    const publicPath = await replaceWorkspaceLogoFile(workspaceId, buffer, mimeType);
+    return workspaceRepository.updateWorkspace(workspaceId, { logoUrl: publicPath });
+  }
+
+  async clearWorkspaceLogo(userId: string, workspaceId: string) {
+    const member = await workspaceRepository.getMember(userId, workspaceId);
+    if (!member || !hasRole(member.role as WorkspaceRole, "admin")) {
+      throw new Error("Forbidden: only admins can update the workspace logo");
+    }
+
+    const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
+    if (!workspace) {
+      throw new Error("Workspace not found");
+    }
+
+    if (workspace.logoUrl?.startsWith("/uploads/workspaces/")) {
+      await removeWorkspaceLogoFile(workspace.logoUrl);
+    }
+
+    return workspaceRepository.updateWorkspace(workspaceId, { logoUrl: null });
+  }
+
   async deleteWorkspace(userId: string, id: string) {
     const member = await workspaceRepository.getMember(userId, id);
     if (!member || !hasRole(member.role as WorkspaceRole, "admin")) {
       throw new Error("Forbidden: only admins can delete workspaces");
+    }
+
+    const existing = await workspaceRepository.getWorkspaceById(id);
+    if (existing?.logoUrl?.startsWith("/uploads/workspaces/")) {
+      await removeWorkspaceLogoFile(existing.logoUrl);
     }
 
     return workspaceRepository.deleteWorkspace(id);

@@ -98,16 +98,73 @@ export class WorkspaceController {
 
     try {
       const { id } = await params;
-      const body = await req.json();
+      const body = (await req.json()) as {
+        name?: string;
+        description?: string;
+        logoUrl?: string | null;
+      };
       const updated = await workspaceService.updateWorkspace(user.id, id, {
         name: body.name,
         description: body.description,
+        logoUrl: body.logoUrl,
       });
       return NextResponse.json(updated);
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to update workspace";
       console.error("Update workspace error:", error);
       const status = message.includes("Forbidden") ? 403 : 500;
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
+  async uploadLogo(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const formData = await req.formData();
+      const file = formData.get("file");
+      if (!file || !(file instanceof File)) {
+        return NextResponse.json({ error: "Missing image file" }, { status: 400 });
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const mimeType = file.type || "application/octet-stream";
+      const updated = await workspaceService.uploadWorkspaceLogo(user.id, id, buffer, mimeType);
+      return NextResponse.json(updated);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to upload logo";
+      console.error("Upload workspace logo error:", error);
+      const status = message.includes("Forbidden")
+        ? 403
+        : message.includes("not found")
+          ? 404
+          : 400;
+      return NextResponse.json({ error: message }, { status });
+    }
+  }
+
+  async deleteLogo(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const { id } = await params;
+      const updated = await workspaceService.clearWorkspaceLogo(user.id, id);
+      return NextResponse.json(updated);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to remove logo";
+      console.error("Delete workspace logo error:", error);
+      const status = message.includes("Forbidden")
+        ? 403
+        : message.includes("not found")
+          ? 404
+          : 500;
       return NextResponse.json({ error: message }, { status });
     }
   }
