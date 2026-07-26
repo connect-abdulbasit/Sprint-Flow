@@ -1,20 +1,12 @@
 export const runtime = "nodejs";
 
-import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { NextRequest } from "next/server";
+import { authController } from "@/modules/auth/auth.controller";
 
 export async function GET(req: NextRequest) {
-  const user = await getCurrentUser(req);
+  return authController.getMe(req);
+}
 
-  if (!user) {
-    return NextResponse.json({ user: null }, { status: 401 });
-  }
-
-  return NextResponse.json({
-    user: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-    },
-  });
+export async function PATCH(req: NextRequest) {
+  return authController.updateProfile(req);
 }

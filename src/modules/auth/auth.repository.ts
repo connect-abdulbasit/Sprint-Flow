@@ -56,6 +56,19 @@ export class AuthRepository {
       .where(eq(usersTable.id, userId))
       .execute();
   }
+
+  async updateUser(
+    userId: string,
+    data: Partial<Pick<typeof usersTable.$inferInsert, "name" | "avatarUrl">>
+  ) {
+    const [user] = await db
+      .update(usersTable)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(usersTable.id, userId))
+      .returning()
+      .execute();
+    return user;
+  }
 }
 
 export const authRepository = new AuthRepository();

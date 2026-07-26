@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useWorkspaceNav } from "@/contexts/workspace-nav-context";
 import {
@@ -36,22 +36,17 @@ interface NavSectionDef {
 
 export default function Sidebar() {
   const pathname = usePathname() || "";
-  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    name: string;
+    email: string;
+    avatarUrl: string | null;
+  } | null>(null);
   const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const { workspaceIdForNav } = useWorkspaceNav();
-
-  // AUD-059: this row was styled as clickable (pointer cursor, hover state) but had no
-  // handler at all. It now performs the same sign-out action as the topbar's logout
-  // button, rather than inventing a new destination page under this fix.
-  const handleSignOut = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/signin");
-  };
 
   const workspaceBase = workspaceIdForNav
     ? `/workspace/${workspaceIdForNav}`
@@ -112,13 +107,21 @@ export default function Sidebar() {
         }
 
         const data = (await res.json()) as {
-          user?: { name?: string | null; email?: string | null } | null;
+          user?: {
+            name?: string | null;
+            email?: string | null;
+            avatarUrl?: string | null;
+          } | null;
         };
         const name = data.user?.name?.trim();
         const email = data.user?.email?.trim();
 
         if (!cancelled && name && email) {
-          setCurrentUser({ name, email });
+          setCurrentUser({
+            name,
+            email,
+            avatarUrl: data.user?.avatarUrl ?? null,
+          });
         } else if (!cancelled) {
           setCurrentUser(null);
         }
@@ -129,8 +132,14 @@ export default function Sidebar() {
 
     void loadCurrentUser();
 
+    const onProfileUpdated = () => {
+      void loadCurrentUser();
+    };
+    window.addEventListener("sf-profile-updated", onProfileUpdated);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("sf-profile-updated", onProfileUpdated);
     };
   }, []);
 
@@ -403,20 +412,23 @@ export default function Sidebar() {
       </button>
 
       <div className="px-4 py-3 border-t border-border">
-        <button
-          type="button"
-          onClick={() => void handleSignOut()}
-          title="Sign out"
-          aria-label={`Sign out (${currentUser?.email ?? "current account"})`}
-          className={`w-full flex items-center gap-3 cursor-pointer hover:bg-hover p-2 rounded-xl transition-colors text-left ${
-            isCollapsed ? "justify-center" : ""
-          }`}
+        <Link
+          href="/profile"
+          title="Open profile"
+          aria-label={`Open profile (${currentUser?.email ?? "current account"})`}
+          className={`w-full flex items-center gap-3 p-2 rounded-xl text-left transition-colors hover:bg-hover ${
+            pathname === "/profile" ? "bg-hover-strong" : ""
+          } ${isCollapsed ? "justify-center" : ""}`}
         >
-          <div className="w-8 h-8 rounded-full bg-surface-2 border border-border flex items-center justify-center text-xs font-bold text-muted2 shrink-0">
-            {userInitials}
+          <div className="w-8 h-8 rounded-full bg-surface-2 border border-border flex items-center justify-center text-xs font-bold text-muted2 shrink-0 overflow-hidden">
+            {currentUser?.avatarUrl ? (
+              <img src={currentUser.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              userInitials
+            )}
           </div>
           {!isCollapsed && (
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden min-w-0">
               <div className="text-[13px] font-semibold truncate text-fg">
                 {currentUser?.name ?? "User"}
               </div>
@@ -425,7 +437,7 @@ export default function Sidebar() {
               </div>
             </div>
           )}
-        </button>
+        </Link>
       </div>
     </aside>
   );

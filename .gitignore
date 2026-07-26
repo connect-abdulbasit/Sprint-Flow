@@ -38,3 +38,5 @@ next-env.d.ts
 # workspace logos uploaded at runtime (keep directory)
 /public/uploads/workspaces/*
 !/public/uploads/workspaces/.gitkeep
+/public/uploads/avatars/*
+!/public/uploads/avatars/.gitkeep

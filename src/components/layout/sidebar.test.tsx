@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { WorkspaceNavProvider } from "@/contexts/workspace-nav-context";
 import Sidebar from "./sidebar";
 
@@ -12,15 +11,19 @@ vi.mock("next/navigation", () => ({
 }));
 
 function mockFetch() {
-  return vi.fn((url: string, init?: RequestInit) => {
-    if (url === "/api/auth/logout" && init?.method === "POST") {
-      return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200 }));
-    }
+  return vi.fn((url: string) => {
     if (url === "/api/auth/me") {
       return Promise.resolve(
-        new Response(JSON.stringify({ user: { name: "Ada Lovelace", email: "ada@example.com" } }), {
-          status: 200,
-        })
+        new Response(
+          JSON.stringify({
+            user: {
+              name: "Ada Lovelace",
+              email: "ada@example.com",
+              avatarUrl: null,
+            },
+          }),
+          { status: 200 }
+        )
       );
     }
     if (url === "/api/organizations") {
@@ -30,28 +33,23 @@ function mockFetch() {
   });
 }
 
-describe("Sidebar sign-out (AUD-059 regression)", () => {
+describe("Sidebar account row", () => {
   beforeEach(() => {
     pushMock.mockReset();
     localStorage.clear();
     vi.stubGlobal("fetch", mockFetch());
   });
 
-  it("signs the user out and redirects to /signin when the profile row is clicked", async () => {
-    const user = userEvent.setup();
-    const fetchMock = mockFetch();
-    vi.stubGlobal("fetch", fetchMock);
-
+  it("links the profile row to /profile", async () => {
     render(
       <WorkspaceNavProvider>
         <Sidebar />
       </WorkspaceNavProvider>
     );
 
-    const signOutButton = await screen.findByRole("button", { name: /sign out/i });
-    await user.click(signOutButton);
-
-    expect(fetchMock).toHaveBeenCalledWith("/api/auth/logout", { method: "POST" });
-    expect(pushMock).toHaveBeenCalledWith("/signin");
+    const profileLink = await screen.findByRole("link", { name: /open profile/i });
+    expect(profileLink).toHaveAttribute("href", "/profile");
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.getByText("ada@example.com")).toBeInTheDocument();
   });
 });
