@@ -239,6 +239,70 @@ export default function ProjectBacklogPage() {
     [pid, handleSaved]
   );
 
+  const patchTicketField = useCallback(
+    async (
+      ticketId: string,
+      patch: { status?: string; assigneeId?: string | null },
+      optimistic: (_ticket: ProjectTicket) => ProjectTicket
+    ) => {
+      let previousSnapshot: ProjectTicket | undefined;
+      setTickets((prev) => {
+        const t = prev.find((x) => x.id === ticketId);
+        if (!t) return prev;
+        previousSnapshot = t;
+        const next = optimistic(t);
+        if (
+          next.status === t.status &&
+          next.assigneeId === t.assigneeId &&
+          next.assigneeName === t.assigneeName
+        ) {
+          previousSnapshot = undefined;
+          return prev;
+        }
+        return prev.map((x) => (x.id === ticketId ? next : x));
+      });
+      if (!previousSnapshot) return;
+
+      setDetailPreview((p) => (p?.id === ticketId ? optimistic(p) : p));
+
+      try {
+        const updated = await updateTicket(pid, ticketId, patch);
+        handleSaved(updated);
+      } catch {
+        setTickets((prev) => prev.map((t) => (t.id === ticketId ? previousSnapshot! : t)));
+        setDetailPreview((p) => (p?.id === ticketId ? previousSnapshot! : p));
+      }
+    },
+    [pid, handleSaved]
+  );
+
+  const handleStatusChange = useCallback(
+    async (ticketId: string, status: string) => {
+      await patchTicketField(ticketId, { status }, (t) => ({ ...t, status }));
+    },
+    [patchTicketField]
+  );
+
+  const handleAssigneeChange = useCallback(
+    async (ticketId: string, assigneeId: string | null) => {
+      const member = assigneeId ? members.find((m) => m.userId === assigneeId) : null;
+      await patchTicketField(ticketId, { assigneeId }, (t) => ({
+        ...t,
+        assigneeId,
+        assigneeName: member?.name ?? null,
+      }));
+    },
+    [patchTicketField, members]
+  );
+
+  const ticketEditProps = {
+    members,
+    statusOptions: statusFormOptions,
+    canEditTickets: canManageSprintAndTickets,
+    onStatusChange: canManageSprintAndTickets ? handleStatusChange : undefined,
+    onAssigneeChange: canManageSprintAndTickets ? handleAssigneeChange : undefined,
+  };
+
   const handleStartSprint = useCallback(
     async (sprintId: string) => {
       try {
@@ -419,6 +483,7 @@ export default function ProjectBacklogPage() {
                     }
                     onMoveTicket={canManageSprintAndTickets ? handleMoveTicket : undefined}
                     enableTicketDrag={canManageSprintAndTickets}
+                    {...ticketEditProps}
                     onTicketDrop={
                       canManageSprintAndTickets
                         ? (ticketId) => {
@@ -459,6 +524,7 @@ export default function ProjectBacklogPage() {
                 ticketMoveOptions={canManageSprintAndTickets ? moveOptionsForBacklogTicket() : []}
                 onMoveTicket={canManageSprintAndTickets ? handleMoveTicket : undefined}
                 enableTicketDrag={canManageSprintAndTickets}
+                {...ticketEditProps}
                 onTicketDrop={
                   canManageSprintAndTickets
                     ? (ticketId) => {

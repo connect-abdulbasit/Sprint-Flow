@@ -413,11 +413,11 @@ export default function Sidebar() {
 
       <div className="px-4 py-3 border-t border-border">
         <Link
-          href="/profile"
+          href={`${workspaceBase}/profile`}
           title="Open profile"
           aria-label={`Open profile (${currentUser?.email ?? "current account"})`}
           className={`w-full flex items-center gap-3 p-2 rounded-xl text-left transition-colors hover:bg-hover ${
-            pathname === "/profile" ? "bg-hover-strong" : ""
+            pathname.endsWith("/profile") ? "bg-hover-strong" : ""
           } ${isCollapsed ? "justify-center" : ""}`}
         >
           <div className="w-8 h-8 rounded-full bg-surface-2 border border-border flex items-center justify-center text-xs font-bold text-muted2 shrink-0 overflow-hidden">

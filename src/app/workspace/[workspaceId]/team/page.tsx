@@ -20,6 +20,7 @@ import {
 import InviteModal from "@/components/InviteModal";
 import RoleGate from "@/components/RoleGate";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import UserAvatar from "@/components/ui/user-avatar";
 import { Skeleton, TeamDataSkeleton } from "@/components/ui/skeleton";
 import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 import type { WorkspaceRole } from "@/lib/auth/rbac";
@@ -45,15 +46,6 @@ const roleConfig: Record<string, { icon: typeof Shield; color: string; label: st
   member: { icon: UserCircle, color: "var(--color-accent)", label: "Member" },
   owner: { icon: Crown, color: "var(--color-warning)", label: "Owner" },
 };
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -413,15 +405,21 @@ export default function TeamPage() {
                       key={member.userId}
                       className="group relative flex items-center gap-4 px-6 py-4 border-b border-border last:border-b-0 hover:bg-hover transition-all duration-300"
                     >
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 border border-border"
-                        style={{
-                          background: `color-mix(in srgb, ${color} 18%, transparent)`,
-                          color,
-                        }}
-                      >
-                        {getInitials(member.name)}
-                      </div>
+                      <UserAvatar
+                        name={member.name}
+                        email={member.email}
+                        avatarUrl={member.avatarUrl}
+                        size="md"
+                        className="font-bold border border-border"
+                        style={
+                          member.avatarUrl
+                            ? undefined
+                            : {
+                                background: `color-mix(in srgb, ${color} 18%, transparent)`,
+                                color,
+                              }
+                        }
+                      />
 
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-fg truncate">{member.name}</div>

@@ -351,7 +351,8 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
   const handleWorkspaceSelect = (wsId: string) => {
     writeWorkspaceIdForOrg(currentOrgId, wsId);
     setNavWorkspaceId(wsId);
-    router.push(`/workspace/${wsId}/dashboard`);
+    const onProfile = /\/profile\/?$/.test(pathname);
+    router.push(onProfile ? `/workspace/${wsId}/profile` : `/workspace/${wsId}/dashboard`);
     setIsOpen(false);
   };
 

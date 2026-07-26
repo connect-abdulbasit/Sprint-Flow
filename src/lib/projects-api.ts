@@ -319,6 +319,7 @@ export interface ProjectMember {
   name: string;
   email: string;
   role: string;
+  avatarUrl?: string | null;
 }
 
 export async function fetchWorkspaceMembers(workspaceId: string): Promise<ProjectMember[]> {

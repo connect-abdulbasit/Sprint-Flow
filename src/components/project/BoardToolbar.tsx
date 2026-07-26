@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Search, SlidersHorizontal, Layers, ChevronDown, User, Check, X } from "lucide-react";
-import { initialsFromName } from "@/lib/initials";
+import UserAvatar from "@/components/ui/user-avatar";
 import type { ProjectMember } from "@/lib/projects-api";
 
 export type GroupBy = "none" | "assignee" | "priority" | "type";
@@ -28,20 +28,35 @@ const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
   { id: "type", label: "Type" },
 ];
 
-// A deterministic accent per assignee avatar, so the same person keeps a stable color.
+// Deterministic accent per assignee — semantic tokens stay vivid in light & dark.
 const AVATAR_COLORS = [
-  "bg-blue-500/25 text-blue-200",
-  "bg-violet-500/25 text-violet-200",
-  "bg-emerald-500/25 text-emerald-200",
-  "bg-amber-500/25 text-amber-200",
-  "bg-rose-500/25 text-rose-200",
-  "bg-cyan-500/25 text-cyan-200",
+  "bg-accent-soft text-accent",
+  "bg-accent2/15 text-accent2",
+  "bg-success-soft text-success",
+  "bg-warning-soft text-warning",
+  "bg-info-soft text-info",
+  "bg-danger-soft text-danger",
 ];
 
 function colorForId(id: string) {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash << 5) - hash + id.charCodeAt(i);
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function assigneeAvatarClasses(selected: boolean, hasPhoto: boolean, userId: string) {
+  const base =
+    "relative -mr-2 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full ring-2 transition-all duration-150 hover:z-20 hover:-translate-y-0.5";
+
+  if (selected) {
+    return `${base} z-10 scale-110 ring-accent ring-offset-2 ring-offset-surface-sunken shadow-[0_0_12px_var(--color-accent-soft)]`;
+  }
+
+  if (hasPhoto) {
+    return `${base} ring-border hover:ring-accent/45 hover:scale-105`;
+  }
+
+  return `${base} ${colorForId(userId)} ring-transparent hover:ring-accent/35 hover:scale-105`;
 }
 
 interface BoardToolbarProps {
@@ -123,10 +138,10 @@ export default function BoardToolbar({
                 onClick={() => onToggleAssignee("unassigned")}
                 title="Unassigned"
                 aria-pressed={selected}
-                className={`relative -mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-muted2 ring-2 transition-all duration-150 hover:z-20 hover:-translate-y-0.5 ${
+                className={`relative -mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent ring-2 transition-all duration-150 hover:z-20 hover:-translate-y-0.5 ${
                   selected
-                    ? "z-10 scale-110 ring-accent ring-offset-2 ring-offset-surface-sunken brightness-110"
-                    : "opacity-55 grayscale ring-surface-sunken hover:opacity-100 hover:grayscale-0"
+                    ? "z-10 scale-110 ring-accent ring-offset-2 ring-offset-surface-sunken shadow-[0_0_12px_var(--color-accent-soft)]"
+                    : "ring-border hover:ring-accent/45 hover:scale-105"
                 }`}
               >
                 <User className="h-3.5 w-3.5" />
@@ -143,21 +158,21 @@ export default function BoardToolbar({
                 onClick={() => onToggleAssignee(m.userId)}
                 title={m.name || m.email}
                 aria-pressed={selected}
-                className={`relative -mr-2 flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-semibold ring-2 transition-all duration-150 hover:z-20 hover:-translate-y-0.5 ${colorForId(
-                  m.userId
-                )} ${
-                  selected
-                    ? "z-10 scale-110 ring-accent ring-offset-2 ring-offset-surface-sunken brightness-125"
-                    : "opacity-55 grayscale ring-surface-sunken hover:opacity-100 hover:grayscale-0"
-                }`}
+                className={assigneeAvatarClasses(selected, Boolean(m.avatarUrl), m.userId)}
               >
-                {initialsFromName(m.name || m.email)}
+                <UserAvatar
+                  name={m.name}
+                  email={m.email}
+                  avatarUrl={m.avatarUrl}
+                  size="sm"
+                  className="h-full w-full bg-transparent text-inherit"
+                />
                 {selected && <SelectedTick />}
               </button>
             );
           })}
           {overflow > 0 && (
-            <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-[10px] font-semibold text-muted2 ring-2 ring-surface-sunken">
+            <span className="relative -mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-[10px] font-semibold text-accent ring-2 ring-border">
               +{overflow}
             </span>
           )}

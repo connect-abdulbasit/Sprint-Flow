@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type DragEvent } from "react";
-import type { ProjectTicket, SprintGroup } from "@/lib/projects-api";
+import type { ProjectMember, ProjectTicket, SprintGroup } from "@/lib/projects-api";
 import TicketItem, { TICKET_DRAG_MIME } from "./TicketItem";
 import {
   ChevronDown,
@@ -32,6 +32,11 @@ interface SprintSectionProps {
   onDeleteSprint?: (_sprintId: string) => void;
   ticketMoveOptions?: TicketMoveOption[];
   onMoveTicket?: (_ticketId: string, _sprintId: string | null) => void | Promise<void>;
+  members?: ProjectMember[];
+  statusOptions?: { value: string; label: string }[];
+  canEditTickets?: boolean;
+  onStatusChange?: (_ticketId: string, _status: string) => void | Promise<void>;
+  onAssigneeChange?: (_ticketId: string, _assigneeId: string | null) => void | Promise<void>;
   /** When true, tickets can be dragged to another section that accepts drops. */
   enableTicketDrag?: boolean;
   /** When set, dropping a ticket onto this section runs the handler (target sprint is implicit). */
@@ -48,6 +53,11 @@ export default function SprintSection({
   onDeleteSprint,
   ticketMoveOptions = [],
   onMoveTicket,
+  members = [],
+  statusOptions = [],
+  canEditTickets = false,
+  onStatusChange,
+  onAssigneeChange,
   enableTicketDrag = false,
   onTicketDrop,
 }: SprintSectionProps) {
@@ -278,6 +288,11 @@ export default function SprintSection({
                       ticket={ticket}
                       onSelect={onTicketSelect}
                       draggableTicketId={enableTicketDrag ? ticket.id : undefined}
+                      members={members}
+                      statusOptions={statusOptions}
+                      canEdit={canEditTickets}
+                      onStatusChange={onStatusChange}
+                      onAssigneeChange={onAssigneeChange}
                     />
                   </div>
                   {showMove && (

@@ -39,7 +39,7 @@ import {
   statusOptionsFromColumns,
 } from "@/lib/board-columns";
 import { BoardColumnsSkeleton } from "@/components/ui/skeleton";
-import { initialsFromName } from "@/lib/initials";
+import UserAvatar from "@/components/ui/user-avatar";
 import BoardToolbar, { type GroupBy } from "@/components/project/BoardToolbar";
 import type { LucideIcon } from "lucide-react";
 
@@ -207,6 +207,11 @@ export default function ProjectBoardPage() {
   const [priorityFilter, setPriorityFilter] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
 
+  const memberAvatarById = useMemo(
+    () => new Map(members.map((m) => [m.userId, m.avatarUrl ?? null])),
+    [members]
+  );
+
   const toggleInList = useCallback(
     (value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
       setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
@@ -270,6 +275,17 @@ export default function ProjectBoardPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!wid) return;
+    const refreshMembers = () => {
+      void fetchWorkspaceMembers(wid)
+        .then(setMembers)
+        .catch(() => {});
+    };
+    window.addEventListener("sf-profile-updated", refreshMembers);
+    return () => window.removeEventListener("sf-profile-updated", refreshMembers);
+  }, [wid]);
 
   useEffect(() => {
     if (searchParams.get("new") === "1") {
@@ -682,12 +698,13 @@ export default function ProjectBoardPage() {
         </h4>
 
         <div className="flex items-center justify-between">
-          <div
-            className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-2 text-[9px] font-semibold text-muted2"
+          <UserAvatar
+            name={ticket.assigneeName}
+            avatarUrl={ticket.assigneeId ? (memberAvatarById.get(ticket.assigneeId) ?? null) : null}
+            size="xs"
+            className="border border-border bg-surface-2 font-semibold text-muted2"
             title={ticket.assigneeName ?? "Unassigned"}
-          >
-            {initialsFromName(ticket.assigneeName)}
-          </div>
+          />
           {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
             <div className="rounded bg-surface-2/80 px-1.5 py-0.5 text-[10px] font-medium text-muted">
               {ticket.storyPoints} pts
