@@ -5,9 +5,11 @@ import {
   workspaceMembersTable,
   workspaceInvitesTable,
   usersTable,
+  workspacePreferencesTable,
+  workspaceNotificationSettingsTable,
 } from "@/db";
 import { organizationMembersTable } from "@/modules/organization/organization.schema";
-import { and, asc, eq, gt, inArray } from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray } from "drizzle-orm";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -40,6 +42,25 @@ export class WorkspaceRepository {
     return results[0];
   }
 
+  async updateMemberRole(
+    workspaceId: string,
+    userId: string,
+    role: "admin" | "project_manager" | "member"
+  ) {
+    const [updated] = await db
+      .update(workspaceMembersTable)
+      .set({ role })
+      .where(
+        and(
+          eq(workspaceMembersTable.workspaceId, workspaceId),
+          eq(workspaceMembersTable.userId, userId)
+        )
+      )
+      .returning()
+      .execute();
+    return updated;
+  }
+
   async getUserWorkspaces(userId: string) {
     const results = await db
       .select({
@@ -51,12 +72,28 @@ export class WorkspaceRepository {
       .leftJoin(workspacesTable, eq(workspaceMembersTable.workspaceId, workspacesTable.id))
       .execute();
 
+    // AUD-053: the workspace switcher used to hardcode memberCount: 1 for every
+    // workspace instead of fetching it — this replaces that with a real count.
+    const workspaceIds = results
+      .map((r) => r.workspace?.id)
+      .filter((id): id is string => Boolean(id));
+    const memberCounts = workspaceIds.length
+      ? await db
+          .select({ workspaceId: workspaceMembersTable.workspaceId, count: count() })
+          .from(workspaceMembersTable)
+          .where(inArray(workspaceMembersTable.workspaceId, workspaceIds))
+          .groupBy(workspaceMembersTable.workspaceId)
+          .execute()
+      : [];
+    const countByWorkspaceId = new Map(memberCounts.map((m) => [m.workspaceId, Number(m.count)]));
+
     return results
       .map((r) => {
         if (!r.workspace) return null;
         return {
           ...r.workspace,
           role: r.role,
+          memberCount: countByWorkspaceId.get(r.workspace.id) ?? 1,
         };
       })
       .filter(Boolean);
@@ -103,22 +140,6 @@ export class WorkspaceRepository {
     return invite;
   }
 
-  async findPendingInvite(workspaceId: string, email: string) {
-    const results = await db
-      .select()
-      .from(workspaceInvitesTable)
-      .where(
-        and(
-          eq(workspaceInvitesTable.workspaceId, workspaceId),
-          eq(workspaceInvitesTable.email, email),
-          eq(workspaceInvitesTable.status, "pending"),
-          gt(workspaceInvitesTable.expiresAt, new Date())
-        )
-      )
-      .execute();
-    return results[0];
-  }
-
   async findAcceptedInvite(workspaceId: string, email: string) {
     const results = await db
       .select()
@@ -130,6 +151,15 @@ export class WorkspaceRepository {
           eq(workspaceInvitesTable.status, "accepted")
         )
       )
+      .execute();
+    return results[0];
+  }
+
+  async findInviteById(inviteId: string) {
+    const results = await db
+      .select()
+      .from(workspaceInvitesTable)
+      .where(eq(workspaceInvitesTable.id, inviteId))
       .execute();
     return results[0];
   }
@@ -162,7 +192,10 @@ export class WorkspaceRepository {
     return results[0];
   }
 
-  async updateInviteStatus(inviteId: string, status: "pending" | "accepted" | "declined") {
+  async updateInviteStatus(
+    inviteId: string,
+    status: "pending" | "accepted" | "declined" | "revoked"
+  ) {
     await db
       .update(workspaceInvitesTable)
       .set({ status })
@@ -170,14 +203,38 @@ export class WorkspaceRepository {
       .execute();
   }
 
-  async updatePendingInviteRole(inviteId: string, role: "admin" | "project_manager" | "member") {
-    const [invite] = await db
+  /**
+   * Atomically transitions an invite from pending -> accepted. Returns the updated row if
+   * this call won the race, or undefined if the invite was already accepted/declined/revoked
+   * by a concurrent request. See AUD-004.
+   */
+  async claimPendingInvite(inviteId: string) {
+    const [claimed] = await db
       .update(workspaceInvitesTable)
-      .set({ role })
-      .where(eq(workspaceInvitesTable.id, inviteId))
+      .set({ status: "accepted" })
+      .where(
+        and(eq(workspaceInvitesTable.id, inviteId), eq(workspaceInvitesTable.status, "pending"))
+      )
       .returning()
       .execute();
-    return invite;
+    return claimed;
+  }
+
+  /**
+   * Atomically transitions a pending invite to revoked, so it can never be redeemed again.
+   * Returns the updated row, or undefined if it wasn't pending (already used/declined/revoked).
+   * See AUD-011.
+   */
+  async revokePendingInvite(inviteId: string) {
+    const [revoked] = await db
+      .update(workspaceInvitesTable)
+      .set({ status: "revoked" })
+      .where(
+        and(eq(workspaceInvitesTable.id, inviteId), eq(workspaceInvitesTable.status, "pending"))
+      )
+      .returning()
+      .execute();
+    return revoked;
   }
 
   async findUserByEmail(email: string) {
@@ -261,6 +318,59 @@ export class WorkspaceRepository {
 
   async deleteWorkspace(id: string) {
     await db.delete(workspacesTable).where(eq(workspacesTable.id, id)).execute();
+  }
+
+  // AUD-047: these previously had no backing storage at all — not even a table wired
+  // into the schema barrel, let alone read/write code — so "Save" on the
+  // preferences/notification-settings forms silently no-op'd every time.
+  async getWorkspacePreferences(workspaceId: string) {
+    const [row] = await db
+      .select()
+      .from(workspacePreferencesTable)
+      .where(eq(workspacePreferencesTable.workspaceId, workspaceId))
+      .execute();
+    return row ?? null;
+  }
+
+  async upsertWorkspacePreferences(
+    workspaceId: string,
+    data: Partial<Omit<typeof workspacePreferencesTable.$inferInsert, "workspaceId">>
+  ) {
+    const [row] = await db
+      .insert(workspacePreferencesTable)
+      .values({ workspaceId, ...data })
+      .onConflictDoUpdate({
+        target: workspacePreferencesTable.workspaceId,
+        set: { ...data, updatedAt: new Date() },
+      })
+      .returning()
+      .execute();
+    return row;
+  }
+
+  async getWorkspaceNotificationSettings(workspaceId: string) {
+    const [row] = await db
+      .select()
+      .from(workspaceNotificationSettingsTable)
+      .where(eq(workspaceNotificationSettingsTable.workspaceId, workspaceId))
+      .execute();
+    return row ?? null;
+  }
+
+  async upsertWorkspaceNotificationSettings(
+    workspaceId: string,
+    data: Partial<Omit<typeof workspaceNotificationSettingsTable.$inferInsert, "workspaceId">>
+  ) {
+    const [row] = await db
+      .insert(workspaceNotificationSettingsTable)
+      .values({ workspaceId, ...data })
+      .onConflictDoUpdate({
+        target: workspaceNotificationSettingsTable.workspaceId,
+        set: { ...data, updatedAt: new Date() },
+      })
+      .returning()
+      .execute();
+    return row;
   }
 }
 

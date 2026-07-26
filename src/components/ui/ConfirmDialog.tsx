@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2, X } from "lucide-react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -26,9 +27,15 @@ export default function ConfirmDialog({
   onConfirm,
 }: ConfirmDialogProps) {
   const [busy, setBusy] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
 
   useEffect(() => {
-    if (!isOpen) setBusy(false);
+    if (!isOpen) {
+      setBusy(false);
+      setErrorMessage(null);
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -42,11 +49,19 @@ export default function ConfirmDialog({
 
   const handleConfirm = useCallback(async () => {
     setBusy(true);
+    setErrorMessage(null);
     try {
       await onConfirm();
-    } finally {
+      // AUD-007: only close on confirmed success — previously this ran in `finally`,
+      // so a rejected onConfirm() still closed the dialog as if it had succeeded,
+      // leaving the user to believe a failed action (e.g. a delete) had gone through.
       setBusy(false);
       onClose();
+    } catch (error) {
+      setBusy(false);
+      setErrorMessage(
+        error instanceof Error ? error.message : "Something went wrong. Please try again."
+      );
     }
   }, [onConfirm, onClose]);
 
@@ -66,6 +81,7 @@ export default function ConfirmDialog({
       }}
     >
       <div
+        ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
@@ -89,6 +105,15 @@ export default function ConfirmDialog({
 
         {description ? (
           <div className="px-5 py-4 text-[13px] leading-relaxed text-zinc-400">{description}</div>
+        ) : null}
+
+        {errorMessage ? (
+          <div
+            role="alert"
+            className="mx-5 mt-4 rounded-lg border border-red-500/25 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-300"
+          >
+            {errorMessage}
+          </div>
         ) : null}
 
         <div className="flex flex-col-reverse gap-2 border-t border-white/[0.06] px-5 py-4 sm:flex-row sm:justify-end">

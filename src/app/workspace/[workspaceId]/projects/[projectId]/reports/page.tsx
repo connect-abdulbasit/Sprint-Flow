@@ -1,7 +1,7 @@
 "use client";
 
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
-import { BarChart3, TrendingUp, Clock, CheckCircle2 } from "lucide-react";
+import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchTickets, type ProjectTicket } from "@/lib/projects-api";
@@ -12,15 +12,32 @@ export default function ProjectReportsPage() {
   const pid = typeof projectId === "string" ? projectId : (projectId?.[0] ?? "");
   const [tickets, setTickets] = useState<ProjectTicket[]>([]);
   const [reportsReady, setReportsReady] = useState(false);
+  // AUD-017: see overview/page.tsx — a failed fetch previously looked identical to
+  // "zero tickets" with no error surfaced.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!pid) return;
+    let cancelled = false;
     setReportsReady(false);
+    setLoadError(null);
     fetchTickets(pid)
-      .then(setTickets)
-      .catch(() => setTickets([]))
-      .finally(() => setReportsReady(true));
-  }, [pid]);
+      .then((data) => {
+        if (!cancelled) setTickets(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setTickets([]);
+        setLoadError(err instanceof Error ? err.message : "Failed to load ticket data.");
+      })
+      .finally(() => {
+        if (!cancelled) setReportsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pid, reloadToken]);
 
   const totalTickets = tickets.length;
   const doneTickets = tickets.filter((t) => t.status === "done").length;
@@ -36,6 +53,24 @@ export default function ProjectReportsPage() {
       <ProjectPageHeader />
 
       <div className="flex-1 overflow-y-auto px-10 py-8 space-y-8 custom-scrollbar">
+        {loadError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-[13px] text-red-300"
+          >
+            <span className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {loadError}
+            </span>
+            <button
+              type="button"
+              onClick={() => setReloadToken((n) => n + 1)}
+              className="shrink-0 rounded-lg border border-red-500/25 px-3 py-1.5 font-semibold text-red-200 hover:bg-red-500/10"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         <div>
           <h2 className="text-[15px] font-semibold text-zinc-200">Reports & Analytics</h2>
           <p className="text-[12px] text-zinc-500 mt-0.5">Performance insights for your project</p>

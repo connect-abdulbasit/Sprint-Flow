@@ -29,9 +29,6 @@ export function OrganizationCardsSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
-/** @deprecated Use OrganizationCardsSkeleton */
-export const OrganizationsGridSkeleton = OrganizationCardsSkeleton;
-
 export function OrganizationDetailDataSkeleton({
   settingsHref,
 }: {
@@ -99,9 +96,6 @@ export function OrganizationDetailDataSkeleton({
     </div>
   );
 }
-
-/** @deprecated Use OrganizationDetailDataSkeleton */
-export const OrganizationDetailSkeleton = OrganizationDetailDataSkeleton;
 
 const DASH_STAT_LABELS = ["Tasks Completed", "In Progress", "Story Points", "Blocked"];
 
@@ -273,15 +267,6 @@ export function SettingsFormSkeleton({ variant }: { variant: "workspace" | "orga
   );
 }
 
-/** @deprecated Use SettingsFormSkeleton + page chrome */
-export function SettingsPageSkeleton() {
-  return (
-    <div className="flex flex-col h-full bg-[#09090b]">
-      <SettingsFormSkeleton variant="workspace" />
-    </div>
-  );
-}
-
 const TEAM_STAT_META = [
   { label: "Total Members", Icon: Users, color: "#4f7cff" },
   { label: "Admins", Icon: Shield, color: "#a259ff" },
@@ -339,9 +324,6 @@ export function TeamDataSkeleton() {
     </div>
   );
 }
-
-/** @deprecated Use TeamDataSkeleton */
-export const TeamPageSkeleton = TeamDataSkeleton;
 
 export function NotificationListSkeleton({ rows = 6 }: { rows?: number }) {
   return (
@@ -461,9 +443,6 @@ export function BacklogSectionsSkeleton() {
   );
 }
 
-/** @deprecated Use BacklogSectionsSkeleton */
-export const BacklogPageSkeleton = BacklogSectionsSkeleton;
-
 const OVERVIEW_LABELS = ["Completion Rate", "Open work", "Active Tasks"];
 const REPORTS_LABELS = ["Total Tasks", "Completed", "In Progress", "Done story points"];
 
@@ -484,7 +463,7 @@ export function ProjectStatGridSkeleton({ cols = 3 }: { cols?: 3 | 4 }) {
   );
 }
 
-export function ProjectOverviewDataSkeleton() {
+export function ProjectOverviewBodySkeleton() {
   return (
     <div className="space-y-8">
       <ProjectStatGridSkeleton cols={3} />
@@ -503,10 +482,7 @@ export function ProjectOverviewDataSkeleton() {
   );
 }
 
-/** @deprecated Use ProjectOverviewDataSkeleton */
-export const ProjectOverviewBodySkeleton = ProjectOverviewDataSkeleton;
-
-export function ProjectReportsDataSkeleton() {
+export function ProjectReportsBodySkeleton() {
   return (
     <div className="space-y-8">
       <ProjectStatGridSkeleton cols={4} />
@@ -527,9 +503,6 @@ export function ProjectReportsDataSkeleton() {
     </div>
   );
 }
-
-/** @deprecated Use ProjectReportsDataSkeleton */
-export const ProjectReportsBodySkeleton = ProjectReportsDataSkeleton;
 
 export function ProjectSettingsFormSkeleton() {
   return (
@@ -573,7 +546,6 @@ export function ProjectSettingsFormSkeleton() {
   );
 }
 
-/** @deprecated Use ProjectSettingsFormSkeleton inside layout with real sidebar */
 export function ProjectSettingsBodySkeleton() {
   return (
     <div className="flex-1 flex overflow-hidden min-h-0">

@@ -10,6 +10,19 @@ import type { SerializedTimeEntry } from "@/modules/time_entry/time_entry.types"
 import { hasRole, type WorkspaceRole } from "@/lib/auth/rbac";
 import { notificationService } from "@/modules/notification/notification.service";
 
+// AUD-002 / AUD-037: the image is later served back with a `Content-Type` header taken
+// directly from `imageMimeType`, so any non-image value accepted here becomes a
+// same-origin stored-XSS primitive (e.g. "text/html"). Only real, safely-renderable
+// image types may ever be stored. Size is also capped server-side — the client-side
+// `accept="image/*"` hint on upload inputs is not enforced by browsers or attackers.
+export const ALLOWED_TICKET_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+export const MAX_TICKET_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+
 export function parseImagePayload(imageBase64: unknown, imageMimeType: unknown) {
   if (imageBase64 === null) {
     return { image: null as Buffer | null, imageMimeType: null as string | null };
@@ -19,18 +32,32 @@ export function parseImagePayload(imageBase64: unknown, imageMimeType: unknown) 
     return { image: null as Buffer | null, imageMimeType: null as string | null };
   }
   let b64 = raw;
-  let mime = typeof imageMimeType === "string" ? imageMimeType.trim() : "";
+  let mime = typeof imageMimeType === "string" ? imageMimeType.trim().toLowerCase() : "";
   const dataUrl = /^data:([^;]+);base64,([\s\S]+)$/.exec(raw);
   if (dataUrl) {
-    mime = mime || dataUrl[1];
+    mime = mime || dataUrl[1].toLowerCase();
     b64 = dataUrl[2];
   }
   if (!mime) {
     throw new Error("imageMimeType is required when imageBase64 is provided");
   }
+  if (
+    !ALLOWED_TICKET_IMAGE_MIME_TYPES.includes(
+      mime as (typeof ALLOWED_TICKET_IMAGE_MIME_TYPES)[number]
+    )
+  ) {
+    throw new Error(
+      `Unsupported image type "${mime}". Allowed types: ${ALLOWED_TICKET_IMAGE_MIME_TYPES.join(", ")}`
+    );
+  }
   const buf = Buffer.from(b64, "base64");
   if (!buf.length) {
     throw new Error("imageBase64 is not valid base64");
+  }
+  if (buf.length > MAX_TICKET_IMAGE_BYTES) {
+    throw new Error(
+      `Image is too large (${(buf.length / (1024 * 1024)).toFixed(1)}MB). Maximum size is ${MAX_TICKET_IMAGE_BYTES / (1024 * 1024)}MB.`
+    );
   }
   return { image: buf, imageMimeType: mime };
 }
@@ -380,6 +407,16 @@ export class TaskService {
       imageBase64: string | null | undefined;
       imageMimeType: string | null;
       dependsOnTaskIds: string[];
+      /**
+       * AUD-036: optional optimistic-concurrency token — the `updatedAt` the caller last
+       * saw for this ticket. When provided and it no longer matches the current row, the
+       * update is rejected instead of silently overwriting a change the caller never saw
+       * (e.g. two users dragging the same ticket to different board columns at once).
+       * Omitted by callers that don't need this (e.g. the full edit form, where the user
+       * is looking directly at the ticket and a last-write-wins is an acceptable, visible
+       * outcome of their own explicit save).
+       */
+      expectedUpdatedAt: string;
     }>
   ) {
     const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
@@ -391,6 +428,27 @@ export class TaskService {
     const existing = await taskRepository.findByIdAndProject(ticketId, projectId);
     if (!existing) {
       throw new Error("Ticket not found");
+    }
+
+    if (
+      body.expectedUpdatedAt !== undefined &&
+      body.expectedUpdatedAt !== existing.updatedAt.toISOString()
+    ) {
+      throw new Error(
+        "CONFLICT: This ticket was changed by someone else. Refresh to see the latest version."
+      );
+    }
+
+    // AUD-009: a completed sprint's ticket composition must be immutable — the UI already
+    // promises "Done tickets stay on this sprint for history" (SprintSection.tsx), but
+    // nothing previously enforced it server-side. Without this, a ticket could be dragged
+    // out of (or edited within) a completed sprint, silently corrupting historical data
+    // that any future velocity/burndown report would depend on.
+    if (existing.sprintId) {
+      const currentSprint = await sprintRepository.findByIdAndProject(existing.sprintId, projectId);
+      if (currentSprint?.status === "completed") {
+        throw new Error("Cannot modify a ticket that belongs to a completed sprint");
+      }
     }
 
     const patch: Parameters<typeof taskRepository.update>[1] = {};
@@ -440,7 +498,7 @@ export class TaskService {
     }
 
     if (!hasRole(role, "project_manager")) {
-      const allowedKeysForMember = new Set(["status"]);
+      const allowedKeysForMember = new Set(["status", "expectedUpdatedAt"]);
       const requestedKeys = Object.keys(body).filter(
         (k) => (body as Record<string, unknown>)[k] !== undefined
       );

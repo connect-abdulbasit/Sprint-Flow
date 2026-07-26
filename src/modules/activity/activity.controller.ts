@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { activityService } from "./activity.service";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUserWithRole } from "@/lib/auth";
 import { parsePaginationParams } from "@/lib/pagination";
 
 export class ActivityController {
   async getActivities(req: NextRequest, workspaceId: string) {
-    const user = await getCurrentUser(req);
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // AUD-006: this previously only checked the caller was logged in, not that they
+    // belong to `workspaceId` — any authenticated user could read any workspace's full
+    // activity log by knowing/guessing its id.
+    const member = await getCurrentUserWithRole(req, workspaceId);
+    if (!member) {
+      return NextResponse.json(
+        { error: "Unauthorized or not a member of this workspace" },
+        { status: 401 }
+      );
     }
 
     try {

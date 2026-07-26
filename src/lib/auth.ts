@@ -1,4 +1,3 @@
-import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 
 import { authService } from "@/modules/auth/auth.service";
@@ -8,13 +7,10 @@ import { workspaceMembersTable } from "@/modules/workspace/workspace.schema";
 import { and, eq } from "drizzle-orm";
 import type { WorkspaceRole } from "@/lib/auth/rbac";
 
-export function hashPassword(password: string) {
-  return bcrypt.hashSync(password, 10);
-}
-
-export function verifyPassword(password: string, hash: string) {
-  return bcrypt.compareSync(password, hash);
-}
+// Re-exported for existing consumers; the implementation lives in a separate module
+// (not this one) so auth.service.ts can import it without a circular dependency, since
+// this file already imports authService.
+export { hashPassword, verifyPassword } from "@/lib/password-hash";
 
 export function createRefreshToken() {
   return globalThis.crypto.randomUUID();

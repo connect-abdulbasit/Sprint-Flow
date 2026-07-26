@@ -6,6 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:api": "node --import tsx scripts/api-smoke-test.ts",
     "test:api:strict": "STRICT_API_TEST=1 node --import tsx scripts/api-smoke-test.ts",
     "test:api:perf": "API_PERF_COMPARE=1 PERF_VALIDATION_PERCENT=5 API_PERF_CONCURRENCY=5 node --import tsx scripts/api-smoke-test.ts",
@@ -42,6 +45,9 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/pg": "^8.16.0",
@@ -49,15 +55,19 @@
     "@types/react-dom": "^19",
     "@typescript-eslint/eslint-plugin": "^8.57.1",
     "@typescript-eslint/parser": "^8.57.1",
+    "@vitejs/plugin-react": "^6.0.4",
+    "@vitest/coverage-v8": "^4.1.10",
     "drizzle-kit": "^0.31.9",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.1.6",
     "husky": "^9.1.7",
+    "jsdom": "^29.1.1",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
-    "typescript-eslint": "^8.57.1"
+    "typescript-eslint": "^8.57.1",
+    "vitest": "^4.1.10"
   }
 }

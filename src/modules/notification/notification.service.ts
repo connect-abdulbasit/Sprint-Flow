@@ -35,6 +35,21 @@ export class NotificationService {
     return notificationRepository.getNotificationsForUser(userId, pagination);
   }
 
+  private emptyResult(pagination: NotificationPaginationInput): NotificationPaginatedResult {
+    return {
+      items: [],
+      pagination: {
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        total: 0,
+        totalPages: 1,
+        hasPreviousPage: pagination.page > 1,
+        hasNextPage: false,
+      },
+      unreadCount: 0,
+    };
+  }
+
   async getWorkspaceNotifications(
     userId: string,
     workspaceId: string,
@@ -42,18 +57,15 @@ export class NotificationService {
   ): Promise<NotificationPaginatedResult> {
     const workspace = await workspaceRepository.getWorkspaceById(workspaceId);
     if (!workspace) {
-      return {
-        items: [],
-        pagination: {
-          page: pagination.page,
-          pageSize: pagination.pageSize,
-          total: 0,
-          totalPages: 1,
-          hasPreviousPage: pagination.page > 1,
-          hasNextPage: false,
-        },
-        unreadCount: 0,
-      };
+      return this.emptyResult(pagination);
+    }
+
+    // AUD-040: this only confirmed the workspace still existed, never that the caller
+    // is still a member of it — a removed member kept seeing their old notifications
+    // for that workspace forever via this endpoint.
+    const member = await workspaceRepository.getMember(userId, workspace.id);
+    if (!member) {
+      return this.emptyResult(pagination);
     }
 
     return notificationRepository.getNotificationsForUserAndWorkspace(

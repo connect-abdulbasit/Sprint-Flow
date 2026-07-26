@@ -4,7 +4,7 @@ import { sprintsTable } from "@/modules/sprint/sprint.schema";
 import { sprintRepository } from "@/modules/sprint/sprint.repository";
 import { tasksTable } from "@/modules/task/task.schema";
 import { activityService } from "@/modules/activity/activity.service";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { hasRole, type WorkspaceRole } from "@/lib/auth/rbac";
 
 export type SprintStatus = "planning" | "active" | "completed";
@@ -194,18 +194,46 @@ export class SprintService {
       throw new Error("Forbidden: only admins and project managers can start sprints");
     }
     const { project } = membership;
-    const sprint = await sprintRepository.findByIdAndProject(sprintId, projectId);
-    if (!sprint) {
-      throw new Error("Sprint not found");
-    }
-    if (sprint.status !== "planning") {
-      throw new Error("Sprint must be in planning state to start");
-    }
-    const active = await sprintRepository.findActiveForProject(projectId);
-    if (active && active.id !== sprintId) {
-      throw new Error("Another sprint is already active. Complete it before starting a new one.");
-    }
-    const updated = await sprintRepository.update(sprintId, { status: "active" });
+
+    // AUD-033: the "no other active sprint" check and the status update used to be two
+    // separate statements with no locking, so two concurrent start requests for two
+    // different planning sprints could both pass the check before either committed,
+    // leaving two sprints active at once. A transaction-scoped advisory lock keyed by
+    // the project serializes concurrent start attempts for that project without needing
+    // full SERIALIZABLE isolation (and releases automatically on commit/rollback).
+    const updated = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${projectId}))`);
+
+      const [sprint] = await tx
+        .select()
+        .from(sprintsTable)
+        .where(and(eq(sprintsTable.id, sprintId), eq(sprintsTable.projectId, projectId)))
+        .execute();
+      if (!sprint) {
+        throw new Error("Sprint not found");
+      }
+      if (sprint.status !== "planning") {
+        throw new Error("Sprint must be in planning state to start");
+      }
+
+      const [active] = await tx
+        .select()
+        .from(sprintsTable)
+        .where(and(eq(sprintsTable.projectId, projectId), eq(sprintsTable.status, "active")))
+        .execute();
+      if (active && active.id !== sprintId) {
+        throw new Error("Another sprint is already active. Complete it before starting a new one.");
+      }
+
+      const [row] = await tx
+        .update(sprintsTable)
+        .set({ status: "active", updatedAt: new Date() })
+        .where(eq(sprintsTable.id, sprintId))
+        .returning()
+        .execute();
+      return row;
+    });
+
     if (!updated) throw new Error("Sprint not found");
     await activityService.logActivity({
       workspaceId: project.workspaceId,

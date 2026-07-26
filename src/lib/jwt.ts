@@ -81,6 +81,19 @@ export async function verifyAccessToken(token: string) {
   }
 
   const [headerB64, payloadB64, signature] = parts;
+
+  // AUD-064: the signing side is hardcoded to HMAC-SHA256, so this wasn't exploitable
+  // today, but verifying the header's declared algorithm matches what we actually
+  // verify with is what closes the classic "alg" confusion class of JWT vulnerability
+  // (e.g. a token claiming alg:none or alg:RS256) rather than relying on the signer
+  // never changing.
+  const header = JSON.parse(new TextDecoder().decode(base64UrlDecode(headerB64))) as {
+    alg?: string;
+  };
+  if (header.alg !== "HS256") {
+    throw new Error("Unsupported JWT algorithm");
+  }
+
   const unsigned = `${headerB64}.${payloadB64}`;
   const expected = await hmacSha256(JWT_SECRET!, unsigned);
 

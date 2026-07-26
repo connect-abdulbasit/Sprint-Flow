@@ -14,10 +14,21 @@ import {
   Search,
   UserPlus,
   Briefcase,
+  LogOut,
+  UserMinus,
 } from "lucide-react";
 import InviteModal from "@/components/InviteModal";
 import RoleGate from "@/components/RoleGate";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { Skeleton, TeamDataSkeleton } from "@/components/ui/skeleton";
+import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
+import type { WorkspaceRole } from "@/lib/auth/rbac";
+
+const ASSIGNABLE_ROLES: { value: WorkspaceRole; label: string }[] = [
+  { value: "admin", label: "Admin" },
+  { value: "project_manager", label: "Project Manager" },
+  { value: "member", label: "Member" },
+];
 
 type WorkspaceMember = {
   userId: string;
@@ -76,12 +87,37 @@ export default function TeamPage() {
   const query = search.trim().toLowerCase();
   const hasSearch = query.length > 0;
 
+  // AUD-012 / AUD-013: member removal and role changes were fully implemented server-side
+  // but had no UI to trigger them, and there was no way to leave a workspace at all.
+  const { role: myRole } = useWorkspaceRole(workspaceId);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [openMenuUserId, setOpenMenuUserId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [roleUpdatingId, setRoleUpdatingId] = useState<string | null>(null);
+  const [memberPendingRemoval, setMemberPendingRemoval] = useState<WorkspaceMember | null>(null);
+
+  const loadMembers = async () => {
+    try {
+      const membersRes = await fetch(`/api/workspaces/${workspaceId}/members`);
+      if (membersRes.ok) {
+        const data = extractItems<WorkspaceMember>(await membersRes.json());
+        setMembers(data);
+      } else {
+        const data = await membersRes.json();
+        setError(data.error || "Failed to load members.");
+      }
+    } catch {
+      setError("Network error. Could not load team data.");
+    }
+  };
+
   useEffect(() => {
     async function fetchData() {
       try {
-        const [membersRes, wsRes] = await Promise.all([
+        const [membersRes, wsRes, meRes] = await Promise.all([
           fetch(`/api/workspaces/${workspaceId}/members`),
           fetch(`/api/workspaces/${workspaceId}`),
+          fetch("/api/auth/me", { cache: "no-store" }),
         ]);
 
         if (membersRes.ok) {
@@ -96,6 +132,11 @@ export default function TeamPage() {
           const wsData = await wsRes.json();
           setWorkspace({ name: wsData.name });
         }
+
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          setCurrentUserId(meData.user?.id ?? null);
+        }
       } catch {
         setError("Network error. Could not load team data.");
       } finally {
@@ -105,6 +146,48 @@ export default function TeamPage() {
 
     if (workspaceId) fetchData();
   }, [workspaceId]);
+
+  const handleRoleChange = async (member: WorkspaceMember, role: WorkspaceRole) => {
+    setOpenMenuUserId(null);
+    setActionError(null);
+    setRoleUpdatingId(member.userId);
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}/members/${member.userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update role.");
+      }
+      await loadMembers();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Failed to update role.");
+    } finally {
+      setRoleUpdatingId(null);
+    }
+  };
+
+  const isSelfRemoval = memberPendingRemoval?.userId === currentUserId;
+
+  const handleConfirmRemove = async () => {
+    if (!memberPendingRemoval) return;
+    const res = await fetch(
+      `/api/workspaces/${workspaceId}/members/${memberPendingRemoval.userId}`,
+      { method: "DELETE" }
+    );
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to remove member.");
+    }
+    setMemberPendingRemoval(null);
+    if (memberPendingRemoval.userId === currentUserId) {
+      window.location.href = "/organizations";
+      return;
+    }
+    await loadMembers();
+  };
 
   const filtered = useMemo(() => {
     if (!hasSearch) return members;
@@ -315,10 +398,12 @@ export default function TeamPage() {
                 filtered.map((member) => {
                   const rc = roleConfig[member.role] || roleConfig.member;
                   const color = avatarColor(member.name);
+                  const isSelf = member.userId === currentUserId;
+                  const canManage = myRole === "admin" || isSelf;
                   return (
                     <div
                       key={member.userId}
-                      className="group flex items-center gap-4 px-6 py-4 border-b border-white/[0.03] last:border-b-0 hover:bg-white/[0.02] transition-all duration-300"
+                      className="group relative flex items-center gap-4 px-6 py-4 border-b border-white/[0.03] last:border-b-0 hover:bg-white/[0.02] transition-all duration-300"
                     >
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 border border-white/[0.06]"
@@ -360,10 +445,81 @@ export default function TeamPage() {
                       </div>
 
                       <div className="w-8 flex items-center justify-center">
-                        <button className="p-1.5 text-[var(--color-muted)] hover:text-[#f0f0f5] hover:bg-white/[0.05] rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
+                        {canManage && (
+                          <button
+                            onClick={() =>
+                              setOpenMenuUserId((prev) =>
+                                prev === member.userId ? null : member.userId
+                              )
+                            }
+                            disabled={roleUpdatingId === member.userId}
+                            aria-haspopup="menu"
+                            aria-expanded={openMenuUserId === member.userId}
+                            aria-label={`Actions for ${member.name}`}
+                            className="p-1.5 text-[var(--color-muted)] hover:text-[#f0f0f5] hover:bg-white/[0.05] rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 disabled:opacity-40"
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
+
+                      {openMenuUserId === member.userId && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setOpenMenuUserId(null)}
+                          />
+                          <div
+                            role="menu"
+                            className="absolute right-6 top-14 z-20 w-56 rounded-xl border border-white/[0.08] bg-[#15151b] py-1.5 shadow-2xl"
+                          >
+                            {myRole === "admin" && !isSelf && (
+                              <>
+                                <div className="px-3 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
+                                  Change role
+                                </div>
+                                {ASSIGNABLE_ROLES.filter((r) => r.value !== member.role).map(
+                                  (r) => (
+                                    <button
+                                      key={r.value}
+                                      role="menuitem"
+                                      onClick={() => handleRoleChange(member, r.value)}
+                                      className="w-full text-left px-3 py-2 text-[13px] text-[#f0f0f5] hover:bg-white/[0.06] transition-colors"
+                                    >
+                                      Make {r.label}
+                                    </button>
+                                  )
+                                )}
+                                <div className="my-1 h-px bg-white/[0.06]" />
+                                <button
+                                  role="menuitem"
+                                  onClick={() => {
+                                    setOpenMenuUserId(null);
+                                    setMemberPendingRemoval(member);
+                                  }}
+                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-[13px] text-red-300 hover:bg-red-500/[0.08] transition-colors"
+                                >
+                                  <UserMinus className="w-3.5 h-3.5" />
+                                  Remove from workspace
+                                </button>
+                              </>
+                            )}
+                            {isSelf && (
+                              <button
+                                role="menuitem"
+                                onClick={() => {
+                                  setOpenMenuUserId(null);
+                                  setMemberPendingRemoval(member);
+                                }}
+                                className="w-full flex items-center gap-2 text-left px-3 py-2 text-[13px] text-red-300 hover:bg-red-500/[0.08] transition-colors"
+                              >
+                                <LogOut className="w-3.5 h-3.5" />
+                                Leave workspace
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
@@ -399,6 +555,35 @@ export default function TeamPage() {
         workspaceId={workspaceId}
         workspaceName={wsName}
       />
+
+      <ConfirmDialog
+        isOpen={memberPendingRemoval !== null}
+        onClose={() => setMemberPendingRemoval(null)}
+        onConfirm={handleConfirmRemove}
+        title={isSelfRemoval ? "Leave workspace?" : `Remove ${memberPendingRemoval?.name}?`}
+        description={
+          isSelfRemoval
+            ? "You'll lose access to this workspace's projects, tickets, and settings immediately."
+            : `${memberPendingRemoval?.name} will lose access to this workspace immediately. This cannot be undone.`
+        }
+        confirmLabel={isSelfRemoval ? "Leave workspace" : "Remove member"}
+        variant="danger"
+      />
+
+      {actionError && (
+        <div
+          role="alert"
+          className="fixed bottom-6 right-6 z-[1200] max-w-sm rounded-xl border border-red-500/25 bg-[#1a1215] px-4 py-3 text-[13px] text-red-300 shadow-2xl"
+        >
+          {actionError}
+          <button
+            onClick={() => setActionError(null)}
+            className="ml-3 text-red-400/70 hover:text-red-300"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
     </>
   );
 }

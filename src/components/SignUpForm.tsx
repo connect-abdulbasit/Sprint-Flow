@@ -126,6 +126,7 @@ export default function SignUpForm() {
                 placeholder="••••••••"
                 className="w-full px-4 py-3 bg-[#18181f] border border-[#333339] rounded-lg text-[#f0f0f5] placeholder-[#6b6b80] focus:outline-none focus:border-[#4f7cff] focus:ring-1 focus:ring-[#4f7cff] transition-all duration-200 pr-10"
                 required
+                minLength={8}
               />
               <button
                 type="button"

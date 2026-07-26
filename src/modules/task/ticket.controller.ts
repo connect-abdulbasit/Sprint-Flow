@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { taskService } from "@/modules/task/task.service";
+import { taskService, ALLOWED_TICKET_IMAGE_MIME_TYPES } from "@/modules/task/task.service";
 import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
 function ticketErrorStatus(message: string) {
@@ -146,12 +146,14 @@ export class TicketController {
         imageBase64: body.imageBase64,
         imageMimeType: body.imageMimeType,
         dependsOnTaskIds,
+        expectedUpdatedAt: body.expectedUpdatedAt,
       });
       return NextResponse.json(ticket);
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to update ticket";
       console.error("Update ticket error:", error);
-      return NextResponse.json({ error: message }, { status: ticketErrorStatus(message) });
+      const status = message.startsWith("CONFLICT:") ? 409 : ticketErrorStatus(message);
+      return NextResponse.json({ error: message.replace("CONFLICT:", "").trim() }, { status });
     }
   }
 
@@ -179,10 +181,17 @@ export class TicketController {
     try {
       const { id: projectId, ticketId } = await context.params;
       const { buffer, mimeType } = await taskService.getTicketImage(user.id, projectId, ticketId);
+      // AUD-002: defense in depth for any row written before the upload-time allowlist
+      // existed — never trust a stored MIME type enough to let a browser execute it.
+      const safeMimeType = (ALLOWED_TICKET_IMAGE_MIME_TYPES as readonly string[]).includes(mimeType)
+        ? mimeType
+        : "application/octet-stream";
       return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
-          "Content-Type": mimeType,
+          "Content-Type": safeMimeType,
+          "X-Content-Type-Options": "nosniff",
+          "Content-Disposition": "inline",
           "Cache-Control": "private, max-age=3600",
         },
       });

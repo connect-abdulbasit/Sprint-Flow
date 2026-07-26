@@ -48,6 +48,14 @@ export class AuthRepository {
     const results = await db.select().from(sessionsTable).where(eq(sessionsTable.id, id)).execute();
     return results[0];
   }
+
+  async updateUserPassword(userId: string, passwordHash: string) {
+    await db
+      .update(usersTable)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(usersTable.id, userId))
+      .execute();
+  }
 }
 
 export const authRepository = new AuthRepository();

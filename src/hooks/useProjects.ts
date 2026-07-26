@@ -26,6 +26,13 @@ export function useProjects(workspaceId: string): UseProjectsReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+  // AUD-048: mountedRef alone only guards against post-unmount setState, not against
+  // out-of-order responses — if workspaceId changes twice in quick succession (fast
+  // switching via the org/workspace switcher), a slow response for the *first*
+  // workspace could resolve after the second and overwrite state with the wrong
+  // workspace's projects. requestIdRef tracks which call is the most recent one, and a
+  // response is only applied if it's still current.
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -36,17 +43,18 @@ export function useProjects(workspaceId: string): UseProjectsReturn {
 
   const loadProjects = useCallback(async () => {
     if (!workspaceId) return;
+    const requestId = ++requestIdRef.current;
     try {
       setLoading(true);
       setError(null);
       const data = await fetchProjects(workspaceId);
-      if (mountedRef.current) setProjects(data);
+      if (mountedRef.current && requestIdRef.current === requestId) setProjects(data);
     } catch (err: unknown) {
-      if (mountedRef.current) {
+      if (mountedRef.current && requestIdRef.current === requestId) {
         setError(err instanceof Error ? err.message : "Failed to load projects");
       }
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (mountedRef.current && requestIdRef.current === requestId) setLoading(false);
     }
   }, [workspaceId]);
 

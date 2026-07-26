@@ -2,10 +2,10 @@
 
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
 import DeleteConfirmDialog from "@/components/project/DeleteConfirmDialog";
-import { Settings, Trash2, ShieldAlert, Save, Info } from "lucide-react";
+import { Settings, Trash2, ShieldAlert, Save, Info, Loader2 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
-import { deleteProject, fetchProject, type Project } from "@/lib/projects-api";
+import { deleteProject, fetchProject, updateProject, type Project } from "@/lib/projects-api";
 import { projectKeyPrefix } from "@/lib/ticket-key";
 import { ProjectSettingsBodySkeleton } from "@/components/ui/skeleton";
 import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
@@ -25,6 +25,15 @@ export default function ProjectSettingsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [projectLoaded, setProjectLoaded] = useState(false);
 
+  // AUD-010: the General section previously had no state at all — the inputs were
+  // uncontrolled and the "Save Changes" button had no click handler, so edits were
+  // silently discarded with no error shown.
+  const [nameInput, setNameInput] = useState("");
+  const [descriptionInput, setDescriptionInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
   const sections = {
     general: useRef<HTMLDivElement>(null),
     danger: useRef<HTMLDivElement>(null),
@@ -36,7 +45,11 @@ export default function ProjectSettingsPage() {
     setProjectLoaded(false);
     fetchProject(pid)
       .then((p) => {
-        if (!cancelled) setProject(p);
+        if (!cancelled) {
+          setProject(p);
+          setNameInput(p.name);
+          setDescriptionInput(p.description ?? "");
+        }
       })
       .catch(() => {
         if (!cancelled) setProject(null);
@@ -54,9 +67,36 @@ export default function ProjectSettingsPage() {
     sections[id].current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const name = project?.name ?? "";
-  const description = project?.description ?? "";
   const key = project ? projectKeyPrefix(project.name) : "";
+  const hasUnsavedChanges =
+    project !== null &&
+    (nameInput.trim() !== project.name || descriptionInput.trim() !== (project.description ?? ""));
+
+  const handleSaveGeneral = async () => {
+    if (!pid || saving) return;
+    const trimmedName = nameInput.trim();
+    if (!trimmedName) {
+      setSaveError("Project name cannot be empty.");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      const updated = await updateProject(pid, {
+        name: trimmedName,
+        description: descriptionInput.trim(),
+      });
+      setProject(updated);
+      setNameInput(updated.name);
+      setDescriptionInput(updated.description ?? "");
+      setSaveSuccess(true);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Failed to save changes.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
@@ -136,12 +176,29 @@ export default function ProjectSettingsPage() {
                   </div>
                   <button
                     type="button"
-                    className="flex items-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 rounded-xl text-[13px] font-semibold transition-all active:scale-95 shadow-lg shadow-white/5 cursor-pointer"
+                    onClick={() => void handleSaveGeneral()}
+                    disabled={saving || !hasUnsavedChanges}
+                    className="flex items-center gap-2 px-4 py-2 bg-zinc-100 hover:bg-white text-zinc-950 rounded-xl text-[13px] font-semibold transition-all active:scale-95 shadow-lg shadow-white/5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    <Save className="w-4 h-4" />
-                    Save Changes
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    {saving ? "Saving…" : "Save Changes"}
                   </button>
                 </div>
+
+                {saveError && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-[13px] text-red-300">
+                    {saveError}
+                  </div>
+                )}
+                {saveSuccess && !saveError && (
+                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-3 text-[13px] text-emerald-300">
+                    Changes saved.
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="space-y-1">
@@ -152,24 +209,39 @@ export default function ProjectSettingsPage() {
                   </div>
                   <div className="md:col-span-2 space-y-6">
                     <div className="space-y-2">
-                      <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">
+                      <label
+                        htmlFor="project-name"
+                        className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500"
+                      >
                         Project Name
                       </label>
                       <input
-                        key={name}
+                        id="project-name"
                         type="text"
-                        defaultValue={name}
+                        value={nameInput}
+                        onChange={(e) => {
+                          setNameInput(e.target.value);
+                          setSaveSuccess(false);
+                        }}
+                        maxLength={255}
                         className="w-full bg-[#0f0f12] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-200 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all font-medium"
                         placeholder="Enter project name"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">
+                      <label
+                        htmlFor="project-description"
+                        className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500"
+                      >
                         Description
                       </label>
                       <textarea
-                        key={description}
-                        defaultValue={description}
+                        id="project-description"
+                        value={descriptionInput}
+                        onChange={(e) => {
+                          setDescriptionInput(e.target.value);
+                          setSaveSuccess(false);
+                        }}
                         rows={4}
                         className="w-full bg-[#0f0f12] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-200 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all resize-none leading-relaxed"
                         placeholder="What is this project about?"

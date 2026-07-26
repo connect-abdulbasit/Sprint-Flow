@@ -67,7 +67,14 @@ export default function CreateWorkspacePage() {
         }).catch(() => {});
       }
 
-      router.push(`/workspace/${workspace.id}/dashboard`);
+      // AUD-014: this used to skip straight to the dashboard, which meant the "Invite
+      // Your Team" step (onboarding/invite) was only ever reachable via a mislabeled
+      // "Go back" button *before* a workspace existed — so it had no workspaceId to send
+      // real invites against. Routing here now makes it the actual next step, with a
+      // real workspace to invite people into.
+      router.push(
+        `/onboarding/invite?workspaceId=${workspace.id}&workspaceName=${encodeURIComponent(workspaceName)}`
+      );
     } catch (err) {
       setError((err as Error).message);
       setIsLoading(false);
@@ -230,14 +237,7 @@ export default function CreateWorkspacePage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="pt-4 flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => router.push("/onboarding/invite")}
-                className="text-sm font-medium text-[#9090a8] hover:text-[#f0f0f5] px-4 py-2 transition-colors"
-              >
-                Go back
-              </button>
+            <div className="pt-4 flex items-center justify-end gap-4">
               <button
                 type="submit"
                 disabled={!workspaceName.trim() || !organizationName.trim() || isLoading}

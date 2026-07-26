@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   X,
   Mail,
@@ -56,8 +57,11 @@ export default function InviteModal({
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [revokeError, setRevokeError] = useState("");
   const [closing, setClosing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -66,6 +70,16 @@ export default function InviteModal({
       fetchInvitations();
     }
   }, [isOpen, workspaceId]);
+
+  // AUD-015 / AUD-056: this modal previously had no Escape-to-close handler at all.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen]);
 
   const fetchInvitations = async () => {
     if (!workspaceId) return;
@@ -91,6 +105,7 @@ export default function InviteModal({
       setSuccess(false);
       setInviteLink("");
       setError("");
+      setRevokeError("");
       setCopied(false);
       setClosing(false);
     }, 200);
@@ -142,9 +157,24 @@ export default function InviteModal({
 
   const handleRevoke = async (id: string) => {
     setRevokingId(id);
-    await new Promise((r) => setTimeout(r, 400));
-    setInvitations((prev) => prev.filter((inv) => inv.id !== id));
-    setRevokingId(null);
+    setRevokeError("");
+    try {
+      // AUD-011: this previously just faked a delay and removed the row from local
+      // state — the token stayed valid server-side. It now calls the real revoke
+      // endpoint, and only updates the UI once the invite is actually unusable.
+      const res = await fetch(`/api/workspaces/${workspaceId}/invites/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to revoke invitation.");
+      }
+      setInvitations((prev) => prev.filter((inv) => inv.id !== id));
+    } catch (e) {
+      setRevokeError(e instanceof Error ? e.message : "Failed to revoke invitation.");
+    } finally {
+      setRevokingId(null);
+    }
   };
 
   const handleSendAnother = () => {
@@ -211,6 +241,10 @@ export default function InviteModal({
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
         <div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="invite-modal-title"
           className={`relative w-full max-w-lg rounded-2xl overflow-hidden ${animClass}`}
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -244,6 +278,7 @@ export default function InviteModal({
                 </div>
                 <div>
                   <h2
+                    id="invite-modal-title"
                     className="text-lg font-bold text-[#f0f0f5] tracking-tight"
                     style={{ fontFamily: "var(--font-syne)" }}
                   >
@@ -507,6 +542,12 @@ export default function InviteModal({
                     {invitations.length}
                   </span>
                 </div>
+                {revokeError && (
+                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-red-500/[0.08] border border-red-500/20 mb-3">
+                    <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                    <p className="text-xs text-red-300">{revokeError}</p>
+                  </div>
+                )}
                 <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
                   {loadingInvitations ? (
                     <div className="flex items-center justify-center py-4">

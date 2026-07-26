@@ -3,6 +3,12 @@ import { commentService } from "./comment.service";
 import { getCurrentUser } from "@/lib/auth";
 import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
+function commentErrorStatus(message: string) {
+  if (message.includes("Forbidden")) return 403;
+  if (message.includes("not found")) return 404;
+  return 500;
+}
+
 export class CommentController {
   async addComment(
     req: NextRequest,
@@ -27,12 +33,8 @@ export class CommentController {
       return NextResponse.json(comment);
     } catch (error) {
       console.error("Add comment error:", error);
-      return NextResponse.json(
-        {
-          error: (error as Error)?.message ?? "Failed to add comment",
-        },
-        { status: 500 }
-      );
+      const message = (error as Error)?.message ?? "Failed to add comment";
+      return NextResponse.json({ error: message }, { status: commentErrorStatus(message) });
     }
   }
 
@@ -55,12 +57,9 @@ export class CommentController {
       });
       return NextResponse.json(paginateArray(comments, pagination));
     } catch (error) {
-      return NextResponse.json(
-        {
-          error: (error as Error)?.message ?? "Failed to get comments",
-        },
-        { status: 500 }
-      );
+      console.error("Get comments error:", error);
+      const message = (error as Error)?.message ?? "Failed to get comments";
+      return NextResponse.json({ error: message }, { status: commentErrorStatus(message) });
     }
   }
 
@@ -85,8 +84,7 @@ export class CommentController {
     } catch (error) {
       console.error("Delete comment error:", error);
       const message = (error as Error)?.message ?? "Failed to delete comment";
-      const status = message.includes("Forbidden") ? 403 : 500;
-      return NextResponse.json({ error: message }, { status });
+      return NextResponse.json({ error: message }, { status: commentErrorStatus(message) });
     }
   }
 }

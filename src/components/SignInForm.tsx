@@ -1,17 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AlertDialog from "@/components/ui/AlertDialog";
+
+const OAUTH_ERROR_MESSAGES: Record<string, string> = {
+  account_exists_password:
+    "An account with this email already exists and uses a password to sign in. Please sign in with your password instead.",
+};
 
 export default function SignInForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [dialogAlert, setDialogAlert] = useState<{ title: string; message: string } | null>(null);
+
+  useEffect(() => {
+    const errorCode = searchParams.get("error");
+    if (errorCode && OAUTH_ERROR_MESSAGES[errorCode]) {
+      setDialogAlert({ title: "Could not sign in", message: OAUTH_ERROR_MESSAGES[errorCode] });
+    }
+  }, [searchParams]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
