@@ -65,6 +65,18 @@ export class WorkspaceService {
     return workspace;
   }
 
+  /**
+   * Lightweight availability check for the onboarding/create flow so the UI can warn
+   * about a taken slug *before* submitting, rather than surfacing a 400 from createWorkspace.
+   * The slug column is globally unique, so this is an existence check across all workspaces.
+   */
+  async isSlugAvailable(slug: string) {
+    const normalized = slug.trim().toLowerCase();
+    if (!normalized) return false;
+    const existing = await workspaceRepository.getWorkspaceById(normalized);
+    return !existing;
+  }
+
   async getUserWorkspaces(userId: string) {
     return workspaceRepository.getUserWorkspaces(userId);
   }

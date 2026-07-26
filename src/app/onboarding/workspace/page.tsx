@@ -2,7 +2,9 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Hexagon, ArrowRight } from "lucide-react";
+import { Upload, Hexagon, ArrowRight, Check, X, Loader2 } from "lucide-react";
+
+type SlugStatus = "idle" | "checking" | "available" | "taken";
 
 export default function CreateWorkspacePage() {
   const router = useRouter();
@@ -14,6 +16,7 @@ export default function CreateWorkspacePage() {
   const [error, setError] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [slugStatus, setSlugStatus] = useState<SlugStatus>("idle");
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,9 +36,45 @@ export default function CreateWorkspacePage() {
     .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
+  // Debounced live availability check so a taken URL is caught before submitting,
+  // rather than only after the backend rejects the create request.
+  useEffect(() => {
+    if (!slug) {
+      setSlugStatus("idle");
+      return;
+    }
+
+    setSlugStatus("checking");
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/workspaces/slug-available?slug=${encodeURIComponent(slug)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          setSlugStatus("idle");
+          return;
+        }
+        const data = (await res.json()) as { available: boolean };
+        setSlugStatus(data.available ? "available" : "taken");
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") setSlugStatus("idle");
+      }
+    }, 400);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [slug]);
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!organizationName.trim() || !workspaceName.trim()) return;
+    if (slugStatus === "taken") {
+      setError("This workspace URL is already taken. Please choose another.");
+      return;
+    }
 
     setIsLoading(true);
     setError("");
@@ -222,16 +261,42 @@ export default function CreateWorkspacePage() {
               </div>
 
               {/* URL Preview */}
-              <div className="mt-3 flex items-start gap-2 bg-[#18181f] rounded-lg p-3 border border-[#333339]">
+              <div
+                className={`mt-3 flex items-start gap-2 bg-[#18181f] rounded-lg p-3 border transition-colors ${
+                  slugStatus === "taken"
+                    ? "border-red-500/40"
+                    : slugStatus === "available"
+                      ? "border-emerald-500/40"
+                      : "border-[#333339]"
+                }`}
+              >
                 <div className="text-[#6b6b80] mt-0.5">
                   <Hexagon className="h-4 w-4" />
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-[#9090a8]">First workspace URL:</p>
                   <p className="text-sm text-[#f0f0f5] font-mono mt-0.5 break-all">
                     {currentDomain}/
                     <span className="text-[#4f7cff] font-semibold">{slug || "workspace-name"}</span>
                   </p>
+                  {slug && slugStatus === "checking" && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-[#9090a8]">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Checking availability…
+                    </p>
+                  )}
+                  {slug && slugStatus === "available" && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-400">
+                      <Check className="h-3 w-3" />
+                      This URL is available.
+                    </p>
+                  )}
+                  {slug && slugStatus === "taken" && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-red-400">
+                      <X className="h-3 w-3" />
+                      This URL is already taken. Please choose another.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -240,9 +305,19 @@ export default function CreateWorkspacePage() {
             <div className="pt-4 flex items-center justify-end gap-4">
               <button
                 type="submit"
-                disabled={!workspaceName.trim() || !organizationName.trim() || isLoading}
+                disabled={
+                  !workspaceName.trim() ||
+                  !organizationName.trim() ||
+                  isLoading ||
+                  slugStatus === "taken" ||
+                  slugStatus === "checking"
+                }
                 className={`px-6 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
-                  workspaceName.trim() && organizationName.trim() && !isLoading
+                  workspaceName.trim() &&
+                  organizationName.trim() &&
+                  !isLoading &&
+                  slugStatus !== "taken" &&
+                  slugStatus !== "checking"
                     ? "bg-[#4f7cff] hover:opacity-90 text-white shadow-[0_2px_10px_rgb(79,124,255,0.3)] hover:shadow-[0_4px_15px_rgb(79,124,255,0.4)] transform hover:-translate-y-0.5"
                     : "bg-[#18181f] text-[#6b6b80] cursor-not-allowed"
                 }`}

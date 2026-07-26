@@ -66,6 +66,25 @@ export class WorkspaceController {
     }
   }
 
+  async checkSlug(req: NextRequest) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const slug = req.nextUrl.searchParams.get("slug") ?? "";
+      const available = await workspaceService.isSlugAvailable(slug);
+      return NextResponse.json({ slug: slug.trim().toLowerCase(), available });
+    } catch (error) {
+      console.error("Check slug availability error:", error);
+      return NextResponse.json(
+        { error: (error as Error)?.message ?? "Failed to check slug availability" },
+        { status: 500 }
+      );
+    }
+  }
+
   async getById(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const user = await getCurrentUser(req);
     if (!user) {
