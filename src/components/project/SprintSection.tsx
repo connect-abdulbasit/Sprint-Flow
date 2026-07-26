@@ -276,12 +276,12 @@ export default function SprintSection({
         )}
 
         {isExpanded && (
-          <div className="border-x border-b border-border bg-surface-sunken rounded-b-lg overflow-hidden">
+          <div className="border-x border-b border-border bg-surface-sunken rounded-b-lg overflow-visible">
             {sprint.tickets.length > 0 ? (
               sprint.tickets.map((ticket) => (
                 <div
                   key={ticket.id}
-                  className="flex items-stretch border-b border-border last:border-b-0"
+                  className="relative flex items-stretch border-b border-border last:border-b-0"
                 >
                   <div className="min-w-0 flex-1">
                     <TicketItem

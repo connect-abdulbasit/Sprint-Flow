@@ -17,6 +17,10 @@ import {
   ChevronDown,
   User,
   Check,
+  Circle,
+  Loader2,
+  Eye,
+  CheckCircle2,
 } from "lucide-react";
 
 export const TICKET_DRAG_MIME = "application/x-sprintflow-ticket";
@@ -35,15 +39,37 @@ const typeConfig = {
   improvement: { icon: PlusCircle, color: "text-success", label: "Improvement" },
 };
 
-const STATUS_PILL: Record<string, string> = {
-  todo: "bg-hover text-muted2 border-border",
-  in_progress: "bg-accent-soft text-accent border-accent/25",
-  review: "bg-accent2/15 text-accent2 border-accent2/25",
-  done: "bg-success-soft text-success border-success/25",
+const STATUS_STYLE: Record<string, { pill: string; icon: typeof Circle; iconClass: string }> = {
+  todo: {
+    pill: "bg-info-soft text-info border-info/30",
+    icon: Circle,
+    iconClass: "text-info",
+  },
+  in_progress: {
+    pill: "bg-accent-soft text-accent border-accent/35",
+    icon: Loader2,
+    iconClass: "text-accent",
+  },
+  review: {
+    pill: "bg-accent2/15 text-accent2 border-accent2/35",
+    icon: Eye,
+    iconClass: "text-accent2",
+  },
+  done: {
+    pill: "bg-success-soft text-success border-success/35",
+    icon: CheckCircle2,
+    iconClass: "text-success",
+  },
 };
 
-function statusPillClass(status: string) {
-  return STATUS_PILL[status] ?? "bg-accent-soft text-accent border-accent/25";
+function statusStyle(status: string) {
+  return (
+    STATUS_STYLE[status] ?? {
+      pill: "bg-accent-soft text-accent border-accent/35",
+      icon: Circle,
+      iconClass: "text-accent",
+    }
+  );
 }
 
 type StatusOption = { value: string; label: string };
@@ -68,7 +94,9 @@ export default function TicketItem({
   onAssigneeChange?: (_ticketId: string, _assigneeId: string | null) => void | Promise<void>;
 }) {
   const suppressClickRef = useRef(false);
+  const [statusOpen, setStatusOpen] = useState(false);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const statusRef = useRef<HTMLDivElement>(null);
   const assigneeRef = useRef<HTMLDivElement>(null);
 
   const priority =
@@ -79,28 +107,32 @@ export default function TicketItem({
   const isDraggable = Boolean(draggableTicketId);
 
   const assigneeMember = members.find((m) => m.userId === ticket.assigneeId);
+  const currentStatus = statusStyle(ticket.status);
+  const StatusIcon = currentStatus.icon;
   const statusLabel =
     statusOptions.find((o) => o.value === ticket.status)?.label ?? ticket.status.replace(/_/g, " ");
 
   useEffect(() => {
-    if (!assigneeOpen) return;
+    if (!statusOpen && !assigneeOpen) return;
     function onClickOutside(e: MouseEvent) {
-      if (assigneeRef.current && !assigneeRef.current.contains(e.target as Node)) {
-        setAssigneeOpen(false);
-      }
+      const target = e.target as Node;
+      if (statusRef.current && !statusRef.current.contains(target)) setStatusOpen(false);
+      if (assigneeRef.current && !assigneeRef.current.contains(target)) setAssigneeOpen(false);
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [assigneeOpen]);
+  }, [statusOpen, assigneeOpen]);
 
   const stopRowClick = (e: React.SyntheticEvent) => e.stopPropagation();
 
   return (
     <div
-      className="group flex cursor-pointer items-center gap-3 border-b border-border px-4 py-2 transition-all hover:bg-hover"
-      draggable={isDraggable}
+      className={`group flex cursor-pointer items-center gap-3 border-b border-border px-4 py-2 transition-all hover:bg-hover ${
+        statusOpen || assigneeOpen ? "relative z-30 bg-hover" : ""
+      }`}
+      draggable={isDraggable && !statusOpen && !assigneeOpen}
       onDragStart={(e) => {
-        if (!draggableTicketId) return;
+        if (!draggableTicketId || statusOpen || assigneeOpen) return;
         e.dataTransfer.setData(TICKET_DRAG_MIME, draggableTicketId);
         e.dataTransfer.effectAllowed = "move";
       }}
@@ -111,7 +143,7 @@ export default function TicketItem({
         }, 0);
       }}
       onClick={() => {
-        if (suppressClickRef.current) return;
+        if (suppressClickRef.current || statusOpen || assigneeOpen) return;
         onSelect?.(ticket);
       }}
       onKeyDown={(e) => {
@@ -159,35 +191,68 @@ export default function TicketItem({
       </div>
 
       {ticket.storyPoints !== null && ticket.storyPoints !== undefined ? (
-        <div className="w-6 h-6 rounded bg-surface-2/80 flex items-center justify-center text-[10px] font-medium text-muted shrink-0">
+        <div className="w-6 h-6 rounded bg-accent-soft flex items-center justify-center text-[10px] font-medium text-accent shrink-0">
           {ticket.storyPoints}
         </div>
       ) : (
         <div className="w-6 shrink-0" />
       )}
 
-      {/* Status — Jira-style inline */}
-      <div className="shrink-0" onClick={stopRowClick}>
+      {/* Status — Jira-style colored picker */}
+      <div className="relative shrink-0" ref={statusRef} onClick={stopRowClick}>
         {canEdit && onStatusChange && statusOptions.length > 0 ? (
-          <div className="relative">
-            <select
-              value={ticket.status}
-              onChange={(e) => void onStatusChange(ticket.id, e.target.value)}
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setAssigneeOpen(false);
+                setStatusOpen((v) => !v);
+              }}
               aria-label={`Status for ${ticket.key}`}
-              className={`appearance-none cursor-pointer rounded-md border pl-2.5 pr-7 py-1 text-[11px] font-semibold capitalize focus:outline-none focus:ring-2 focus:ring-accent/25 ${statusPillClass(ticket.status)}`}
+              aria-expanded={statusOpen}
+              className={`inline-flex items-center gap-1.5 rounded-md border pl-2 pr-1.5 py-1 text-[11px] font-semibold capitalize transition-colors hover:brightness-110 ${currentStatus.pill}`}
             >
-              {statusOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 opacity-60" />
-          </div>
+              <StatusIcon className={`h-3 w-3 ${currentStatus.iconClass}`} />
+              {statusLabel}
+              <ChevronDown className="h-3 w-3 opacity-70" />
+            </button>
+
+            {statusOpen && (
+              <div className="absolute right-0 top-full z-50 mt-1.5 w-44 rounded-xl border border-border-hover bg-surface p-1.5 shadow-dropdown">
+                {statusOptions.map((opt) => {
+                  const style = statusStyle(opt.value);
+                  const Icon = style.icon;
+                  const selected = ticket.status === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        setStatusOpen(false);
+                        if (opt.value !== ticket.status) void onStatusChange(ticket.id, opt.value);
+                      }}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[12px] font-medium capitalize transition-colors hover:bg-hover ${
+                        selected ? "bg-hover" : ""
+                      }`}
+                    >
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${style.pill}`}
+                      >
+                        <Icon className={`h-3 w-3 ${style.iconClass}`} />
+                        {opt.label}
+                      </span>
+                      {selected && <Check className="ml-auto h-3.5 w-3.5 shrink-0 text-accent" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </>
         ) : (
           <span
-            className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold capitalize ${statusPillClass(ticket.status)}`}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold capitalize ${currentStatus.pill}`}
           >
+            <StatusIcon className={`h-3 w-3 ${currentStatus.iconClass}`} />
             {statusLabel}
           </span>
         )}
@@ -199,11 +264,14 @@ export default function TicketItem({
           <>
             <button
               type="button"
-              onClick={() => setAssigneeOpen((v) => !v)}
+              onClick={() => {
+                setStatusOpen(false);
+                setAssigneeOpen((v) => !v);
+              }}
               title={ticket.assigneeName ?? "Assign"}
               aria-label={`Assignee for ${ticket.key}`}
               aria-expanded={assigneeOpen}
-              className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-border bg-accent-soft text-accent transition-colors hover:border-accent/40 hover:ring-2 hover:ring-accent/20"
+              className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 border-accent/40 bg-accent-soft text-accent transition-colors hover:border-accent hover:ring-2 hover:ring-accent/25"
             >
               {ticket.assigneeId ? (
                 <UserAvatar
@@ -219,7 +287,7 @@ export default function TicketItem({
             </button>
 
             {assigneeOpen && (
-              <div className="absolute right-0 top-full z-40 mt-1.5 w-52 rounded-xl border border-border-hover bg-surface-hover py-1 shadow-dropdown">
+              <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-xl border border-border-hover bg-surface py-1 shadow-dropdown">
                 <button
                   type="button"
                   onClick={() => {
@@ -228,7 +296,7 @@ export default function TicketItem({
                   }}
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12px] text-muted2 hover:bg-hover transition-colors"
                 >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-hover">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-accent/30 bg-accent-soft text-accent">
                     <User className="h-3.5 w-3.5" />
                   </span>
                   Unassigned
@@ -250,7 +318,7 @@ export default function TicketItem({
                       email={m.email}
                       avatarUrl={m.avatarUrl}
                       size="sm"
-                      className="h-7 w-7 border border-border bg-accent-soft text-[9px] font-semibold text-accent"
+                      className="h-7 w-7 border border-accent/30 bg-accent-soft text-[9px] font-semibold text-accent"
                     />
                     <span className="truncate">{m.name}</span>
                     {ticket.assigneeId === m.userId && (
@@ -266,7 +334,7 @@ export default function TicketItem({
             name={ticket.assigneeName}
             avatarUrl={assigneeMember?.avatarUrl}
             size="sm"
-            className="h-7 w-7 border border-border bg-accent-soft text-[9px] font-semibold text-accent"
+            className="h-7 w-7 border-2 border-accent/40 bg-accent-soft text-[9px] font-semibold text-accent"
             title={ticket.assigneeName ?? "Unassigned"}
           />
         )}
