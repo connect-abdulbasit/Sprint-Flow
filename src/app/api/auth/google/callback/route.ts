@@ -47,7 +47,13 @@ export async function GET(req: NextRequest) {
     const tokenData = await tokenResponse.json();
 
     if (!tokenResponse.ok) {
-      console.error("Google token error:", tokenData);
+      // AUD-065: log only the error code/description Google returns, not the full
+      // response body — avoids writing any token material or other response fields to
+      // server logs.
+      console.error("Google token error:", {
+        error: tokenData?.error,
+        error_description: tokenData?.error_description,
+      });
       return NextResponse.json({ error: "Failed to exchange code" }, { status: 400 });
     }
 
@@ -60,7 +66,12 @@ export async function GET(req: NextRequest) {
     const googleUser = await userInfoResponse.json();
 
     if (!userInfoResponse.ok || !googleUser.email) {
-      console.error("Google userinfo error:", googleUser);
+      // AUD-065: same rationale as above — googleUser can carry profile fields (name,
+      // picture, sub) that don't belong in server logs.
+      console.error("Google userinfo error:", {
+        status: userInfoResponse.status,
+        error: googleUser?.error,
+      });
       return NextResponse.json({ error: "Failed to get user info" }, { status: 400 });
     }
 
@@ -82,6 +93,7 @@ export async function GET(req: NextRequest) {
           name,
           email,
           passwordHash: "", // Empty for Google user
+          authProvider: "google",
           avatarUrl: picture || null,
         })
         .execute();
@@ -95,6 +107,20 @@ export async function GET(req: NextRequest) {
       user = insertedUsers[0];
     } else {
       user = existingUsers[0];
+
+      // AUD-001: never silently attach a Google sign-in to an account that was created
+      // (and secured) with a password — email equality alone is not proof of ownership.
+      // Without this check, anyone could pre-register a victim's email with a password
+      // they control, then be logged into that same account the moment the victim uses
+      // "Sign in with Google".
+      if (user.authProvider !== "google") {
+        const response = NextResponse.redirect(
+          new URL("/signin?error=account_exists_password", req.url)
+        );
+        response.cookies.delete("auth_state");
+        return response;
+      }
+
       if (user.name !== name || user.avatarUrl !== picture) {
         await db
           .update(usersTable)

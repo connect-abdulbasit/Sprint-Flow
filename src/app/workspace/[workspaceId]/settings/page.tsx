@@ -14,6 +14,7 @@ import {
   Settings,
   ShieldAlert,
   Info,
+  Upload,
 } from "lucide-react";
 import { SettingsFormSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
@@ -22,6 +23,7 @@ interface Workspace {
   id: string;
   name: string;
   description: string | null;
+  logoUrl: string | null;
 }
 
 export default function WorkspaceSettings() {
@@ -47,6 +49,8 @@ export default function WorkspaceSettings() {
     message: string;
     type: "success" | "error";
   } | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
 
   const sections = {
     general: useRef<HTMLDivElement>(null),
@@ -90,7 +94,10 @@ export default function WorkspaceSettings() {
         return;
       }
       const data = await res.json();
-      setWorkspace(data);
+      setWorkspace({
+        ...data,
+        logoUrl: data.logoUrl ?? null,
+      });
       setEditName(data.name ?? "");
       setEditDesc(data.description ?? "");
     } catch {
@@ -136,6 +143,52 @@ export default function WorkspaceSettings() {
     setEditName(workspace.name);
     setEditDesc(workspace.description ?? "");
     setIsDirty(false);
+  };
+
+  const handleLogoFile = async (file: File | undefined) => {
+    if (!file || !canManageWorkspace || !workspaceId) return;
+    setLogoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/workspaces/${workspaceId}/logo`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setToast({ message: errData.error ?? "Failed to upload logo", type: "error" });
+        return;
+      }
+      const updated = (await res.json()) as Workspace;
+      setWorkspace(updated);
+      setToast({ message: "Workspace logo updated", type: "success" });
+    } catch {
+      setToast({ message: "Failed to upload logo", type: "error" });
+    } finally {
+      setLogoUploading(false);
+      if (logoFileInputRef.current) logoFileInputRef.current.value = "";
+    }
+  };
+
+  const clearLogo = async () => {
+    if (!canManageWorkspace || !workspaceId) return;
+    setLogoUploading(true);
+    try {
+      const res = await fetch(`/api/workspaces/${workspaceId}/logo`, { method: "DELETE" });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setToast({ message: errData.error ?? "Failed to remove logo", type: "error" });
+        return;
+      }
+      const updated = (await res.json()) as Workspace;
+      setWorkspace(updated);
+      setToast({ message: "Logo removed", type: "success" });
+    } catch {
+      setToast({ message: "Failed to remove logo", type: "error" });
+    } finally {
+      setLogoUploading(false);
+    }
   };
 
   const scrollToSection = (id: keyof typeof sections) => {
@@ -248,8 +301,12 @@ export default function WorkspaceSettings() {
           Back to workspace
         </Link>
         <div className="mt-4 flex items-center gap-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
-            <Settings className="h-5 w-5" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10 text-blue-400 overflow-hidden">
+            {workspace.logoUrl ? (
+              <img src={workspace.logoUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Settings className="h-5 w-5" />
+            )}
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Settings</h1>
@@ -337,6 +394,65 @@ export default function WorkspaceSettings() {
                   </p>
                 </div>
                 <div className="md:col-span-2 space-y-6">
+                  <div className="space-y-3">
+                    <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">
+                      Workspace logo
+                    </label>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className="h-16 w-16 rounded-xl border border-white/[0.08] bg-[#0f0f12] overflow-hidden flex items-center justify-center shrink-0">
+                        {workspace.logoUrl ? (
+                          <img
+                            src={workspace.logoUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xl font-bold text-zinc-600">
+                            {workspace.name.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2 min-w-0">
+                        <input
+                          ref={logoFileInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/gif"
+                          className="hidden"
+                          disabled={!canManageWorkspace || logoUploading}
+                          onChange={(e) => void handleLogoFile(e.target.files?.[0])}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={!canManageWorkspace || logoUploading}
+                            onClick={() => logoFileInputRef.current?.click()}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium border border-white/10 text-zinc-200 hover:bg-white/[0.04] disabled:opacity-50 cursor-pointer"
+                          >
+                            {logoUploading ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Upload className="w-4 h-4" />
+                            )}
+                            Upload image
+                          </button>
+                          {workspace.logoUrl && (
+                            <button
+                              type="button"
+                              disabled={!canManageWorkspace || logoUploading}
+                              onClick={() => void clearLogo()}
+                              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium text-zinc-400 hover:text-red-400 border border-transparent hover:border-red-500/20 disabled:opacity-50 cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-[12px] text-zinc-500">
+                          JPG, PNG, WebP, or GIF. Max 2MB. Shown in the sidebar workspace switcher.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">
                       Workspace name

@@ -483,13 +483,14 @@ export default function ProjectBacklogPage() {
                     <SprintSection
                       key={group.id}
                       sprint={group}
-                      onCreateTask={canManageSprintAndTickets ? () => openCreate(null) : undefined}
+                      onCreateTask={undefined}
                       onTicketSelect={openDetail}
-                      ticketMoveOptions={
-                        canManageSprintAndTickets ? moveOptionsForSprintTicket(group.id) : []
-                      }
-                      onMoveTicket={canManageSprintAndTickets ? handleMoveTicket : undefined}
-                      enableTicketDrag={canManageSprintAndTickets}
+                      // AUD-009: completed sprints are immutable — the server now rejects
+                      // any ticket edit/move once its sprint is completed, so the drag/move
+                      // affordances must never be offered here, regardless of role.
+                      ticketMoveOptions={[]}
+                      onMoveTicket={undefined}
+                      enableTicketDrag={false}
                     />
                   ))}
                 </div>

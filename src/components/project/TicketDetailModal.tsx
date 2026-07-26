@@ -34,6 +34,8 @@ import { initialsFromName } from "@/lib/initials";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { DEFAULT_STATUS_FORM_OPTIONS } from "@/lib/board-columns";
 import { TICKET_PRIORITY_LABELS, TICKET_PRIORITIES } from "@/lib/ticket-priority";
+import { validateTicketImageFile } from "@/lib/ticket-image-upload";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 const TYPES: TicketType[] = ["task", "bug", "feature", "improvement"];
 
@@ -406,6 +408,7 @@ export default function TicketDetailModal({
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [mentionResults, setMentionResults] = useState<ProjectMember[]>([]);
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
+  const [pendingDeleteCommentId, setPendingDeleteCommentId] = useState<string | null>(null);
   const commentInputRef = useRef<HTMLTextAreaElement>(null);
 
   const handleCommentChange = useCallback(
@@ -490,31 +493,34 @@ export default function TicketDetailModal({
     }
   }, [workspaceId, ticketId, newComment, replyingToId]);
 
-  const handleDeleteComment = useCallback(
-    async (commentId: string) => {
-      if (!workspaceId || !ticketId) return;
-      if (!confirm("Delete this comment?")) return;
-      try {
-        const response = await fetch(
-          `/api/workspaces/${workspaceId}/tasks/${ticketId}/comments/${commentId}`,
-          {
-            method: "DELETE",
-          }
-        );
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        setComments((prev) => prev.filter((c) => c.id !== commentId));
-        setCollapsedCommentIds((prev) => {
-          if (!prev.has(commentId)) return prev;
-          const next = new Set(prev);
-          next.delete(commentId);
-          return next;
-        });
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "Failed to delete comment");
-      }
-    },
-    [workspaceId, ticketId]
-  );
+  // AUD-051: this used to call the browser's native confirm()/alert() — inconsistent
+  // with every other delete flow in this modal (and the app), blocks the main thread,
+  // and can't be styled or tested like the rest of the UI. It now goes through the
+  // same ConfirmDialog pattern used for ticket and time-entry deletion below.
+  const handleDeleteComment = useCallback((commentId: string) => {
+    setPendingDeleteCommentId(commentId);
+  }, []);
+
+  const executeDeleteComment = useCallback(async () => {
+    if (!workspaceId || !ticketId || !pendingDeleteCommentId) return;
+    const commentId = pendingDeleteCommentId;
+    const response = await fetch(
+      `/api/workspaces/${workspaceId}/tasks/${ticketId}/comments/${commentId}`,
+      { method: "DELETE" }
+    );
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error ?? `Failed to delete comment (HTTP ${response.status})`);
+    }
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    setCollapsedCommentIds((prev) => {
+      if (!prev.has(commentId)) return prev;
+      const next = new Set(prev);
+      next.delete(commentId);
+      return next;
+    });
+    setPendingDeleteCommentId(null);
+  }, [workspaceId, ticketId, pendingDeleteCommentId]);
 
   useEffect(() => {
     fetchComments();
@@ -647,7 +653,20 @@ export default function TicketDetailModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen);
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+
+  // AUD-015 / AUD-056: the app's largest and most-used modal previously had no
+  // Escape-to-close handler at all.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting && !deleting) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, submitting, deleting, onClose]);
 
   useEffect(() => {
     if (!imageFile) {
@@ -1107,9 +1126,10 @@ export default function TicketDetailModal({
     <>
       <div
         className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-3 sm:p-5 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={() => !submitting && !deleting && onClose()}
       >
         <div
+          ref={modalRef}
           className="relative flex max-h-[94vh] w-[95%] sm:w-[92%] max-w-5xl flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0c] shadow-2xl transition-all duration-300"
           role="dialog"
           aria-modal="true"
@@ -1194,8 +1214,18 @@ export default function TicketDetailModal({
                       accept="image/*"
                       className="hidden"
                       onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        if (file) {
+                          const validationError = validateTicketImageFile(file);
+                          if (validationError) {
+                            setFormError(validationError);
+                            e.target.value = "";
+                            return;
+                          }
+                        }
+                        setFormError(null);
                         setClearImage(false);
-                        setImageFile(e.target.files?.[0] ?? null);
+                        setImageFile(file);
                         e.target.value = "";
                       }}
                     />
@@ -1910,6 +1940,17 @@ export default function TicketDetailModal({
         cancelLabel="Cancel"
         variant="danger"
         onConfirm={() => void executeDeleteTimeEntry()}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingDeleteCommentId !== null}
+        onClose={() => setPendingDeleteCommentId(null)}
+        title="Delete this comment?"
+        description="This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={executeDeleteComment}
       />
     </>
   );

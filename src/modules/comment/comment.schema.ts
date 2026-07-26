@@ -8,9 +8,17 @@ export const commentsTable = pgTable(
   "comments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    taskId: uuid("task_id").notNull(),
-    workspaceId: uuid("workspace_id").notNull(),
-    userId: uuid("user_id").notNull(),
+    // AUD-019: these previously had no `.references()` at all — deleting a ticket left
+    // its comments permanently orphaned in the table (no cascade, no cleanup path).
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasksTable.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    workspaceId: uuid("workspace_id")
+      .notNull()
+      .references(() => workspacesTable.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade", onUpdate: "cascade" }),
     content: text("content").notNull(),
     parentId: uuid("parent_id"),
     mentionedUserIds: uuid("mentioned_user_ids").array(),

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { notificationsTable } from "@/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { workspaceMembersTable } from "@/modules/workspace/workspace.schema";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 
 export type NotificationPaginationInput = {
   page: number;
@@ -30,7 +31,18 @@ export class NotificationRepository {
     userId: string,
     pagination: NotificationPaginationInput
   ): Promise<NotificationPaginatedResult> {
-    const whereClause = eq(notificationsTable.userId, userId);
+    // AUD-040: this previously filtered only by userId, with no live membership check —
+    // a user removed from a workspace kept seeing that workspace's historical
+    // notifications forever via this global endpoint. Scope to workspaces the user is
+    // still actually a member of.
+    const currentWorkspaceIds = db
+      .select({ workspaceId: workspaceMembersTable.workspaceId })
+      .from(workspaceMembersTable)
+      .where(eq(workspaceMembersTable.userId, userId));
+    const whereClause = and(
+      eq(notificationsTable.userId, userId),
+      inArray(notificationsTable.workspaceId, currentWorkspaceIds)
+    );
     const offset = (pagination.page - 1) * pagination.pageSize;
 
     const [totals, unreadTotals, items] = await Promise.all([

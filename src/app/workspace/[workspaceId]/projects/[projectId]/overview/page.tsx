@@ -1,6 +1,6 @@
 "use client";
 
-import { Target, Zap, Activity, ArrowUpRight, CheckCircle2 } from "lucide-react";
+import { Target, Zap, Activity, ArrowUpRight, CheckCircle2, AlertCircle } from "lucide-react";
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -16,15 +16,32 @@ export default function ProjectOverviewPage() {
 
   const [tickets, setTickets] = useState<ProjectTicket[]>([]);
   const [overviewReady, setOverviewReady] = useState(false);
+  // AUD-017: a failed fetch used to be indistinguishable from "this project has zero
+  // tickets" — both rendered the same empty state with no error surfaced anywhere.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!pid) return;
+    let cancelled = false;
     setOverviewReady(false);
+    setLoadError(null);
     fetchTickets(pid)
-      .then(setTickets)
-      .catch(() => setTickets([]))
-      .finally(() => setOverviewReady(true));
-  }, [pid]);
+      .then((data) => {
+        if (!cancelled) setTickets(data);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setTickets([]);
+        setLoadError(err instanceof Error ? err.message : "Failed to load ticket data.");
+      })
+      .finally(() => {
+        if (!cancelled) setOverviewReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pid, reloadToken]);
 
   const totalTickets = tickets.length;
   const doneTickets = tickets.filter((t) => t.status === "done").length;
@@ -39,6 +56,24 @@ export default function ProjectOverviewPage() {
       <ProjectPageHeader />
 
       <div className="flex-1 overflow-y-auto px-10 py-8 space-y-8 custom-scrollbar">
+        {loadError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-[13px] text-red-300"
+          >
+            <span className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {loadError}
+            </span>
+            <button
+              type="button"
+              onClick={() => setReloadToken((n) => n + 1)}
+              className="shrink-0 rounded-lg border border-red-500/25 px-3 py-1.5 font-semibold text-red-200 hover:bg-red-500/10"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         <div className="flex items-center gap-4 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
             <CheckCircle2 className="w-4 h-4" />

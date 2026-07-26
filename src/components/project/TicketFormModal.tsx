@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Loader2, Trash2, X } from "lucide-react";
 import {
   createTicket,
@@ -13,6 +13,8 @@ import {
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { DEFAULT_STATUS_FORM_OPTIONS } from "@/lib/board-columns";
 import { TICKET_PRIORITY_LABELS, TICKET_PRIORITIES } from "@/lib/ticket-priority";
+import { validateTicketImageFile } from "@/lib/ticket-image-upload";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 const TYPES: TicketType[] = ["task", "bug", "feature", "improvement"];
 
@@ -76,6 +78,8 @@ export default function TicketFormModal({
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -107,6 +111,17 @@ export default function TicketFormModal({
       setCreateDependsOnIds([]);
     }
   }, [isOpen, mode, ticket, initialStatus, defaultSprintId]);
+
+  // AUD-015 / AUD-056: this, the app's most-used modal, previously had no Escape-to-close
+  // handler at all.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting && !deleting) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, submitting, deleting, onClose]);
 
   const createLinkOptions = useMemo(
     () => [...linkableTickets].sort((a, b) => a.ticketNumber - b.ticketNumber),
@@ -204,9 +219,10 @@ export default function TicketFormModal({
     <>
       <div
         className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={() => !submitting && !deleting && onClose()}
       >
         <div
+          ref={modalRef}
           className="w-full max-w-lg rounded-xl border border-white/[0.08] bg-[#111115] shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar transition-all duration-300"
           role="dialog"
           aria-modal="true"
@@ -403,8 +419,18 @@ export default function TicketFormModal({
                   type="file"
                   accept="image/*"
                   onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    if (file) {
+                      const validationError = validateTicketImageFile(file);
+                      if (validationError) {
+                        setError(validationError);
+                        e.target.value = "";
+                        return;
+                      }
+                    }
+                    setError(null);
                     setClearImage(false);
-                    setImageFile(e.target.files?.[0] ?? null);
+                    setImageFile(file);
                   }}
                   className="w-full text-[12px] text-zinc-400 file:mr-3 file:rounded-md file:border-0 file:bg-white/[0.08] file:px-3 file:py-1.5 file:text-[12px] file:text-zinc-200"
                 />

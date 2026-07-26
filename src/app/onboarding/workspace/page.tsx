@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, Hexagon, ArrowRight } from "lucide-react";
 
@@ -12,6 +12,19 @@ export default function CreateWorkspacePage() {
   const [isWsFocused, setIsWsFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(logoFile);
+    setLogoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [logoFile]);
 
   const slug = workspaceName
     .toLowerCase()
@@ -43,8 +56,25 @@ export default function CreateWorkspacePage() {
         throw new Error(data.error || "Failed to create workspace");
       }
 
-      const { workspace } = await res.json();
-      router.push(`/workspace/${workspace.id}/dashboard`);
+      const { workspace } = (await res.json()) as { workspace: { id: string } };
+
+      if (logoFile) {
+        const fd = new FormData();
+        fd.append("file", logoFile);
+        await fetch(`/api/workspaces/${workspace.id}/logo`, {
+          method: "POST",
+          body: fd,
+        }).catch(() => {});
+      }
+
+      // AUD-014: this used to skip straight to the dashboard, which meant the "Invite
+      // Your Team" step (onboarding/invite) was only ever reachable via a mislabeled
+      // "Go back" button *before* a workspace existed — so it had no workspaceId to send
+      // real invites against. Routing here now makes it the actual next step, with a
+      // real workspace to invite people into.
+      router.push(
+        `/onboarding/invite?workspaceId=${workspace.id}&workspaceName=${encodeURIComponent(workspaceName)}`
+      );
     } catch (err) {
       setError((err as Error).message);
       setIsLoading(false);
@@ -86,19 +116,51 @@ export default function CreateWorkspacePage() {
           <form onSubmit={handleContinue} className="space-y-6">
             {/* Workspace Auto-Avatar / Upload */}
             <div className="flex items-center gap-4">
-              <div className="h-16 w-16 bg-[#18181f] border border-[#333339] border-dashed rounded-xl flex items-center justify-center text-[#6b6b80] cursor-pointer hover:bg-[#1f1f27] hover:border-[#4f7cff] transition-colors group">
-                {workspaceName ? (
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  setLogoFile(f ?? null);
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                className="h-16 w-16 bg-[#18181f] border border-[#333339] border-dashed rounded-xl flex items-center justify-center text-[#6b6b80] cursor-pointer hover:bg-[#1f1f27] hover:border-[#4f7cff] transition-colors group overflow-hidden shrink-0"
+              >
+                {logoPreview ? (
+                  <img src={logoPreview} alt="" className="h-full w-full object-cover" />
+                ) : workspaceName ? (
                   <span className="text-xl font-bold text-[#f0f0f5] group-hover:hidden uppercase">
                     {workspaceName.charAt(0)}
                   </span>
                 ) : (
                   <span className="text-xl font-bold text-[#6b6b80] group-hover:hidden">?</span>
                 )}
-                <Upload className="h-5 w-5 hidden group-hover:block text-[#9090a8]" />
-              </div>
+                {!logoPreview && (
+                  <Upload className="h-5 w-5 hidden group-hover:block text-[#9090a8]" />
+                )}
+              </button>
               <div className="text-sm">
                 <p className="font-medium text-[#f0f0f5]">Workspace Logo</p>
-                <p className="text-[#6b6b80] text-xs mt-0.5">Optional. JPG, PNG up to 2MB.</p>
+                <p className="text-[#6b6b80] text-xs mt-0.5">
+                  Optional. JPG, PNG, WebP, or GIF up to 2MB.
+                </p>
+                {logoFile && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLogoFile(null);
+                      if (logoInputRef.current) logoInputRef.current.value = "";
+                    }}
+                    className="text-[11px] text-[#4f7cff] hover:underline mt-1"
+                  >
+                    Clear image
+                  </button>
+                )}
               </div>
             </div>
 
@@ -175,14 +237,7 @@ export default function CreateWorkspacePage() {
             </div>
 
             {/* Action Buttons */}
-            <div className="pt-4 flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => router.push("/onboarding/invite")}
-                className="text-sm font-medium text-[#9090a8] hover:text-[#f0f0f5] px-4 py-2 transition-colors"
-              >
-                Go back
-              </button>
+            <div className="pt-4 flex items-center justify-end gap-4">
               <button
                 type="submit"
                 disabled={!workspaceName.trim() || !organizationName.trim() || isLoading}

@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# workspace logos uploaded at runtime (keep directory)
+/public/uploads/workspaces/*
+!/public/uploads/workspaces/.gitkeep

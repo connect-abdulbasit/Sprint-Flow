@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { AlertCircle, Info, X } from "lucide-react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 export interface AlertDialogProps {
   isOpen: boolean;
@@ -21,6 +22,9 @@ export default function AlertDialog({
   variant = "error",
   okLabel = "OK",
 }: AlertDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -45,6 +49,7 @@ export default function AlertDialog({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="alert-dialog-title"

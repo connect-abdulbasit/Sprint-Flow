@@ -5,6 +5,7 @@ import {
   timestamp,
   primaryKey,
   index,
+  uniqueIndex,
   varchar,
   text,
 } from "drizzle-orm/pg-core";
@@ -25,12 +26,17 @@ export const workspacesTable = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 255 }).notNull(),
     description: text("description"),
+    logoUrl: text("logo_url"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     orgIdx: index("workspaces_org_idx").on(t.organizationId),
-    slugUq: index("workspaces_slug_idx").on(t.slug),
+    // AUD-044: this was a plain index despite the name implying uniqueness —
+    // getWorkspaceById(idOrSlug) resolves by slug and takes results[0], so two
+    // workspaces sharing a slug would silently resolve to whichever one happened to
+    // sort first, the moment any slug-based lookup path is used.
+    slugUq: uniqueIndex("workspaces_slug_idx").on(t.slug),
   })
 );
 

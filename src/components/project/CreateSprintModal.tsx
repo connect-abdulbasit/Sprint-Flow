@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Loader2, X } from "lucide-react";
 import { createSprint, type ProjectSprint } from "@/lib/projects-api";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 function addDaysYmd(ymd: string, days: number): string {
   const [y, m, d] = ymd.split("-").map(Number);
@@ -42,6 +43,8 @@ export default function CreateSprintModal({
   const [endDate, setEndDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -52,6 +55,17 @@ export default function CreateSprintModal({
     setEndDate(w.end);
     setError(null);
   }, [isOpen]);
+
+  // AUD-015 / AUD-056: this modal previously only closed via the backdrop click, with
+  // no Escape-key handler at all.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, submitting, onClose]);
 
   if (!isOpen) return null;
 
@@ -87,9 +101,10 @@ export default function CreateSprintModal({
   return (
     <div
       className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={() => !submitting && onClose()}
     >
       <div
+        ref={modalRef}
         className="w-full max-w-md rounded-xl border border-white/[0.08] bg-[#111115] shadow-xl"
         role="dialog"
         aria-modal="true"

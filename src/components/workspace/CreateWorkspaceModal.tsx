@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Loader2, ChevronRight } from "lucide-react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface CreateWorkspaceModalProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export default function CreateWorkspaceModal({
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -40,6 +43,16 @@ export default function CreateWorkspaceModal({
       setClosing(false);
     }, 200);
   }, [onClose]);
+
+  // AUD-015 / AUD-056: no Escape-to-close handler existed here before.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isOpen, handleClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,13 +117,19 @@ export default function CreateWorkspaceModal({
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
         <div
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-workspace-title"
           className={`relative w-full max-w-md rounded-2xl overflow-hidden bg-[#0c0c0f] border border-white/[0.08] shadow-2xl ${animClass}`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-8">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h2 className="text-xl font-semibold text-zinc-100">New Workspace</h2>
+                <h2 id="create-workspace-title" className="text-xl font-semibold text-zinc-100">
+                  New Workspace
+                </h2>
                 <p className="text-[13px] text-zinc-500 mt-1">
                   Create a new workspace for your projects.
                 </p>

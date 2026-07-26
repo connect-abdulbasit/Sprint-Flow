@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useWorkspaceNav } from "@/contexts/workspace-nav-context";
 import { readSelectedOrgId, writeWorkspaceIdForOrg } from "@/lib/workspace-prefs";
+import CreateWorkspaceModal from "@/components/workspace/CreateWorkspaceModal";
 import {
   ChevronDown,
   Check,
@@ -27,8 +28,8 @@ interface Workspace {
   id: string;
   name: string;
   color: string;
+  logoUrl?: string | null;
   role?: string;
-  taskCount: number;
   memberCount: number;
 }
 
@@ -42,8 +43,10 @@ interface ApiWorkspaceRow {
   id: string;
   name: string;
   color: string | null;
+  logoUrl?: string | null;
   organizationId: string;
   role?: string;
+  memberCount?: number;
 }
 
 function extractItems<T>(payload: T[] | { items?: T[] }) {
@@ -85,12 +88,41 @@ function getWorkspaceRoleLabel(role: string | null | undefined) {
   return "Member";
 }
 
+function WorkspaceMark({
+  ws,
+  variant,
+}: {
+  ws: Pick<Workspace, "color" | "logoUrl" | "name">;
+  variant: "trigger" | "list";
+}) {
+  if (ws.logoUrl) {
+    const cls =
+      variant === "trigger"
+        ? "w-4 h-4 rounded-md object-cover shrink-0 ring-1 ring-white/[0.12]"
+        : "w-7 h-7 rounded-lg object-cover shrink-0 ring-1 ring-white/[0.08]";
+    return <img src={ws.logoUrl} alt="" className={cls} />;
+  }
+  const dot =
+    variant === "trigger" ? "w-1.5 h-1.5 rounded-full shrink-0" : "w-2 h-2 rounded-full shrink-0";
+  const shadow = variant === "trigger" ? `0 0 6px ${ws.color}` : `0 0 8px ${ws.color}40`;
+  return (
+    <div
+      className={dot}
+      style={{
+        background: ws.color,
+        boxShadow: shadow,
+      }}
+    />
+  );
+}
+
 export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boolean }) {
   const pathname = usePathname() || "";
   const router = useRouter();
   const { syncWorkspaceSelection, setNavWorkspaceId } = useWorkspaceNav();
 
   const [isOpen, setIsOpen] = useState(false);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -131,9 +163,11 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
             id: ws.id,
             name: ws.name,
             color: ws.color || "#4f7cff",
+            logoUrl: ws.logoUrl ?? null,
             role: ws.role,
-            taskCount: 0,
-            memberCount: 1,
+            // AUD-053: this used to be a hardcoded `1` for every workspace; the API now
+            // returns a real member count.
+            memberCount: ws.memberCount ?? 1,
           });
         });
 
@@ -168,6 +202,62 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
 
     fetchData();
   }, [syncWorkspaceSelection]);
+
+  // Extracted so both the dropdown-open refresh and a newly-created workspace (AUD-018)
+  // can reuse the same fetch-and-map logic instead of duplicating it.
+  const fetchWorkspacesByOrg = useCallback(async (): Promise<Record<
+    string,
+    Workspace[]
+  > | null> => {
+    try {
+      const wsRes = await fetch("/api/workspaces");
+      if (!wsRes.ok) return null;
+      const wsPayload = (await wsRes.json()) as ApiWorkspaceRow[] | { items?: ApiWorkspaceRow[] };
+      const wsData = extractItems<ApiWorkspaceRow>(wsPayload);
+
+      const wsByOrg: Record<string, Workspace[]> = {};
+      wsData.forEach((ws) => {
+        if (!wsByOrg[ws.organizationId]) wsByOrg[ws.organizationId] = [];
+        wsByOrg[ws.organizationId].push({
+          id: ws.id,
+          name: ws.name,
+          color: ws.color || "#4f7cff",
+          logoUrl: ws.logoUrl ?? null,
+          role: ws.role,
+          // AUD-053: this used to be a hardcoded `1` for every workspace; the API now
+          // returns a real member count.
+          memberCount: ws.memberCount ?? 1,
+        });
+      });
+      return wsByOrg;
+    } catch (err) {
+      console.error("Error fetching workspaces:", err);
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen || isLoading) return;
+
+    let cancelled = false;
+    fetchWorkspacesByOrg().then((wsByOrg) => {
+      if (cancelled || !wsByOrg) return;
+      setRealWorkspacesByOrg(wsByOrg);
+      const workspaces = wsByOrg[selectedOrgId] ?? [];
+      syncWorkspaceSelection(selectedOrgId, workspaces);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, isLoading, selectedOrgId, syncWorkspaceSelection, fetchWorkspacesByOrg]);
+
+  const handleWorkspaceCreated = useCallback(async () => {
+    const wsByOrg = await fetchWorkspacesByOrg();
+    if (!wsByOrg) return;
+    setRealWorkspacesByOrg(wsByOrg);
+    const workspaces = wsByOrg[selectedOrgId] ?? [];
+    syncWorkspaceSelection(selectedOrgId, workspaces);
+  }, [fetchWorkspacesByOrg, selectedOrgId, syncWorkspaceSelection]);
 
   useEffect(() => {
     if (isLoading || realOrganizations.length === 0) return;
@@ -295,13 +385,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
           <div className="flex items-center gap-1.5 mt-0.5">
             {currentWorkspace && (
               <>
-                <div
-                  className="w-1.5 h-1.5 rounded-full shrink-0"
-                  style={{
-                    background: currentWorkspace.color,
-                    boxShadow: `0 0 6px ${currentWorkspace.color}`,
-                  }}
-                />
+                <WorkspaceMark ws={currentWorkspace} variant="trigger" />
                 <span className="text-[11px] text-[#8888a0] truncate">{currentWorkspace.name}</span>
                 <span className="text-[11px] text-[#6b6b80]">•</span>
                 <span className="text-[11px] text-[#6b6b80] truncate">
@@ -385,7 +469,15 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
             </span>
           </div>
           <button
-            className="w-5 h-5 flex items-center justify-center rounded-md text-[#6b6b80] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-all duration-150"
+            type="button"
+            onClick={() => {
+              // AUD-018: this button previously had no onClick at all — the most
+              // discoverable "create workspace" affordance in the app did nothing.
+              setIsOpen(false);
+              setCreateWorkspaceOpen(true);
+            }}
+            disabled={!selectedOrgId}
+            className="w-5 h-5 flex items-center justify-center rounded-md text-[#6b6b80] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-all duration-150 disabled:pointer-events-none disabled:opacity-40"
             title="New workspace"
           >
             <Plus className="w-3 h-3" />
@@ -404,13 +496,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                     : "text-[#9090a8] hover:bg-white/[0.04] hover:text-[#d0d0db]"
                 }`}
               >
-                <div
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{
-                    background: ws.color,
-                    boxShadow: `0 0 8px ${ws.color}40`,
-                  }}
-                />
+                <WorkspaceMark ws={ws} variant="list" />
                 <div className="flex-1 min-w-0">
                   <span className="text-[12.5px] font-medium truncate block leading-tight">
                     {ws.name}
@@ -420,7 +506,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                   </span>
                 </div>
                 <span className="text-[10px] text-[#6b6b80] tabular-nums shrink-0">
-                  {ws.taskCount} tasks
+                  {ws.memberCount} {ws.memberCount === 1 ? "member" : "members"}
                 </span>
                 {isActive && <Check className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />}
               </button>
@@ -469,6 +555,17 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
           }
         }
       `}</style>
+
+      {selectedOrgId && (
+        <CreateWorkspaceModal
+          isOpen={createWorkspaceOpen}
+          onClose={() => setCreateWorkspaceOpen(false)}
+          organizationId={selectedOrgId}
+          onSuccess={() => {
+            void handleWorkspaceCreated();
+          }}
+        />
+      )}
     </div>
   );
 }
