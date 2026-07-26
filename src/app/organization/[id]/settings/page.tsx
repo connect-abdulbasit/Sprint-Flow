@@ -136,25 +136,23 @@ export default function OrganizationSettings() {
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full bg-[#09090b] min-h-0">
-        <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-5 bg-[#0c0c0f]/60 backdrop-blur-xl">
+      <div className="flex flex-col h-full bg-surface-sunken min-h-0">
+        <header className="shrink-0 border-b border-border px-6 lg:px-10 py-5 bg-surface-sunken/60 backdrop-blur-xl">
           <Link
             href="/organizations"
-            className="inline-flex items-center gap-1 text-[12px] font-medium text-zinc-500 hover:text-blue-400 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 text-[12px] font-medium text-muted hover:text-accent transition-colors cursor-pointer"
           >
             <ChevronRight className="w-3.5 h-3.5 rotate-180" />
             All organizations
           </Link>
-          <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-3">
-            Organization settings
-          </h1>
+          <h1 className="text-xl font-bold text-fg tracking-tight mt-3">Organization settings</h1>
           <Skeleton className="mt-2 h-[13px] w-48 max-w-full rounded" />
         </header>
 
         <div className="flex-1 flex overflow-hidden min-h-0">
-          <aside className="w-[280px] shrink-0 border-r border-white/[0.04] bg-[#0c0c0f]/40 hidden lg:flex flex-col p-6">
+          <aside className="w-[280px] shrink-0 border-r border-border bg-surface-sunken/40 hidden lg:flex flex-col p-6">
             <div className="mb-8">
-              <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-4 px-3">
+              <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted mb-4 px-3">
                 Organization
               </h2>
               <nav className="space-y-1">
@@ -165,16 +163,16 @@ export default function OrganizationSettings() {
                   <div
                     key={item.id}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium ${
-                      item.id === "general" ? "bg-white/[0.06] text-white" : "text-zinc-500"
+                      item.id === "general" ? "bg-hover-strong text-fg-strong" : "text-muted"
                     }`}
                   >
                     <item.icon
                       className={`w-4 h-4 ${
                         item.id === "general"
                           ? item.danger
-                            ? "text-red-400"
-                            : "text-blue-400"
-                          : "text-zinc-600"
+                            ? "text-danger"
+                            : "text-accent"
+                          : "text-muted"
                       }`}
                     />
                     {item.label}
@@ -183,12 +181,12 @@ export default function OrganizationSettings() {
               </nav>
             </div>
 
-            <div className="mt-auto p-4 rounded-2xl bg-gradient-to-br from-blue-500/5 to-purple-500/5 border border-white/[0.04]">
-              <div className="flex items-center gap-2 text-blue-400 mb-2">
+            <div className="mt-auto p-4 rounded-2xl bg-gradient-to-br from-accent/5 to-accent2/5 border border-border">
+              <div className="flex items-center gap-2 text-accent mb-2">
                 <Info className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-bold uppercase tracking-wider">Tip</span>
               </div>
-              <p className="text-[12px] text-zinc-500 leading-relaxed">
+              <p className="text-[12px] text-muted leading-relaxed">
                 Organizations group workspaces and billing for your company.
               </p>
             </div>
@@ -204,17 +202,17 @@ export default function OrganizationSettings() {
 
   if (error || !organization) {
     return (
-      <div className="flex flex-col h-full bg-[#09090b] items-center justify-center min-h-[50vh] text-center px-6">
-        <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-6">
-          <AlertCircle className="w-8 h-8 text-red-500" />
+      <div className="flex flex-col h-full bg-surface-sunken items-center justify-center min-h-[50vh] text-center px-6">
+        <div className="w-16 h-16 bg-danger/10 border border-danger/20 rounded-2xl flex items-center justify-center mb-6">
+          <AlertCircle className="w-8 h-8 text-danger" />
         </div>
-        <h2 className="text-xl font-bold text-zinc-100 mb-2">Organization not found</h2>
-        <p className="text-sm text-zinc-500 max-w-xs mb-8">
+        <h2 className="text-xl font-bold text-fg mb-2">Organization not found</h2>
+        <p className="text-sm text-muted max-w-xs mb-8">
           {error ?? "The organization could not be loaded."}
         </p>
         <Link
           href="/organizations"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-400 hover:text-blue-300 cursor-pointer"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:text-accent cursor-pointer"
         >
           <ChevronRight className="w-4 h-4 rotate-180" />
           Back to organizations
@@ -224,25 +222,23 @@ export default function OrganizationSettings() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#09090b] min-h-0">
-      <header className="shrink-0 border-b border-white/[0.04] px-6 lg:px-10 py-5 bg-[#0c0c0f]/60 backdrop-blur-xl">
+    <div className="flex flex-col h-full bg-surface-sunken min-h-0">
+      <header className="shrink-0 border-b border-border px-6 lg:px-10 py-5 bg-surface-sunken/60 backdrop-blur-xl">
         <Link
           href="/organizations"
-          className="inline-flex items-center gap-1 text-[12px] font-medium text-zinc-500 hover:text-blue-400 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 text-[12px] font-medium text-muted hover:text-accent transition-colors cursor-pointer"
         >
           <ChevronRight className="w-3.5 h-3.5 rotate-180" />
           All organizations
         </Link>
-        <h1 className="text-xl font-bold text-zinc-100 tracking-tight mt-3">
-          Organization settings
-        </h1>
-        <p className="text-[13px] text-zinc-500 mt-0.5">{organization.name}</p>
+        <h1 className="text-xl font-bold text-fg tracking-tight mt-3">Organization settings</h1>
+        <p className="text-[13px] text-muted mt-0.5">{organization.name}</p>
       </header>
 
       <div className="flex-1 flex overflow-hidden min-h-0">
-        <aside className="w-[280px] shrink-0 border-r border-white/[0.04] bg-[#0c0c0f]/40 hidden lg:flex flex-col p-6">
+        <aside className="w-[280px] shrink-0 border-r border-border bg-surface-sunken/40 hidden lg:flex flex-col p-6">
           <div className="mb-8">
-            <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-500 mb-4 px-3">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted mb-4 px-3">
               Organization
             </h2>
             <nav className="space-y-1">
@@ -256,17 +252,17 @@ export default function OrganizationSettings() {
                   onClick={() => scrollToSection(item.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all group cursor-pointer ${
                     activeSection === item.id
-                      ? "bg-white/[0.06] text-white"
-                      : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
-                  } ${item.danger && activeSection === item.id ? "text-red-400" : ""}`}
+                      ? "bg-hover-strong text-fg-strong"
+                      : "text-muted hover:text-muted2 hover:bg-hover"
+                  } ${item.danger && activeSection === item.id ? "text-danger" : ""}`}
                 >
                   <item.icon
                     className={`w-4 h-4 transition-colors ${
                       activeSection === item.id
                         ? item.danger
-                          ? "text-red-400"
-                          : "text-blue-400"
-                        : "text-zinc-600 group-hover:text-zinc-400"
+                          ? "text-danger"
+                          : "text-accent"
+                        : "text-muted group-hover:text-muted2"
                     }`}
                   />
                   {item.label}
@@ -278,12 +274,12 @@ export default function OrganizationSettings() {
             </nav>
           </div>
 
-          <div className="mt-auto p-4 rounded-2xl bg-gradient-to-br from-blue-500/5 to-purple-500/5 border border-white/[0.04]">
-            <div className="flex items-center gap-2 text-blue-400 mb-2">
+          <div className="mt-auto p-4 rounded-2xl bg-gradient-to-br from-accent/5 to-accent2/5 border border-border">
+            <div className="flex items-center gap-2 text-accent mb-2">
               <Info className="w-3.5 h-3.5" />
               <span className="text-[11px] font-bold uppercase tracking-wider">Tip</span>
             </div>
-            <p className="text-[12px] text-zinc-500 leading-relaxed">
+            <p className="text-[12px] text-muted leading-relaxed">
               Organizations group workspaces and billing for your company.
             </p>
           </div>
@@ -292,10 +288,10 @@ export default function OrganizationSettings() {
         <main className="flex-1 overflow-y-auto custom-scrollbar px-6 py-10 sm:px-12 lg:px-20">
           <div className="max-w-4xl mx-auto space-y-16 pb-24">
             <section ref={sections.general} className="space-y-8">
-              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-white/[0.04] pb-6">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 border-b border-border pb-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-zinc-100 tracking-tight">General</h2>
-                  <p className="text-[14px] text-zinc-500 mt-1">
+                  <h2 className="text-2xl font-bold text-fg tracking-tight">General</h2>
+                  <p className="text-[14px] text-muted mt-1">
                     Name and description for this organization.
                   </p>
                 </div>
@@ -303,14 +299,14 @@ export default function OrganizationSettings() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="space-y-1">
-                  <h3 className="text-[14px] font-semibold text-zinc-200">Details</h3>
-                  <p className="text-[12px] text-zinc-500 leading-relaxed">
+                  <h3 className="text-[14px] font-semibold text-fg">Details</h3>
+                  <p className="text-[12px] text-muted leading-relaxed">
                     Shown wherever this organization is listed.
                   </p>
                 </div>
                 <div className="md:col-span-2 space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">
+                    <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
                       Organization name
                     </label>
                     <input
@@ -319,12 +315,12 @@ export default function OrganizationSettings() {
                         setEditName(e.target.value);
                         setIsDirty(true);
                       }}
-                      className="w-full bg-[#0f0f12] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                      className="w-full bg-surface-sunken border border-border rounded-xl px-4 py-3 text-[14px] text-fg placeholder:text-muted focus:outline-none focus:border-accent/40 focus:ring-1 focus:ring-accent/20 transition-all"
                       placeholder="Organization name"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-500">
+                    <label className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
                       Description
                     </label>
                     <textarea
@@ -334,7 +330,7 @@ export default function OrganizationSettings() {
                         setIsDirty(true);
                       }}
                       rows={4}
-                      className="w-full bg-[#0f0f12] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/40 focus:ring-1 focus:ring-blue-500/20 transition-all resize-none leading-relaxed"
+                      className="w-full bg-surface-sunken border border-border rounded-xl px-4 py-3 text-[14px] text-fg placeholder:text-muted focus:outline-none focus:border-accent/40 focus:ring-1 focus:ring-accent/20 transition-all resize-none leading-relaxed"
                       placeholder="What is this organization for?"
                     />
                   </div>
@@ -343,7 +339,7 @@ export default function OrganizationSettings() {
                       <button
                         type="button"
                         onClick={cancelChanges}
-                        className="flex items-center gap-2 px-5 py-2.5 text-[13px] font-semibold text-zinc-400 bg-transparent border border-white/10 rounded-xl hover:bg-white/[0.04] hover:text-zinc-200 transition-all cursor-pointer"
+                        className="flex items-center gap-2 px-5 py-2.5 text-[13px] font-semibold text-muted2 bg-transparent border border-border-hover rounded-xl hover:bg-hover hover:text-fg transition-all cursor-pointer"
                       >
                         <X className="w-4 h-4" />
                         Cancel
@@ -352,7 +348,7 @@ export default function OrganizationSettings() {
                         type="button"
                         onClick={() => void saveOrganization()}
                         disabled={saving}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-zinc-100 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-zinc-950 text-[13px] font-semibold rounded-xl transition-all cursor-pointer"
+                        className="flex items-center gap-2 px-5 py-2.5 bg-fg hover:bg-fg-strong disabled:opacity-50 disabled:cursor-not-allowed text-bg text-[13px] font-semibold rounded-xl transition-all cursor-pointer"
                       >
                         {saving ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -368,21 +364,21 @@ export default function OrganizationSettings() {
             </section>
 
             <section ref={sections.danger} className="space-y-8 pt-8">
-              <div className="border-b border-red-500/10 pb-6 text-red-400">
+              <div className="border-b border-danger/10 pb-6 text-danger">
                 <h2 className="text-2xl font-bold tracking-tight">Danger Zone</h2>
-                <p className="text-[14px] text-red-500/60 mt-1">
+                <p className="text-[14px] text-danger/60 mt-1">
                   Actions here are permanent and cannot be undone.
                 </p>
               </div>
 
-              <div className="p-8 rounded-2xl bg-red-500/[0.03] border border-red-500/10 flex flex-col md:flex-row items-center gap-8 shadow-[0_0_30px_rgba(239,68,68,0.02)]">
+              <div className="p-8 rounded-2xl bg-danger/[0.03] border border-danger/10 flex flex-col md:flex-row items-center gap-8 shadow-lg">
                 <div className="flex-1 text-center md:text-left">
-                  <h3 className="text-[16px] font-bold text-red-400 mb-2">
+                  <h3 className="text-[16px] font-bold text-danger mb-2">
                     Delete this organization
                   </h3>
-                  <p className="text-[13px] text-zinc-500 leading-relaxed">
+                  <p className="text-[13px] text-muted leading-relaxed">
                     Permanently remove this organization and its workspaces. This action is{" "}
-                    <span className="text-red-400/80 font-bold italic">irreversible</span>.
+                    <span className="text-danger/80 font-bold italic">irreversible</span>.
                   </p>
                 </div>
                 <button
@@ -391,7 +387,7 @@ export default function OrganizationSettings() {
                     setDeleteError(null);
                     setDeleteDialogOpen(true);
                   }}
-                  className="shrink-0 px-6 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[13px] font-bold rounded-xl border border-red-500/20 transition-all flex items-center gap-2 cursor-pointer"
+                  className="shrink-0 px-6 py-3 bg-danger/10 text-danger hover:bg-danger/20 text-[13px] font-bold rounded-xl border border-danger/20 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete organization
@@ -436,28 +432,27 @@ export default function OrganizationSettings() {
           className="fixed bottom-6 right-6 z-[1002] flex items-center gap-3 px-5 py-3 rounded-xl border shadow-2xl backdrop-blur-sm transition-all cursor-default"
           style={{
             backgroundColor:
-              toast.type === "success" ? "rgba(34, 197, 94, 0.12)" : "rgba(239, 68, 68, 0.12)",
-            borderColor:
-              toast.type === "success" ? "rgba(34, 197, 94, 0.25)" : "rgba(239, 68, 68, 0.25)",
+              toast.type === "success" ? "var(--color-success-soft)" : "var(--color-danger-soft)",
+            borderColor: toast.type === "success" ? "var(--color-success)" : "var(--color-danger)",
           }}
         >
           {toast.type === "success" ? (
-            <CheckCircle2 className="w-5 h-5 text-green-400" />
+            <CheckCircle2 className="w-5 h-5 text-success" />
           ) : (
-            <AlertCircle className="w-5 h-5 text-red-400" />
+            <AlertCircle className="w-5 h-5 text-danger" />
           )}
           <span
-            className={`text-sm font-semibold ${toast.type === "success" ? "text-green-300" : "text-red-300"}`}
+            className={`text-sm font-semibold ${toast.type === "success" ? "text-success" : "text-danger"}`}
           >
             {toast.message}
           </span>
           <button
             type="button"
             onClick={() => setToast(null)}
-            className="ml-1 p-1 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+            className="ml-1 p-1 hover:bg-hover-strong rounded-lg transition-colors cursor-pointer"
           >
             <X
-              className={`w-3.5 h-3.5 ${toast.type === "success" ? "text-green-400" : "text-red-400"}`}
+              className={`w-3.5 h-3.5 ${toast.type === "success" ? "text-success" : "text-danger"}`}
             />
           </button>
         </div>

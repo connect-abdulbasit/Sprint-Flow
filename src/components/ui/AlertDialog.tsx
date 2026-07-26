@@ -39,12 +39,12 @@ export default function AlertDialog({
   const Icon = variant === "error" ? AlertCircle : Info;
   const iconWrap =
     variant === "error"
-      ? "bg-red-500/10 border-red-500/20 text-red-400"
-      : "bg-blue-500/10 border-blue-500/20 text-blue-400";
+      ? "bg-danger-soft border-danger/25 text-danger"
+      : "bg-accent-soft border-accent/25 text-accent";
 
   return (
     <div
-      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
       role="presentation"
       onClick={onClose}
     >
@@ -54,7 +54,7 @@ export default function AlertDialog({
         aria-modal="true"
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-desc"
-        className="relative w-full max-w-md rounded-xl border border-white/[0.1] bg-[#111115] shadow-2xl"
+        className="relative w-full max-w-md rounded-xl border border-border-hover bg-surface shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-4 p-5">
@@ -65,29 +65,29 @@ export default function AlertDialog({
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <div className="flex items-start justify-between gap-2">
-              <h2 id="alert-dialog-title" className="text-[15px] font-semibold text-zinc-100">
+              <h2 id="alert-dialog-title" className="text-[15px] font-semibold text-fg">
                 {title}
               </h2>
               <button
                 type="button"
                 onClick={onClose}
-                className="shrink-0 rounded-md p-1 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300"
+                className="shrink-0 rounded-md p-1 text-muted hover:bg-hover-strong hover:text-muted2"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p id="alert-dialog-desc" className="mt-2 text-[13px] leading-relaxed text-zinc-400">
+            <p id="alert-dialog-desc" className="mt-2 text-[13px] leading-relaxed text-muted2">
               {message}
             </p>
           </div>
         </div>
 
-        <div className="flex justify-end border-t border-white/[0.06] px-5 py-4">
+        <div className="flex justify-end border-t border-border px-5 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg bg-zinc-100 px-5 py-2.5 text-[13px] font-semibold text-zinc-950 hover:bg-white"
+            className="rounded-lg bg-fg px-5 py-2.5 text-[13px] font-semibold text-bg hover:bg-fg-strong"
           >
             {okLabel}
           </button>

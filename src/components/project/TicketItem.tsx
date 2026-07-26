@@ -22,24 +22,24 @@ import {
 export const TICKET_DRAG_MIME = "application/x-sprintflow-ticket";
 
 const priorityConfig = {
-  low: { icon: ArrowDown, color: "text-blue-400/60", bg: "bg-blue-400/10", label: "Low" },
-  medium: { icon: Minus, color: "text-amber-400/60", bg: "bg-amber-400/10", label: "Medium" },
-  high: { icon: ArrowUp, color: "text-orange-400", bg: "bg-orange-400/10", label: "High" },
-  urgent: { icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10", label: "Urgent" },
+  low: { icon: ArrowDown, color: "text-muted", bg: "bg-hover", label: "Low" },
+  medium: { icon: Minus, color: "text-accent", bg: "bg-accent-soft", label: "Medium" },
+  high: { icon: ArrowUp, color: "text-warning", bg: "bg-warning-soft", label: "High" },
+  urgent: { icon: AlertCircle, color: "text-danger", bg: "bg-danger-soft", label: "Urgent" },
 };
 
 const typeConfig = {
-  task: { icon: FileText, color: "text-blue-400", label: "Task" },
-  bug: { icon: Bug, color: "text-red-400", label: "Bug" },
-  feature: { icon: Zap, color: "text-purple-400", label: "Feature" },
-  improvement: { icon: PlusCircle, color: "text-emerald-400", label: "Improvement" },
+  task: { icon: FileText, color: "text-accent", label: "Task" },
+  bug: { icon: Bug, color: "text-danger", label: "Bug" },
+  feature: { icon: Zap, color: "text-accent2", label: "Feature" },
+  improvement: { icon: PlusCircle, color: "text-success", label: "Improvement" },
 };
 
 const statusConfig = {
-  todo: { icon: Circle, color: "text-zinc-500" },
-  in_progress: { icon: Clock, color: "text-blue-400" },
-  review: { icon: CheckCircle2, color: "text-purple-400" },
-  done: { icon: CheckCircle2, color: "text-emerald-400" },
+  todo: { icon: Circle, color: "text-muted" },
+  in_progress: { icon: Clock, color: "text-accent" },
+  review: { icon: CheckCircle2, color: "text-accent2" },
+  done: { icon: CheckCircle2, color: "text-success" },
 };
 
 export default function TicketItem({
@@ -64,7 +64,7 @@ export default function TicketItem({
 
   return (
     <div
-      className="group flex cursor-pointer items-center gap-3 border-b border-white/[0.03] px-4 py-2 transition-all hover:bg-white/[0.03]"
+      className="group flex cursor-pointer items-center gap-3 border-b border-border px-4 py-2 transition-all hover:bg-hover"
       draggable={isDraggable}
       onDragStart={(e) => {
         if (!draggableTicketId) return;
@@ -91,7 +91,7 @@ export default function TicketItem({
     >
       {isDraggable ? (
         <span
-          className="shrink-0 cursor-grab text-zinc-600 opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
+          className="shrink-0 cursor-grab text-muted opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"
           aria-hidden
           onClick={(e) => e.stopPropagation()}
         >
@@ -102,20 +102,17 @@ export default function TicketItem({
       <StatusIcon className={`w-4 h-4 shrink-0 ${status.color}`} />
 
       {/* Key */}
-      <span className="text-[11px] font-mono text-zinc-600 w-[60px] shrink-0 group-hover:text-zinc-400 transition-colors">
+      <span className="text-[11px] font-mono text-muted w-[60px] shrink-0 group-hover:text-muted2 transition-colors">
         {ticket.key}
       </span>
 
       {/* Title */}
-      <span className="text-[13px] text-zinc-300 flex-1 truncate group-hover:text-zinc-100 transition-colors">
+      <span className="text-[13px] text-muted2 flex-1 truncate group-hover:text-fg transition-colors">
         {ticket.title}
       </span>
 
       {ticket.blockedByOpenDependencies ? (
-        <span
-          className="flex shrink-0 text-amber-500/90"
-          title="Waiting on linked tickets not done yet"
-        >
+        <span className="flex shrink-0 text-warning" title="Waiting on linked tickets not done yet">
           <Link2 className="h-3 w-3" aria-hidden />
         </span>
       ) : null}
@@ -136,7 +133,7 @@ export default function TicketItem({
 
       {/* Story Points */}
       {ticket.storyPoints !== null && ticket.storyPoints !== undefined ? (
-        <div className="w-6 h-6 rounded bg-zinc-800/80 flex items-center justify-center text-[10px] font-medium text-zinc-500 shrink-0">
+        <div className="w-6 h-6 rounded bg-surface-2/80 flex items-center justify-center text-[10px] font-medium text-muted shrink-0">
           {ticket.storyPoints}
         </div>
       ) : (
@@ -144,7 +141,7 @@ export default function TicketItem({
       )}
 
       {/* Assignee */}
-      <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700/50 flex items-center justify-center text-[9px] font-semibold text-zinc-400 shrink-0">
+      <div className="w-6 h-6 rounded-full bg-surface-2 border border-border flex items-center justify-center text-[9px] font-semibold text-muted2 shrink-0">
         {initialsFromName(ticket.assigneeName)}
       </div>
     </div>

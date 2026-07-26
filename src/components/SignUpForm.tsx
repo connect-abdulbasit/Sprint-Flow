@@ -69,22 +69,22 @@ export default function SignUpForm() {
             <img
               src="/logo-icon.png"
               alt="SprintFlow"
-              className="w-11 h-11 object-contain rounded-xl shadow-[0_0_24px_rgba(79,124,255,0.15)]"
+              className="w-11 h-11 object-contain rounded-xl shadow-[0_0_24px_var(--color-accent-soft)]"
             />
             <span
-              className="text-2xl font-black tracking-tight text-[#f0f0f5]"
+              className="text-2xl font-black tracking-tight text-fg"
               style={{ fontFamily: "var(--font-syne)" }}
             >
               SprintFlow
             </span>
           </Link>
 
-          <p className="text-[#9090a8] text-sm">Sign up to continue</p>
+          <p className="text-muted2 text-sm">Sign up to continue</p>
         </div>
 
         <form onSubmit={handleSignUp} className="space-y-4 mb-6">
           <div>
-            <label htmlFor="fullName" className="block text-sm font-medium text-[#f0f0f5] mb-2">
+            <label htmlFor="fullName" className="block text-sm font-medium text-fg mb-2">
               Full Name
             </label>
             <input
@@ -93,13 +93,13 @@ export default function SignUpForm() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="John Doe"
-              className="w-full px-4 py-3 bg-[#18181f] border border-[#333339] rounded-lg text-[#f0f0f5] placeholder-[#6b6b80] focus:outline-none focus:border-[#4f7cff] focus:ring-1 focus:ring-[#4f7cff] transition-all duration-200"
+              className="w-full px-4 py-3 bg-surface-2 border border-border-strong rounded-lg text-fg placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all duration-200"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-[#f0f0f5] mb-2">
+            <label htmlFor="email" className="block text-sm font-medium text-fg mb-2">
               Email
             </label>
             <input
@@ -108,13 +108,13 @@ export default function SignUpForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full px-4 py-3 bg-[#18181f] border border-[#333339] rounded-lg text-[#f0f0f5] placeholder-[#6b6b80] focus:outline-none focus:border-[#4f7cff] focus:ring-1 focus:ring-[#4f7cff] transition-all duration-200"
+              className="w-full px-4 py-3 bg-surface-2 border border-border-strong rounded-lg text-fg placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all duration-200"
               required
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-[#f0f0f5] mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-fg mb-2">
               Password
             </label>
             <div className="relative">
@@ -124,14 +124,14 @@ export default function SignUpForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-[#18181f] border border-[#333339] rounded-lg text-[#f0f0f5] placeholder-[#6b6b80] focus:outline-none focus:border-[#4f7cff] focus:ring-1 focus:ring-[#4f7cff] transition-all duration-200 pr-10"
+                className="w-full px-4 py-3 bg-surface-2 border border-border-strong rounded-lg text-fg placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all duration-200 pr-10"
                 required
                 minLength={8}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b6b80] hover:text-[#9090a8] transition-colors duration-200"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-muted2 transition-colors duration-200"
               >
                 {showPassword ? (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,10 +163,7 @@ export default function SignUpForm() {
           </div>
 
           <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-[#f0f0f5] mb-2"
-            >
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-fg mb-2">
               Confirm Password
             </label>
             <div className="relative">
@@ -176,13 +173,13 @@ export default function SignUpForm() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-[#18181f] border border-[#333339] rounded-lg text-[#f0f0f5] placeholder-[#6b6b80] focus:outline-none focus:border-[#4f7cff] focus:ring-1 focus:ring-[#4f7cff] transition-all duration-200 pr-10"
+                className="w-full px-4 py-3 bg-surface-2 border border-border-strong rounded-lg text-fg placeholder:text-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all duration-200 pr-10"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b6b80] hover:text-[#9090a8] transition-colors duration-200"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-muted2 transition-colors duration-200"
               >
                 {showConfirmPassword ? (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,22 +213,22 @@ export default function SignUpForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-6 px-5 py-3 text-sm font-medium text-white bg-[#4f7cff] rounded-lg hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full mt-6 px-5 py-3 text-sm font-medium text-white bg-accent rounded-lg hover:opacity-90 hover:-translate-y-px transition-all duration-200 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Creating account..." : "Sign Up"}
           </button>
         </form>
 
         <div className="flex items-center gap-3 mb-6">
-          <div className="flex-1 h-px bg-[#333339]"></div>
-          <span className="text-[#6b6b80] text-sm">Or continue with</span>
-          <div className="flex-1 h-px bg-[#333339]"></div>
+          <div className="flex-1 h-px bg-border-strong"></div>
+          <span className="text-muted text-sm">Or continue with</span>
+          <div className="flex-1 h-px bg-border-strong"></div>
         </div>
 
         <button
           type="button"
           onClick={() => (window.location.href = "/api/auth/google")}
-          className="w-full px-5 py-3 text-sm font-medium text-[#f0f0f5] bg-[#18181f] border border-[#333339] rounded-lg hover:bg-[#1f1f27] hover:border-[#4f7cff] transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+          className="w-full px-5 py-3 text-sm font-medium text-fg bg-surface-2 border border-border-strong rounded-lg hover:bg-surface-hover hover:border-accent transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
             <path
@@ -254,11 +251,11 @@ export default function SignUpForm() {
           Continue
         </button>
 
-        <p className="text-center text-[#9090a8] text-sm mt-6">
+        <p className="text-center text-muted2 text-sm mt-6">
           Already have an account?{" "}
           <Link
             href="/signin"
-            className="text-[#4f7cff] hover:text-[#a259ff] font-medium no-underline transition-colors duration-200"
+            className="text-accent hover:text-accent2 font-medium no-underline transition-colors duration-200"
           >
             Sign in
           </Link>

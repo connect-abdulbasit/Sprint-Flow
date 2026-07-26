@@ -42,7 +42,7 @@ export default function ProjectSprintsPage() {
   const completed = sprints.filter((s) => s.status === "completed");
 
   return (
-    <div className="flex flex-col h-full bg-[#09090b]">
+    <div className="flex flex-col h-full bg-surface-sunken">
       <ProjectPageHeader />
 
       {modalOpen && (
@@ -60,7 +60,7 @@ export default function ProjectSprintsPage() {
         {loadError && (
           <div
             role="alert"
-            className="flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-[13px] text-red-300"
+            className="flex items-center justify-between gap-3 rounded-xl border border-danger/20 bg-danger/[0.06] px-4 py-3 text-[13px] text-danger"
           >
             <span className="flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -69,7 +69,7 @@ export default function ProjectSprintsPage() {
             <button
               type="button"
               onClick={load}
-              className="shrink-0 rounded-lg border border-red-500/25 px-3 py-1.5 font-semibold text-red-200 hover:bg-red-500/10"
+              className="shrink-0 rounded-lg border border-danger/25 px-3 py-1.5 font-semibold text-danger hover:bg-danger/10"
             >
               Retry
             </button>
@@ -77,15 +77,15 @@ export default function ProjectSprintsPage() {
         )}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[15px] font-semibold text-zinc-200">Sprint timeline</h2>
-            <p className="text-[12px] text-zinc-500 mt-0.5">
+            <h2 className="text-[15px] font-semibold text-fg">Sprint timeline</h2>
+            <p className="text-[12px] text-muted mt-0.5">
               All sprints for this project. Plan work and run the sprint from the backlog.
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link
               href={`/workspace/${wid}/projects/${pid}/backlog`}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-[12px] font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05] transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-hover border border-border rounded-lg text-[12px] font-medium text-muted2 hover:text-fg hover:bg-hover transition-all"
             >
               Backlog
               <ArrowRight className="w-3.5 h-3.5" />
@@ -93,7 +93,7 @@ export default function ProjectSprintsPage() {
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-zinc-100 hover:bg-white text-zinc-950 text-[12px] font-semibold rounded-lg transition-all active:scale-[0.98] shadow-sm"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-fg hover:bg-fg-strong text-bg text-[12px] font-semibold rounded-lg transition-all active:scale-[0.98] shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
               New sprint
@@ -104,17 +104,17 @@ export default function ProjectSprintsPage() {
         {loading ? (
           <SprintTimelineSkeleton />
         ) : sprints.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-white/[0.08] bg-[#111115]/40 px-8 py-16 text-center">
-            <Calendar className="mx-auto h-10 w-10 text-zinc-600 mb-4" />
-            <p className="text-[14px] font-medium text-zinc-400">No sprints yet</p>
-            <p className="text-[12px] text-zinc-600 mt-1 max-w-md mx-auto">
+          <div className="rounded-xl border border-dashed border-border bg-surface/40 px-8 py-16 text-center">
+            <Calendar className="mx-auto h-10 w-10 text-muted mb-4" />
+            <p className="text-[14px] font-medium text-muted2">No sprints yet</p>
+            <p className="text-[12px] text-muted mt-1 max-w-md mx-auto">
               Create a sprint with dates and a goal, add tickets from the backlog, then start it
               when the team is ready.
             </p>
             <button
               type="button"
               onClick={() => setModalOpen(true)}
-              className="inline-flex mt-6 items-center gap-2 rounded-lg bg-blue-500/15 border border-blue-500/20 px-4 py-2 text-[12px] font-medium text-blue-400 hover:bg-blue-500/20"
+              className="inline-flex mt-6 items-center gap-2 rounded-lg bg-accent/15 border border-accent/20 px-4 py-2 text-[12px] font-medium text-accent hover:bg-accent/20"
             >
               <Plus className="w-3.5 h-3.5" />
               Create first sprint
@@ -124,24 +124,24 @@ export default function ProjectSprintsPage() {
           <div className="space-y-6">
             {active.length > 0 && (
               <section>
-                <h3 className="text-[12px] font-semibold uppercase tracking-wide text-emerald-500/90 mb-3">
+                <h3 className="text-[12px] font-semibold uppercase tracking-wide text-success/90 mb-3">
                   Active
                 </h3>
                 <ul className="space-y-2">
                   {active.map((s) => (
                     <li
                       key={s.id}
-                      className="flex items-center justify-between rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04] px-4 py-3"
+                      className="flex items-center justify-between rounded-lg border border-success/15 bg-success/[0.04] px-4 py-3"
                     >
                       <div>
-                        <p className="text-[14px] font-medium text-zinc-200">{s.name}</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">
+                        <p className="text-[14px] font-medium text-fg">{s.name}</p>
+                        <p className="text-[11px] text-muted mt-0.5">
                           {s.startDate} → {s.endDate}
                         </p>
                       </div>
                       <Link
                         href={`/workspace/${wid}/projects/${pid}/backlog`}
-                        className="text-[12px] font-medium text-emerald-400 hover:text-emerald-300"
+                        className="text-[12px] font-medium text-success hover:text-success"
                       >
                         Open backlog
                       </Link>
@@ -153,22 +153,22 @@ export default function ProjectSprintsPage() {
 
             {planning.length > 0 && (
               <section>
-                <h3 className="text-[12px] font-semibold uppercase tracking-wide text-blue-400/90 mb-3">
+                <h3 className="text-[12px] font-semibold uppercase tracking-wide text-accent/90 mb-3">
                   Planned
                 </h3>
                 <ul className="space-y-2">
                   {planning.map((s) => (
                     <li
                       key={s.id}
-                      className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#111115]/50 px-4 py-3"
+                      className="flex items-center justify-between rounded-lg border border-border bg-surface/50 px-4 py-3"
                     >
                       <div>
-                        <p className="text-[14px] font-medium text-zinc-200">{s.name}</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5">
+                        <p className="text-[14px] font-medium text-fg">{s.name}</p>
+                        <p className="text-[11px] text-muted mt-0.5">
                           {s.startDate} → {s.endDate}
                         </p>
                       </div>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/15">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/15">
                         planning
                       </span>
                     </li>
@@ -178,16 +178,16 @@ export default function ProjectSprintsPage() {
             )}
 
             <div className="flex items-center gap-4 py-2">
-              <div className="h-px flex-1 bg-white/[0.03]" />
-              <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/[0.04] bg-white/[0.01]">
-                <CheckCircle2 className="w-3.5 h-3.5 text-zinc-600" />
-                <span className="text-[11px] font-medium text-zinc-500">Completed</span>
+              <div className="h-px flex-1 bg-hover" />
+              <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border border-border bg-hover">
+                <CheckCircle2 className="w-3.5 h-3.5 text-muted" />
+                <span className="text-[11px] font-medium text-muted">Completed</span>
               </div>
-              <div className="h-px flex-1 bg-white/[0.03]" />
+              <div className="h-px flex-1 bg-hover" />
             </div>
 
             {completed.length === 0 ? (
-              <p className="text-center text-[13px] text-zinc-600 py-6">No completed sprints yet</p>
+              <p className="text-center text-[13px] text-muted py-6">No completed sprints yet</p>
             ) : (
               <ul className="space-y-2">
                 {completed
@@ -196,15 +196,15 @@ export default function ProjectSprintsPage() {
                   .map((s) => (
                     <li
                       key={s.id}
-                      className="flex items-center justify-between rounded-lg border border-white/[0.04] bg-[#0c0c0f] px-4 py-3 opacity-80"
+                      className="flex items-center justify-between rounded-lg border border-border bg-surface-sunken px-4 py-3 opacity-80"
                     >
                       <div>
-                        <p className="text-[14px] font-medium text-zinc-300">{s.name}</p>
-                        <p className="text-[11px] text-zinc-600 mt-0.5">
+                        <p className="text-[14px] font-medium text-muted2">{s.name}</p>
+                        <p className="text-[11px] text-muted mt-0.5">
                           {s.startDate} → {s.endDate}
                         </p>
                       </div>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-zinc-500/10 text-zinc-500 border border-zinc-500/15">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted/10 text-muted border border-muted/15">
                         completed
                       </span>
                     </li>

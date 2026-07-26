@@ -46,10 +46,10 @@ export default function ProjectCard({ project }: ProjectCardProps) {
   ];
 
   return (
-    <div className="group relative flex flex-col bg-[#111115] border border-white/[0.05] rounded-2xl p-5 hover:border-white/[0.12] transition-all duration-300 shadow-sm hover:shadow-xl hover:shadow-black/40">
+    <div className="group relative flex flex-col bg-surface border border-border rounded-2xl p-5 hover:border-border-hover transition-all duration-300 shadow-card hover:shadow-card-hover">
       <Link
         href={`${base}/board`}
-        className="absolute inset-0 z-[1] rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090b]"
+        className="absolute inset-0 z-[1] rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-sunken"
         aria-label={`Open project ${project.name}`}
       />
 
@@ -57,45 +57,41 @@ export default function ProjectCard({ project }: ProjectCardProps) {
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-3 min-w-0">
             <div
-              className={`w-11 h-11 shrink-0 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-[13px] font-bold tracking-tight shadow-lg shadow-black/30`}
+              className={`w-11 h-11 shrink-0 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-[13px] font-bold tracking-tight shadow-lg`}
             >
               {keyPrefix.slice(0, 2)}
             </div>
             <div className="min-w-0">
-              <h3 className="text-[16px] font-semibold text-zinc-100 truncate group-hover:text-white transition-colors tracking-tight">
+              <h3 className="text-[16px] font-semibold text-fg truncate group-hover:text-fg-strong transition-colors tracking-tight">
                 {project.name}
               </h3>
-              <span className="text-[11px] font-mono text-zinc-500 tracking-tight">
-                {keyPrefix}
-              </span>
+              <span className="text-[11px] font-mono text-muted tracking-tight">{keyPrefix}</span>
             </div>
           </div>
 
           <span
             className={`shrink-0 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-tight border ${
               isActive
-                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/15"
-                : "bg-zinc-500/10 text-zinc-400 border-zinc-500/15"
+                ? "bg-success-soft text-success border-success/15"
+                : "bg-hover text-muted2 border-border"
             }`}
           >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-400" : "bg-zinc-400"}`}
-            />
+            <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-success" : "bg-muted"}`} />
             {isActive ? "Active" : "On hold"}
           </span>
         </div>
 
-        <p className="text-[13px] text-zinc-500 leading-relaxed line-clamp-2 group-hover:text-zinc-400 transition-colors min-h-[38px]">
+        <p className="text-[13px] text-muted leading-relaxed line-clamp-2 group-hover:text-muted2 transition-colors min-h-[38px]">
           {project.description || "No description provided."}
         </p>
 
-        <div className="mt-5 pt-4 border-t border-white/[0.04] flex items-center justify-between">
+        <div className="mt-5 pt-4 border-t border-border flex items-center justify-between">
           <div className="flex items-center gap-1 pointer-events-auto">
             {quickLinks.map((link) => (
               <Link
                 key={link.name}
                 href={link.href}
-                className="relative z-[3] flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.05] transition-colors"
+                className="relative z-[3] flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium text-muted hover:text-fg hover:bg-hover transition-colors"
               >
                 <link.icon className="w-3 h-3" />
                 {link.name}
@@ -103,7 +99,7 @@ export default function ProjectCard({ project }: ProjectCardProps) {
             ))}
           </div>
 
-          <ArrowUpRight className="w-4 h-4 text-zinc-600 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+          <ArrowUpRight className="w-4 h-4 text-muted opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
         </div>
       </div>
     </div>

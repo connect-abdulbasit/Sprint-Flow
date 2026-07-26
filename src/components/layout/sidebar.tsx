@@ -237,23 +237,21 @@ export default function Sidebar() {
       <Link
         href={item.href}
         className={`group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-[13px] font-medium relative ${
-          active
-            ? "text-white bg-white/[0.07]"
-            : "text-[#9090a8] hover:text-[#d0d0db] hover:bg-white/[0.03]"
+          active ? "text-fg bg-hover-strong" : "text-muted2 hover:text-fg hover:bg-hover"
         } ${isCollapsed ? "justify-center px-0" : ""}`}
         title={isCollapsed ? item.name : undefined}
       >
         {active && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--color-accent)] rounded-r-full" />
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-accent rounded-r-full" />
         )}
         <item.icon
           className={`w-[17px] h-[17px] shrink-0 transition-colors duration-200 ${
-            active ? "text-[var(--color-accent)]" : "text-[#6b6b80] group-hover:text-[#9090a8]"
+            active ? "text-accent" : "text-muted group-hover:text-muted2"
           }`}
         />
         {!isCollapsed && <span className="flex-1 truncate relative z-10">{item.name}</span>}
         {!isCollapsed && typeof item.badge === "number" && item.badge > 0 && (
-          <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-[var(--color-accent)]/15 text-[var(--color-accent)] text-[10px] font-bold px-1">
+          <span className="min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-accent-soft text-accent text-[10px] font-bold px-1">
             {item.badge}
           </span>
         )}
@@ -275,13 +273,11 @@ export default function Sidebar() {
       <div>
         <div
           className={`group flex items-center rounded-lg transition-all duration-200 relative ${
-            active
-              ? "text-white bg-white/[0.07]"
-              : "text-[#9090a8] hover:text-[#d0d0db] hover:bg-white/[0.03]"
+            active ? "text-fg bg-hover-strong" : "text-muted2 hover:text-fg hover:bg-hover"
           }`}
         >
           {active && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--color-accent)] rounded-r-full" />
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-accent rounded-r-full" />
           )}
           <Link
             href={item.href}
@@ -289,7 +285,7 @@ export default function Sidebar() {
           >
             <item.icon
               className={`w-[17px] h-[17px] shrink-0 transition-colors duration-200 ${
-                active ? "text-[var(--color-accent)]" : "text-[#6b6b80] group-hover:text-[#9090a8]"
+                active ? "text-accent" : "text-muted group-hover:text-muted2"
               }`}
             />
             <span className="flex-1 truncate">{item.name}</span>
@@ -299,7 +295,7 @@ export default function Sidebar() {
             onClick={() => setProjectsExpanded((v) => !v)}
             aria-label={projectsExpanded ? "Collapse projects" : "Expand projects"}
             aria-expanded={projectsExpanded}
-            className="p-1.5 mr-1.5 rounded-md text-[#6b6b80] hover:text-[#d0d0db] hover:bg-white/[0.06] transition-colors shrink-0"
+            className="p-1.5 mr-1.5 rounded-md text-muted hover:text-fg hover:bg-hover-strong transition-colors shrink-0"
           >
             <ChevronDown
               className={`w-3.5 h-3.5 transition-transform duration-200 ${
@@ -310,13 +306,13 @@ export default function Sidebar() {
         </div>
 
         {projectsExpanded && (
-          <div className="mt-1 ml-[22px] pl-2.5 border-l border-white/[0.06] space-y-0.5">
+          <div className="mt-1 ml-[22px] pl-2.5 border-l border-border space-y-0.5">
             {projectsLoading && projects.length === 0 ? (
-              <div className="px-2 py-1.5 text-[12px] text-[#6b6b80]">Loading projects…</div>
+              <div className="px-2 py-1.5 text-[12px] text-muted">Loading projects…</div>
             ) : projects.length === 0 ? (
               <Link
                 href={item.href}
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[12px] text-[#6b6b80] hover:text-[#9090a8] hover:bg-white/[0.03] transition-colors"
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[12px] text-muted hover:text-muted2 hover:bg-hover transition-colors"
               >
                 <Plus className="w-3 h-3" />
                 Create a project
@@ -331,15 +327,15 @@ export default function Sidebar() {
                     title={p.name}
                     className={`group/proj flex items-center gap-2 px-2 py-1.5 rounded-md text-[12.5px] font-medium transition-colors ${
                       isActiveProject
-                        ? "text-white bg-white/[0.06]"
-                        : "text-[#9090a8] hover:text-[#d0d0db] hover:bg-white/[0.03]"
+                        ? "text-fg bg-hover-strong"
+                        : "text-muted2 hover:text-fg hover:bg-hover"
                     }`}
                   >
                     <span
                       className={`shrink-0 w-5 h-5 rounded-[5px] flex items-center justify-center text-[9px] font-bold tracking-tight transition-colors ${
                         isActiveProject
-                          ? "bg-[var(--color-accent)]/20 text-[var(--color-accent)]"
-                          : "bg-white/[0.05] text-[#8888a0] group-hover/proj:text-[#a8a8c0]"
+                          ? "bg-accent-soft text-accent"
+                          : "bg-hover-strong text-muted2 group-hover/proj:text-fg"
                       }`}
                     >
                       {projectKeyPrefix(p.name).slice(0, 2)}
@@ -357,10 +353,10 @@ export default function Sidebar() {
 
   const SectionLabel = ({ label, dot }: { label: string; dot?: string }) => {
     if (isCollapsed) {
-      return <div className="mx-auto w-5 h-px bg-[#333339] my-2" />;
+      return <div className="mx-auto w-5 h-px bg-border-strong my-2" />;
     }
     return (
-      <div className="px-3 mb-2 mt-1 text-[10px] font-semibold text-[#6b6b80] uppercase tracking-[0.12em] flex items-center gap-2">
+      <div className="px-3 mb-2 mt-1 text-[10px] font-semibold text-muted uppercase tracking-[0.12em] flex items-center gap-2">
         {dot && (
           <div
             className="w-1.5 h-1.5 rounded-full"
@@ -374,7 +370,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`relative flex flex-col h-full bg-[#111118]/60 backdrop-blur-2xl text-[#f0f0f5] border-r border-[#333339] shadow-[4px_0_24px_-12px_rgba(0,0,0,0.5)] transition-all duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] z-40 ${
+      className={`relative flex flex-col h-full bg-sidebar backdrop-blur-2xl text-fg border-r border-border shadow-sidebar transition-all duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] z-40 ${
         isCollapsed ? "w-[68px]" : "w-[252px]"
       }`}
     >
@@ -397,7 +393,7 @@ export default function Sidebar() {
 
       <button
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-7 w-6 h-6 rounded-full bg-[#18181f] border border-white/[0.08] shadow-lg flex items-center justify-center text-[#9090a8] hover:text-white hover:border-[var(--color-accent)]/40 transition-all duration-200 z-50 hover:scale-110"
+        className="absolute -right-3 top-7 w-6 h-6 rounded-full bg-surface-2 border border-border shadow-md flex items-center justify-center text-muted2 hover:text-fg hover:border-accent/40 transition-all duration-200 z-50 hover:scale-110"
       >
         {isCollapsed ? (
           <ChevronRight className="w-3.5 h-3.5" />
@@ -406,25 +402,25 @@ export default function Sidebar() {
         )}
       </button>
 
-      <div className="px-4 py-3 border-t border-[#333339]">
+      <div className="px-4 py-3 border-t border-border">
         <button
           type="button"
           onClick={() => void handleSignOut()}
           title="Sign out"
           aria-label={`Sign out (${currentUser?.email ?? "current account"})`}
-          className={`w-full flex items-center gap-3 cursor-pointer hover:bg-white/[0.04] p-2 rounded-xl transition-colors text-left ${
+          className={`w-full flex items-center gap-3 cursor-pointer hover:bg-hover p-2 rounded-xl transition-colors text-left ${
             isCollapsed ? "justify-center" : ""
           }`}
         >
-          <div className="w-8 h-8 rounded-full bg-[var(--color-surface2)] border border-white/[0.08] flex items-center justify-center text-xs font-bold text-[var(--color-muted2)] shrink-0">
+          <div className="w-8 h-8 rounded-full bg-surface-2 border border-border flex items-center justify-center text-xs font-bold text-muted2 shrink-0">
             {userInitials}
           </div>
           {!isCollapsed && (
             <div className="flex-1 overflow-hidden">
-              <div className="text-[13px] font-semibold truncate text-[#f0f0f5]">
+              <div className="text-[13px] font-semibold truncate text-fg">
                 {currentUser?.name ?? "User"}
               </div>
-              <div className="text-[11px] text-[#6b6b80] truncate">
+              <div className="text-[11px] text-muted truncate">
                 {currentUser?.email ?? "No email"}
               </div>
             </div>

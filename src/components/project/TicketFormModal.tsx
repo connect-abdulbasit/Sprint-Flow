@@ -218,12 +218,12 @@ export default function TicketFormModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        className="fixed inset-0 z-[1000] flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
         onClick={() => !submitting && !deleting && onClose()}
       >
         <div
           ref={modalRef}
-          className="w-full max-w-lg rounded-xl border border-white/[0.08] bg-[#111115] shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar transition-all duration-300"
+          className="w-full max-w-lg rounded-xl border border-border bg-surface shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar transition-all duration-300"
           role="dialog"
           aria-modal="true"
           aria-labelledby="ticket-form-title"
@@ -231,56 +231,54 @@ export default function TicketFormModal({
         >
           <form onSubmit={(e) => void handleSubmit(e)} className="p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 id="ticket-form-title" className="text-[15px] font-semibold text-zinc-100">
+              <h2 id="ticket-form-title" className="text-[15px] font-semibold text-fg">
                 {mode === "create" ? "New ticket" : "Edit ticket"}
               </h2>
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.05]"
+                className="p-1 rounded-md text-muted hover:text-muted2 hover:bg-hover"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {error && (
-              <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+              <div className="mb-3 rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-[12px] text-danger">
                 {error}
               </div>
             )}
 
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-zinc-500">Title</label>
+                <label className="mb-1 block text-[11px] font-medium text-muted">Title</label>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[14px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[14px] text-fg focus:border-accent/40 focus:outline-none"
                   placeholder="Short summary"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-zinc-500">
-                  Description
-                </label>
+                <label className="mb-1 block text-[11px] font-medium text-muted">Description</label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={3}
-                  className="w-full resize-none rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[14px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                  className="w-full resize-none rounded-lg border border-border bg-hover px-3 py-2 text-[14px] text-fg focus:border-accent/40 focus:outline-none"
                   placeholder="Details, acceptance criteria…"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">Type</label>
+                  <label className="mb-1 block text-[11px] font-medium text-muted">Type</label>
                   <select
                     value={type}
                     onChange={(e) => setType(e.target.value as TicketType)}
-                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                   >
                     {TYPES.map((t) => (
                       <option key={t} value={t}>
@@ -290,13 +288,11 @@ export default function TicketFormModal({
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">
-                    Priority
-                  </label>
+                  <label className="mb-1 block text-[11px] font-medium text-muted">Priority</label>
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value)}
-                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                   >
                     {TICKET_PRIORITIES.map((p) => (
                       <option key={p} value={p}>
@@ -309,11 +305,11 @@ export default function TicketFormModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">Status</label>
+                  <label className="mb-1 block text-[11px] font-medium text-muted">Status</label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                   >
                     {statusSelectOptions.map((s) => (
                       <option key={s.value} value={s.value}>
@@ -323,13 +319,11 @@ export default function TicketFormModal({
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">
-                    Assignee
-                  </label>
+                  <label className="mb-1 block text-[11px] font-medium text-muted">Assignee</label>
                   <select
                     value={assigneeId}
                     onChange={(e) => setAssigneeId(e.target.value)}
-                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                   >
                     <option value="">Unassigned</option>
                     {members.map((m) => (
@@ -343,21 +337,21 @@ export default function TicketFormModal({
 
               {mode === "create" && createLinkOptions.length > 0 && (
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">
+                  <label className="mb-1 block text-[11px] font-medium text-muted">
                     Blocked by — complete these first
                   </label>
-                  <p className="mb-2 text-[12px] text-zinc-500">
+                  <p className="mb-2 text-[12px] text-muted">
                     Link tickets that must be done before work on this one can start.
                   </p>
-                  <div className="custom-scrollbar max-h-[140px] space-y-1.5 overflow-y-auto rounded-lg border border-white/[0.08] p-2">
+                  <div className="custom-scrollbar max-h-[140px] space-y-1.5 overflow-y-auto rounded-lg border border-border p-2">
                     {createLinkOptions.map((t) => (
                       <label
                         key={t.id}
-                        className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.03] ${createDependsOnIds.includes(t.id) ? "bg-amber-500/5" : ""}`}
+                        className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-hover ${createDependsOnIds.includes(t.id) ? "bg-warning/5" : ""}`}
                       >
                         <input
                           type="checkbox"
-                          className="mt-0.5 rounded border-zinc-600"
+                          className="mt-0.5 rounded border-border-strong"
                           checked={createDependsOnIds.includes(t.id)}
                           onChange={() => {
                             setCreateDependsOnIds((prev) =>
@@ -366,8 +360,8 @@ export default function TicketFormModal({
                           }}
                         />
                         <span className="min-w-0">
-                          <span className="font-mono text-[11px] text-zinc-500">{t.key}</span>
-                          <span className="mt-0.5 block truncate text-[13px] text-zinc-200">
+                          <span className="font-mono text-[11px] text-muted">{t.key}</span>
+                          <span className="mt-0.5 block truncate text-[13px] text-fg">
                             {t.title}
                           </span>
                         </span>
@@ -378,7 +372,7 @@ export default function TicketFormModal({
               )}
 
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-zinc-500">
+                <label className="mb-1 block text-[11px] font-medium text-muted">
                   Story points
                 </label>
                 <input
@@ -386,20 +380,20 @@ export default function TicketFormModal({
                   min={0}
                   value={storyPoints}
                   onChange={(e) => setStoryPoints(e.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[14px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[14px] text-fg focus:border-accent/40 focus:outline-none"
                   placeholder="Optional"
                 />
               </div>
 
               {mode === "create" && sprintPickerSprints.length > 0 && (
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-zinc-500">Sprint</label>
+                  <label className="mb-1 block text-[11px] font-medium text-muted">Sprint</label>
                   <select
                     value={createSprintId ?? ""}
                     onChange={(e) =>
                       setCreateSprintId(e.target.value === "" ? null : e.target.value)
                     }
-                    className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                   >
                     <option value="">Backlog</option>
                     {sprintPickerSprints.map((s) => (
@@ -412,9 +406,7 @@ export default function TicketFormModal({
               )}
 
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-zinc-500">
-                  Cover image
-                </label>
+                <label className="mb-1 block text-[11px] font-medium text-muted">Cover image</label>
                 <input
                   type="file"
                   accept="image/*"
@@ -432,10 +424,10 @@ export default function TicketFormModal({
                     setClearImage(false);
                     setImageFile(file);
                   }}
-                  className="w-full text-[12px] text-zinc-400 file:mr-3 file:rounded-md file:border-0 file:bg-white/[0.08] file:px-3 file:py-1.5 file:text-[12px] file:text-zinc-200"
+                  className="w-full text-[12px] text-muted2 file:mr-3 file:rounded-md file:border-0 file:bg-hover-strong file:px-3 file:py-1.5 file:text-[12px] file:text-fg"
                 />
                 {mode === "edit" && ticket?.hasImage && (
-                  <label className="mt-2 flex items-center gap-2 text-[12px] text-zinc-500">
+                  <label className="mt-2 flex items-center gap-2 text-[12px] text-muted">
                     <input
                       type="checkbox"
                       checked={clearImage}
@@ -450,14 +442,14 @@ export default function TicketFormModal({
               </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-4">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
               <div>
                 {mode === "edit" && ticket && onDeleted && (
                   <button
                     type="button"
                     onClick={() => setDeleteConfirmOpen(true)}
                     disabled={deleting || submitting}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[12px] font-medium text-red-300 hover:bg-red-500/15 disabled:opacity-40"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-[12px] font-medium text-danger hover:bg-danger/15 disabled:opacity-40"
                   >
                     {deleting ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -473,14 +465,14 @@ export default function TicketFormModal({
                   type="button"
                   onClick={onClose}
                   disabled={submitting || deleting}
-                  className="rounded-lg px-3 py-2 text-[13px] font-medium text-zinc-400 hover:bg-white/[0.05] disabled:opacity-40"
+                  className="rounded-lg px-3 py-2 text-[13px] font-medium text-muted2 hover:bg-hover disabled:opacity-40"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || deleting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-2 text-[13px] font-semibold text-zinc-950 disabled:opacity-40"
+                  className="inline-flex items-center gap-2 rounded-lg bg-fg px-4 py-2 text-[13px] font-semibold text-bg disabled:opacity-40"
                 >
                   {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   {mode === "create" ? "Create ticket" : "Save changes"}

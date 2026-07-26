@@ -34,16 +34,36 @@ function timeAgo(date: Date | string): string {
 function StatusBadge({ status }: { status: string }) {
   const s = status.toLowerCase().replace(/[\s_]+/g, "-");
   const config: Record<string, { bg: string; text: string; dot: string; label: string }> = {
-    done: { bg: "rgba(0,212,170,0.10)", text: "#00d4aa", dot: "#00d4aa", label: "Done" },
+    done: {
+      bg: "var(--color-success-soft)",
+      text: "var(--color-success)",
+      dot: "var(--color-success)",
+      label: "Done",
+    },
     "in-progress": {
-      bg: "rgba(79,124,255,0.10)",
-      text: "#4f7cff",
-      dot: "#4f7cff",
+      bg: "var(--color-accent-soft)",
+      text: "var(--color-accent)",
+      dot: "var(--color-accent)",
       label: "In Progress",
     },
-    review: { bg: "rgba(162,89,255,0.10)", text: "#a259ff", dot: "#a259ff", label: "Review" },
-    blocked: { bg: "rgba(255,79,124,0.10)", text: "#ff4f7c", dot: "#ff4f7c", label: "Blocked" },
-    todo: { bg: "rgba(107,107,128,0.10)", text: "#9090a8", dot: "#6b6b80", label: "To Do" },
+    review: {
+      bg: "color-mix(in srgb, var(--color-accent2) 10%, transparent)",
+      text: "var(--color-accent2)",
+      dot: "var(--color-accent2)",
+      label: "Review",
+    },
+    blocked: {
+      bg: "var(--color-danger-soft)",
+      text: "var(--color-danger)",
+      dot: "var(--color-danger)",
+      label: "Blocked",
+    },
+    todo: {
+      bg: "color-mix(in srgb, var(--color-muted) 10%, transparent)",
+      text: "var(--color-muted2)",
+      dot: "var(--color-muted)",
+      label: "To Do",
+    },
   };
   const c = config[s] ?? config.todo;
   return (
@@ -62,10 +82,14 @@ function StatusBadge({ status }: { status: string }) {
 
 function PriorityBadge({ priority }: { priority: string }) {
   const config: Record<string, { bg: string; text: string; label: string }> = {
-    urgent: { bg: "rgba(255,79,124,0.12)", text: "#ff4f7c", label: "Urgent" },
-    high: { bg: "rgba(255,159,67,0.12)", text: "#ff9f43", label: "High" },
-    medium: { bg: "rgba(79,124,255,0.12)", text: "#4f7cff", label: "Medium" },
-    low: { bg: "rgba(107,107,128,0.12)", text: "#9090a8", label: "Low" },
+    urgent: { bg: "var(--color-danger-soft)", text: "var(--color-danger)", label: "Urgent" },
+    high: { bg: "var(--color-warning-soft)", text: "var(--color-warning)", label: "High" },
+    medium: { bg: "var(--color-accent-soft)", text: "var(--color-accent)", label: "Medium" },
+    low: {
+      bg: "color-mix(in srgb, var(--color-muted) 12%, transparent)",
+      text: "var(--color-muted2)",
+      label: "Low",
+    },
   };
   const c = config[priority.toLowerCase()] ?? config.low;
   return (
@@ -80,10 +104,10 @@ function PriorityBadge({ priority }: { priority: string }) {
 
 function TypeIcon({ type }: { type: string }) {
   const config: Record<string, { icon: typeof Bug; color: string }> = {
-    bug: { icon: Bug, color: "#ff4f7c" },
-    feature: { icon: Sparkles, color: "#a259ff" },
-    improvement: { icon: Wrench, color: "#ff9f43" },
-    task: { icon: ListTodo, color: "#4f7cff" },
+    bug: { icon: Bug, color: "var(--color-danger)" },
+    feature: { icon: Sparkles, color: "var(--color-accent2)" },
+    improvement: { icon: Wrench, color: "var(--color-warning)" },
+    task: { icon: ListTodo, color: "var(--color-accent)" },
   };
   const c = config[type.toLowerCase()] ?? config.task;
   const Icon = c.icon;
@@ -98,16 +122,16 @@ function LoadingSkeleton() {
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
-          className="flex items-center gap-4 px-5 py-4 rounded-xl bg-white/[0.02] border border-white/[0.04] animate-pulse"
+          className="flex items-center gap-4 px-5 py-4 rounded-xl bg-hover border border-border animate-pulse"
           style={{ animationDelay: `${i * 100}ms` }}
         >
-          <div className="w-10 h-10 rounded-lg bg-white/[0.04]" />
+          <div className="w-10 h-10 rounded-lg bg-hover" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-2/3 rounded bg-white/[0.06]" />
-            <div className="h-2.5 w-1/3 rounded bg-white/[0.04]" />
+            <div className="h-3 w-2/3 rounded bg-hover-strong" />
+            <div className="h-2.5 w-1/3 rounded bg-hover" />
           </div>
-          <div className="w-20 h-6 rounded-lg bg-white/[0.04]" />
-          <div className="w-16 h-5 rounded bg-white/[0.04]" />
+          <div className="w-20 h-6 rounded-lg bg-hover" />
+          <div className="w-16 h-5 rounded bg-hover" />
         </div>
       ))}
     </div>
@@ -179,18 +203,18 @@ export default function MyTasksPage() {
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#09090b]">
-      <div className="px-10 py-8 border-b border-white/[0.04] bg-[#0c0c0f]/50 backdrop-blur-xl sticky top-0 z-10">
+    <div className="flex flex-col h-full bg-surface-sunken">
+      <div className="px-10 py-8 border-b border-border bg-surface-sunken/50 backdrop-blur-xl sticky top-0 z-10">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <div className="w-11 h-11 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent">
               <CheckSquare className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">My Tasks</h1>
-              <p className="mt-1 flex items-center gap-2 text-[13px] text-zinc-500">
+              <h1 className="text-2xl font-semibold tracking-tight text-fg">My Tasks</h1>
+              <p className="mt-1 flex items-center gap-2 text-[13px] text-muted">
                 Assigned to you
-                <span className="w-1 h-1 rounded-full bg-zinc-800" />
+                <span className="w-1 h-1 rounded-full bg-surface-2" />
                 {stats.total} {stats.total === 1 ? "ticket" : "tickets"}
               </p>
             </div>
@@ -199,17 +223,18 @@ export default function MyTasksPage() {
           {/* Progress indicator */}
           {stats.total > 0 && (
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                <div className="w-24 h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-hover border border-border">
+                <div className="w-24 h-1.5 rounded-full bg-hover-strong overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-1000 ease-out"
                     style={{
                       width: `${stats.total > 0 ? (stats.done / stats.total) * 100 : 0}%`,
-                      background: "linear-gradient(90deg, #00d4aa, #4f7cff)",
+                      background:
+                        "linear-gradient(90deg, var(--color-success), var(--color-accent))",
                     }}
                   />
                 </div>
-                <span className="text-[11px] font-semibold text-zinc-400 tabular-nums">
+                <span className="text-[11px] font-semibold text-muted2 tabular-nums">
                   {stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0}%
                 </span>
               </div>
@@ -219,32 +244,32 @@ export default function MyTasksPage() {
 
         <div className="flex items-center gap-3">
           <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 group-focus-within:text-blue-400 transition-colors" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted group-focus-within:text-accent transition-colors" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search tasks, projects, ticket keys…"
               aria-label="Search tasks"
-              className="bg-white/[0.03] border border-white/[0.06] rounded-lg pl-9 pr-4 py-2 text-[13px] text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all w-[300px]"
+              className="bg-hover border border-border rounded-lg pl-9 pr-4 py-2 text-[13px] text-fg placeholder:text-muted focus:outline-none focus:border-accent/50 focus:bg-hover transition-all w-[300px]"
             />
           </div>
 
-          <div className="flex items-center gap-1 p-1 bg-white/[0.02] border border-white/[0.05] rounded-lg">
+          <div className="flex items-center gap-1 p-1 bg-hover border border-border rounded-lg">
             {statusFilters.map((f) => (
               <button
                 key={f.key}
                 onClick={() => setStatusFilter(f.key)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-all ${
                   statusFilter === f.key
-                    ? "bg-white/[0.08] text-zinc-100 shadow-sm"
-                    : "text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]"
+                    ? "bg-hover-strong text-fg shadow-sm"
+                    : "text-muted hover:text-muted2 hover:bg-hover"
                 }`}
               >
                 {f.label}
                 <span
                   className={`text-[10px] tabular-nums ${
-                    statusFilter === f.key ? "text-zinc-300" : "text-zinc-600"
+                    statusFilter === f.key ? "text-muted2" : "text-muted"
                   }`}
                 >
                   {f.count}
@@ -260,26 +285,26 @@ export default function MyTasksPage() {
           <LoadingSkeleton />
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400 mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-danger/10 border border-danger/20 flex items-center justify-center text-danger mb-4">
               <Filter className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-semibold text-zinc-300 mb-1">Failed to load tasks</h3>
-            <p className="text-[13px] text-zinc-500 max-w-xs">{error}</p>
+            <h3 className="text-base font-semibold text-muted2 mb-1">Failed to load tasks</h3>
+            <p className="text-[13px] text-muted max-w-xs">{error}</p>
           </div>
         ) : filteredTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="relative mb-6">
-              <div className="w-20 h-20 rounded-2xl bg-white/[0.02] border border-white/[0.05] flex items-center justify-center text-zinc-600">
+              <div className="w-20 h-20 rounded-2xl bg-hover border border-border flex items-center justify-center text-muted">
                 <Inbox className="w-10 h-10" />
               </div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center">
-                <CheckSquare className="w-3 h-3 text-emerald-400" />
+              <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-success/15 border border-success/20 flex items-center justify-center">
+                <CheckSquare className="w-3 h-3 text-success" />
               </div>
             </div>
-            <h3 className="text-lg font-semibold text-zinc-200 mb-2">
+            <h3 className="text-lg font-semibold text-fg mb-2">
               {hasSearch || statusFilter !== "all" ? "No matching tasks" : "You're all caught up!"}
             </h3>
-            <p className="text-[13px] text-zinc-500 max-w-sm leading-relaxed">
+            <p className="text-[13px] text-muted max-w-sm leading-relaxed">
               {hasSearch || statusFilter !== "all"
                 ? "Try adjusting your search or filter criteria."
                 : "No tasks have been assigned to you yet. When someone assigns you a ticket, it will appear here."}
@@ -287,7 +312,7 @@ export default function MyTasksPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="flex items-center gap-4 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-zinc-600">
+            <div className="flex items-center gap-4 px-5 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted">
               <div className="w-10" />
               <div className="flex-1">Ticket</div>
               <div className="w-[140px]">Project</div>
@@ -301,29 +326,29 @@ export default function MyTasksPage() {
               <Link
                 key={task.id}
                 href={`/workspace/${workspaceId}/projects/${task.projectId}/backlog`}
-                className="group flex items-center gap-4 px-5 py-3.5 rounded-xl bg-white/[0.015] border border-white/[0.04] hover:bg-white/[0.04] hover:border-white/[0.08] transition-all duration-200 cursor-pointer"
+                className="group flex items-center gap-4 px-5 py-3.5 rounded-xl bg-hover border border-border hover:bg-hover hover:border-border transition-all duration-200 cursor-pointer"
                 style={{ animationDelay: `${i * 40}ms` }}
               >
                 {/* Type icon */}
-                <div className="w-10 h-10 rounded-lg bg-white/[0.03] border border-white/[0.05] flex items-center justify-center group-hover:border-white/[0.1] transition-colors">
+                <div className="w-10 h-10 rounded-lg bg-hover border border-border flex items-center justify-center group-hover:border-border-hover transition-colors">
                   <TypeIcon type={task.type} />
                 </div>
 
                 {/* Title & key */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-[10px] font-mono font-bold text-zinc-500 group-hover:text-zinc-400 transition-colors">
+                    <span className="text-[10px] font-mono font-bold text-muted group-hover:text-muted2 transition-colors">
                       {task.key}
                     </span>
                   </div>
-                  <p className="text-[13px] text-zinc-200 truncate group-hover:text-white transition-colors font-medium">
+                  <p className="text-[13px] text-fg truncate group-hover:text-fg-strong transition-colors font-medium">
                     {task.title}
                   </p>
                 </div>
 
                 {/* Project name */}
                 <div className="w-[140px] shrink-0">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.03] border border-white/[0.04] text-[11px] text-zinc-400 font-medium truncate max-w-full">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-hover border border-border text-[11px] text-muted2 font-medium truncate max-w-full">
                     {task.projectName}
                   </span>
                 </div>
@@ -340,14 +365,14 @@ export default function MyTasksPage() {
 
                 {/* Updated */}
                 <div className="w-[80px] shrink-0 text-right">
-                  <span className="text-[11px] text-zinc-500 tabular-nums">
+                  <span className="text-[11px] text-muted tabular-nums">
                     {timeAgo(task.updatedAt)}
                   </span>
                 </div>
 
                 {/* Arrow */}
                 <div className="w-6 shrink-0 flex items-center justify-center">
-                  <ArrowUpRight className="w-3.5 h-3.5 text-zinc-600 group-hover:text-blue-400 transition-colors" />
+                  <ArrowUpRight className="w-3.5 h-3.5 text-muted group-hover:text-accent transition-colors" />
                 </div>
               </Link>
             ))}

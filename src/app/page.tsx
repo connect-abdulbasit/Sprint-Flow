@@ -9,7 +9,7 @@ import ScrollReveal from "@/components/ScrollReveal";
 
 export default function Home() {
   return (
-    <>
+    <div className="theme-dark bg-bg">
       <ScrollReveal />
       <Navbar />
       <main>
@@ -20,6 +20,6 @@ export default function Home() {
         <CTA />
       </main>
       <Footer />
-    </>
+    </div>
   );
 }

@@ -77,17 +77,17 @@ const COLUMN_ICON_MAP: Record<string, LucideIcon> = {
 };
 
 const priorityColors: Record<string, string> = {
-  urgent: "bg-red-500/10 text-red-400 border-red-500/10",
-  high: "bg-amber-500/10 text-amber-400 border-amber-500/10",
-  medium: "bg-blue-500/10 text-blue-400 border-blue-500/10",
-  low: "bg-zinc-500/10 text-zinc-400 border-zinc-500/10",
+  urgent: "bg-danger-soft text-danger border-danger/10",
+  high: "bg-warning-soft text-warning border-warning/10",
+  medium: "bg-accent-soft text-accent border-accent/10",
+  low: "bg-hover text-muted border-border",
 };
 
 const typeColors: Record<string, string> = {
-  feature: "bg-purple-500/10 text-purple-400",
-  bug: "bg-red-500/10 text-red-400",
-  task: "bg-blue-500/10 text-blue-400",
-  improvement: "bg-emerald-500/10 text-emerald-400",
+  feature: "bg-accent2/10 text-accent2",
+  bug: "bg-danger-soft text-danger",
+  task: "bg-accent-soft text-accent",
+  improvement: "bg-success-soft text-success",
 };
 
 const COLUMN_DND_MIME = "application/x-sprintflow-board-column-index";
@@ -629,7 +629,7 @@ export default function ProjectBoardPage() {
   ) => (
     <div key={ticket.id}>
       {enableReorder && isOver && dropTargetIndex === index && (
-        <div className="h-0.5 bg-blue-500 rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
+        <div className="h-0.5 bg-accent rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_var(--color-accent-soft)]" />
       )}
       <div
         draggable
@@ -645,11 +645,11 @@ export default function ProjectBoardPage() {
           }
         }}
         tabIndex={0}
-        className={`group/card relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#111115] p-3.5 pr-10 shadow-sm transition-all select-none hover:border-white/[0.1] hover:bg-[#141418] active:cursor-grabbing ${
+        className={`group/card relative cursor-pointer rounded-lg border border-border bg-surface p-3.5 pr-10 shadow-sm transition-all select-none hover:border-border-hover hover:bg-surface-hover active:cursor-grabbing ${
           draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
         }`}
       >
-        <div className="pointer-events-none absolute top-2.5 right-2.5 text-zinc-600" aria-hidden>
+        <div className="pointer-events-none absolute top-2.5 right-2.5 text-muted" aria-hidden>
           <GripVertical className="h-3.5 w-3.5" />
         </div>
 
@@ -666,7 +666,7 @@ export default function ProjectBoardPage() {
           </span>
           {ticket.blockedByOpenDependencies ? (
             <span
-              className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+              className="inline-flex items-center gap-0.5 rounded border border-warning/20 bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium text-warning"
               title="Blocked by prerequisites not done yet"
             >
               <Link2 className="h-3 w-3" aria-hidden />
@@ -675,21 +675,21 @@ export default function ProjectBoardPage() {
           ) : null}
         </div>
 
-        <div className="mb-1 font-mono text-[11px] text-zinc-600">{ticket.key}</div>
+        <div className="mb-1 font-mono text-[11px] text-muted">{ticket.key}</div>
 
-        <h4 className="mb-4 text-[13px] font-medium leading-snug text-zinc-300 group-hover/card:text-zinc-100">
+        <h4 className="mb-4 text-[13px] font-medium leading-snug text-muted2 group-hover/card:text-fg">
           {ticket.title}
         </h4>
 
         <div className="flex items-center justify-between">
           <div
-            className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700/50 bg-zinc-800 text-[9px] font-semibold text-zinc-400"
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface-2 text-[9px] font-semibold text-muted2"
             title={ticket.assigneeName ?? "Unassigned"}
           >
             {initialsFromName(ticket.assigneeName)}
           </div>
           {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
-            <div className="rounded bg-zinc-800/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+            <div className="rounded bg-surface-2/80 px-1.5 py-0.5 text-[10px] font-medium text-muted">
               {ticket.storyPoints} pts
             </div>
           )}
@@ -710,7 +710,7 @@ export default function ProjectBoardPage() {
             renderTicketCard(ticket, index, column.id, isOver, true)
           )}
           {isOver && dropTargetIndex === columnTickets.length && (
-            <div className="h-0.5 bg-blue-500 rounded-full mx-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
+            <div className="h-0.5 bg-accent rounded-full mx-1 animate-pulse shadow-[0_0_6px_var(--color-accent-soft)]" />
           )}
         </>
       );
@@ -722,13 +722,13 @@ export default function ProjectBoardPage() {
         {groups.map((g) => (
           <div key={g.key} className="space-y-2">
             <div className="flex items-center gap-2 px-1 pt-1">
-              <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+              <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted">
                 {g.label}
               </span>
-              <span className="shrink-0 rounded bg-zinc-800/60 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
+              <span className="shrink-0 rounded bg-surface-2/60 px-1.5 py-0.5 text-[10px] font-medium text-muted">
                 {g.tickets.length}
               </span>
-              <div className="h-px flex-1 bg-white/[0.05]" />
+              <div className="h-px flex-1 bg-hover" />
             </div>
             {g.tickets.map((ticket, index) =>
               renderTicketCard(ticket, index, column.id, isOver, false)
@@ -740,22 +740,22 @@ export default function ProjectBoardPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#09090b]">
+    <div className="flex flex-col h-full bg-surface-sunken">
       <ProjectPageHeader />
 
       {loadError && (
-        <div className="px-10 py-2 text-[12px] text-amber-400/90 bg-amber-500/5 border-b border-amber-500/10">
+        <div className="px-10 py-2 text-[12px] text-warning bg-warning-soft border-b border-warning/10">
           {loadError}
         </div>
       )}
 
       {conflictError && (
-        <div className="px-10 py-2 text-[12px] text-red-300/90 bg-red-500/5 border-b border-red-500/10 flex justify-between gap-4">
+        <div className="px-10 py-2 text-[12px] text-danger bg-danger-soft border-b border-danger/10 flex justify-between gap-4">
           <span>{conflictError}</span>
           <button
             type="button"
             onClick={() => setConflictError(null)}
-            className="text-red-300/70 hover:text-red-200"
+            className="text-danger/70 hover:text-danger"
           >
             Dismiss
           </button>
@@ -763,34 +763,34 @@ export default function ProjectBoardPage() {
       )}
 
       {columnError && (
-        <div className="px-10 py-2 text-[12px] text-red-300/90 bg-red-500/5 border-b border-red-500/10 flex justify-between gap-4">
+        <div className="px-10 py-2 text-[12px] text-danger bg-danger-soft border-b border-danger/10 flex justify-between gap-4">
           <span>{columnError}</span>
           <button
             type="button"
             onClick={() => setColumnError(null)}
-            className="shrink-0 text-zinc-400 hover:text-zinc-200"
+            className="shrink-0 text-muted2 hover:text-fg"
           >
             Dismiss
           </button>
         </div>
       )}
 
-      <div className="shrink-0 border-b border-white/[0.06] bg-[#0c0c0f] px-6 py-2.5">
+      <div className="shrink-0 border-b border-border bg-surface-sunken px-6 py-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2 max-w-[1600px] mx-auto">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
               Board scope
             </p>
-            <p className="text-[13px] font-medium text-zinc-200 truncate">
+            <p className="text-[13px] font-medium text-fg truncate">
               {boardFocusMeta.mode === "backlog" && boardFocusMeta.title}
               {boardFocusMeta.mode === "active" && `Active: ${boardFocusMeta.title}`}
               {boardFocusMeta.mode === "last_completed" && `Last sprint: ${boardFocusMeta.title}`}
             </p>
-            <p className="text-[11px] text-zinc-500 mt-0.5 max-w-2xl">{boardFocusMeta.subtitle}</p>
+            <p className="text-[11px] text-muted mt-0.5 max-w-2xl">{boardFocusMeta.subtitle}</p>
           </div>
           <Link
             href={`/workspace/${wid}/projects/${pid}/backlog`}
-            className="shrink-0 text-[12px] font-medium text-blue-400 hover:text-blue-300"
+            className="shrink-0 text-[12px] font-medium text-accent hover:text-accent-strong"
           >
             Open backlog
           </Link>
@@ -816,7 +816,7 @@ export default function ProjectBoardPage() {
 
       {addColumnOpen && (
         <div
-          className="fixed inset-0 z-[1050] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[1050] flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
           onClick={() => {
             if (!savingColumns) {
               setAddColumnOpen(false);
@@ -825,11 +825,11 @@ export default function ProjectBoardPage() {
           }}
         >
           <div
-            className="w-full max-w-sm rounded-xl border border-white/[0.1] bg-[#111115] p-5 shadow-xl"
+            className="w-full max-w-sm rounded-xl border border-border-hover bg-surface p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[15px] font-semibold text-zinc-100">Add column</h2>
+              <h2 className="text-[15px] font-semibold text-fg">Add column</h2>
               <button
                 type="button"
                 disabled={savingColumns}
@@ -837,7 +837,7 @@ export default function ProjectBoardPage() {
                   setAddColumnOpen(false);
                   setAddColumnInsertIndex(null);
                 }}
-                className="p-1 rounded-md text-zinc-500 hover:text-zinc-300"
+                className="p-1 rounded-md text-muted hover:text-muted2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -845,18 +845,18 @@ export default function ProjectBoardPage() {
             {addColumnInsertIndex !== null &&
               addColumnInsertIndex < boardColumnDefs.length &&
               boardColumnDefs[addColumnInsertIndex] && (
-                <p className="mb-3 text-[11px] text-zinc-500">
+                <p className="mb-3 text-[11px] text-muted">
                   New column will be inserted before &ldquo;
                   {boardColumnDefs[addColumnInsertIndex].title}
                   &rdquo; (divider +).
                 </p>
               )}
-            <label className="mb-1 block text-[11px] font-medium text-zinc-500">Column name</label>
+            <label className="mb-1 block text-[11px] font-medium text-muted">Column name</label>
             <input
               value={newColumnTitle}
               onChange={(e) => setNewColumnTitle(e.target.value)}
               placeholder="e.g. Blocked, QA"
-              className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[14px] text-zinc-200 focus:border-blue-500/40 focus:outline-none mb-4"
+              className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[14px] text-fg focus:border-accent/40 focus:outline-none mb-4"
               autoFocus
             />
             <div className="flex justify-end gap-2">
@@ -867,7 +867,7 @@ export default function ProjectBoardPage() {
                   setAddColumnOpen(false);
                   setAddColumnInsertIndex(null);
                 }}
-                className="rounded-lg px-3 py-2 text-[13px] text-zinc-400 hover:bg-white/[0.05]"
+                className="rounded-lg px-3 py-2 text-[13px] text-muted2 hover:bg-hover"
               >
                 Cancel
               </button>
@@ -875,7 +875,7 @@ export default function ProjectBoardPage() {
                 type="button"
                 disabled={savingColumns || !newColumnTitle.trim()}
                 onClick={() => void handleAddColumn()}
-                className="inline-flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-2 text-[13px] font-semibold text-zinc-950 disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-lg bg-fg px-4 py-2 text-[13px] font-semibold text-bg disabled:opacity-40"
               >
                 {savingColumns && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Add column
@@ -903,7 +903,7 @@ export default function ProjectBoardPage() {
                   onChange={(e) =>
                     setRemoveCtx((c) => (c ? { ...c, migrateTo: e.target.value } : null))
                   }
-                  className="w-full rounded-lg border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] text-zinc-200"
+                  className="w-full rounded-lg border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] text-fg"
                 >
                   {boardColumnDefs
                     .filter((c) => c.id !== removeCtx.column.id)
@@ -977,7 +977,7 @@ export default function ProjectBoardPage() {
                   role="separator"
                   aria-orientation="vertical"
                   className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${
-                    slotActive ? "bg-blue-500/15" : "hover:bg-white/[0.02]"
+                    slotActive ? "bg-accent/15" : "hover:bg-hover"
                   }`}
                   onDragOver={(e) => handleColumnSlotDragOver(e, columnIndex)}
                   onDragLeave={(e) => {
@@ -989,8 +989,8 @@ export default function ProjectBoardPage() {
                   <div
                     className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${
                       slotActive
-                        ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
-                        : "h-16 bg-white/[0.06]"
+                        ? "h-full min-h-[120px] bg-accent shadow-[0_0_12px_var(--color-accent-soft)]"
+                        : "h-16 bg-hover-strong"
                     }`}
                   />
                   <button
@@ -998,7 +998,7 @@ export default function ProjectBoardPage() {
                     title="Add column here"
                     disabled={savingColumns || boardColumnDefs.length >= 12}
                     onClick={() => openAddColumnAt(columnIndex)}
-                    className="absolute bottom-1 left-1/2 z-[1] -translate-x-1/2 rounded p-0.5 text-zinc-600 opacity-0 hover:text-zinc-300 group-hover/slot:opacity-100 hover:opacity-100 disabled:opacity-30"
+                    className="absolute bottom-1 left-1/2 z-[1] -translate-x-1/2 rounded p-0.5 text-muted opacity-0 hover:text-muted2 group-hover/slot:opacity-100 hover:opacity-100 disabled:opacity-30"
                   >
                     <Plus className="h-3 w-3" />
                   </button>
@@ -1006,12 +1006,12 @@ export default function ProjectBoardPage() {
                 <div className="flex flex-col w-[300px] shrink-0 group/col px-1">
                   <div
                     className={`flex items-center justify-between mb-3 px-1 gap-1 rounded-lg border border-transparent ${
-                      draggedColumnIndex === columnIndex ? "opacity-50 border-white/[0.08]" : ""
+                      draggedColumnIndex === columnIndex ? "opacity-50 border-border" : ""
                     }`}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-1.5">
                       <div
-                        className="shrink-0 cursor-grab rounded p-0.5 text-zinc-600 hover:bg-white/[0.05] active:cursor-grabbing"
+                        className="shrink-0 cursor-grab rounded p-0.5 text-muted hover:bg-hover active:cursor-grabbing"
                         draggable
                         title="Drag to reorder column"
                         onDragStart={(e) => handleColumnHeaderDragStart(e, columnIndex)}
@@ -1023,11 +1023,11 @@ export default function ProjectBoardPage() {
                         <div
                           className={`w-2 h-2 shrink-0 rounded-full ${column.dotColor ?? "bg-zinc-500"}`}
                         />
-                        <ColIcon className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
-                        <h3 className="truncate text-[13px] font-semibold text-zinc-300">
+                        <ColIcon className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden />
+                        <h3 className="truncate text-[13px] font-semibold text-muted2">
                           {column.title}
                         </h3>
-                        <span className="shrink-0 rounded bg-zinc-800/60 px-1.5 py-0.5 text-[11px] font-medium text-zinc-600">
+                        <span className="shrink-0 rounded bg-surface-2/60 px-1.5 py-0.5 text-[11px] font-medium text-muted">
                           {columnTickets.length}
                         </span>
                       </div>
@@ -1038,7 +1038,7 @@ export default function ProjectBoardPage() {
                           type="button"
                           onClick={() => openRemoveColumn(column)}
                           disabled={savingColumns}
-                          className="p-1 text-zinc-600 hover:text-red-400 hover:bg-white/[0.05] rounded-md transition-all opacity-0 group-hover/col:opacity-100 disabled:opacity-30"
+                          className="p-1 text-muted hover:text-danger hover:bg-hover rounded-md transition-all opacity-0 group-hover/col:opacity-100 disabled:opacity-30"
                           title="Remove column"
                           aria-label={`Remove column ${column.title}`}
                         >
@@ -1048,7 +1048,7 @@ export default function ProjectBoardPage() {
                       <button
                         type="button"
                         onClick={() => openCreate(column.id)}
-                        className="p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-md transition-all opacity-0 group-hover/col:opacity-100"
+                        className="p-1 text-muted hover:text-muted2 hover:bg-hover rounded-md transition-all opacity-0 group-hover/col:opacity-100"
                         aria-label={`Add ticket to ${column.title}`}
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -1059,8 +1059,8 @@ export default function ProjectBoardPage() {
                   <div
                     className={`flex-1 space-y-2 overflow-y-auto custom-scrollbar rounded-xl p-2 border transition-all duration-200 min-h-[120px] ${
                       isOver
-                        ? "bg-blue-500/[0.04] border-blue-500/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]"
-                        : "bg-zinc-900/30 border-white/[0.03]"
+                        ? "bg-accent/[0.04] border-accent/20 shadow-[inset_0_0_20px_rgba(59,130,246,0.05)]"
+                        : "bg-surface-2/30 border-border"
                     }`}
                     onDragEnter={(e) => handleColumnDragEnter(e, column.id)}
                     onDragLeave={() => handleColumnDragLeave(column.id)}
@@ -1072,7 +1072,7 @@ export default function ProjectBoardPage() {
                     <button
                       type="button"
                       onClick={() => openCreate(column.id)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-transparent py-2.5 text-[12px] font-medium text-zinc-600 transition-all hover:border-white/[0.06] hover:bg-white/[0.02] hover:text-zinc-400"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-transparent py-2.5 text-[12px] font-medium text-muted transition-all hover:border-border hover:bg-hover hover:text-muted2"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Add task
@@ -1088,8 +1088,8 @@ export default function ProjectBoardPage() {
             aria-orientation="vertical"
             className={`group/slot relative flex w-3 shrink-0 flex-col items-center justify-stretch py-2 transition-colors ${
               columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
-                ? "bg-blue-500/15"
-                : "hover:bg-white/[0.02]"
+                ? "bg-accent/15"
+                : "hover:bg-hover"
             }`}
             onDragOver={(e) => handleColumnSlotDragOver(e, boardColumnDefs.length)}
             onDragLeave={(e) => {
@@ -1101,8 +1101,8 @@ export default function ProjectBoardPage() {
             <div
               className={`mx-auto my-auto min-h-[48px] w-0.5 rounded-full transition-all ${
                 columnDropSlot === boardColumnDefs.length && draggedColumnIndex !== null
-                  ? "h-full min-h-[120px] bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.5)]"
-                  : "h-16 bg-white/[0.06]"
+                  ? "h-full min-h-[120px] bg-accent shadow-[0_0_12px_var(--color-accent-soft)]"
+                  : "h-16 bg-hover-strong"
               }`}
             />
             <button
@@ -1110,16 +1110,16 @@ export default function ProjectBoardPage() {
               title="Add column at end"
               disabled={savingColumns || boardColumnDefs.length >= 12}
               onClick={() => openAddColumnAt(null)}
-              className="absolute bottom-1 left-1/2 z-[1] -translate-x-1/2 rounded p-0.5 text-zinc-600 opacity-0 hover:text-zinc-300 group-hover/slot:opacity-100 hover:opacity-100 disabled:opacity-30"
+              className="absolute bottom-1 left-1/2 z-[1] -translate-x-1/2 rounded p-0.5 text-muted opacity-0 hover:text-muted2 group-hover/slot:opacity-100 hover:opacity-100 disabled:opacity-30"
             >
               <Plus className="h-3 w-3" />
             </button>
           </div>
 
           {orphanBoardTickets.length > 0 && (
-            <div className="flex flex-col w-[280px] shrink-0 border border-amber-500/20 rounded-xl bg-amber-500/[0.04] p-3">
-              <p className="text-[11px] font-semibold text-amber-400/90 mb-1">Other statuses</p>
-              <p className="text-[10px] text-zinc-500 mb-2">
+            <div className="flex flex-col w-[280px] shrink-0 border border-warning/20 rounded-xl bg-warning-soft p-3">
+              <p className="text-[11px] font-semibold text-warning mb-1">Other statuses</p>
+              <p className="text-[10px] text-muted mb-2">
                 These tickets do not match any board column. Drag them into a column or add a column
                 with this status id.
               </p>
@@ -1129,11 +1129,11 @@ export default function ProjectBoardPage() {
                     key={ticket.id}
                     type="button"
                     onClick={() => openDetail(ticket)}
-                    className="w-full text-left rounded-lg border border-white/[0.06] bg-[#111115]/80 px-3 py-2 hover:bg-[#141418]"
+                    className="w-full text-left rounded-lg border border-border bg-surface/80 px-3 py-2 hover:bg-surface-hover"
                   >
-                    <span className="font-mono text-[10px] text-zinc-500">{ticket.key}</span>
-                    <span className="block text-[12px] text-zinc-300 truncate">{ticket.title}</span>
-                    <span className="text-[10px] text-amber-400/80">status: {ticket.status}</span>
+                    <span className="font-mono text-[10px] text-muted">{ticket.key}</span>
+                    <span className="block text-[12px] text-muted2 truncate">{ticket.title}</span>
+                    <span className="text-[10px] text-warning">status: {ticket.status}</span>
                   </button>
                 ))}
               </div>
@@ -1144,14 +1144,14 @@ export default function ProjectBoardPage() {
             type="button"
             onClick={() => openAddColumnAt(null)}
             disabled={savingColumns || boardColumnDefs.length >= 12}
-            className="flex w-[300px] shrink-0 flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.08] transition-all hover:border-white/[0.14] hover:bg-white/[0.02] disabled:opacity-40 disabled:pointer-events-none min-h-[160px]"
+            className="flex w-[300px] shrink-0 flex-col items-center justify-center rounded-xl border border-dashed border-border transition-all hover:border-border-hover hover:bg-hover disabled:opacity-40 disabled:pointer-events-none min-h-[160px]"
           >
-            <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-800/50 bg-white/[0.02] text-zinc-600">
+            <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-hover text-muted">
               <Plus className="h-4 w-4" />
             </div>
-            <span className="text-[12px] font-medium text-zinc-500">Add column</span>
+            <span className="text-[12px] font-medium text-muted">Add column</span>
             {boardColumnDefs.length >= 12 && (
-              <span className="text-[10px] text-zinc-600 mt-1">Max 12 columns</span>
+              <span className="text-[10px] text-muted mt-1">Max 12 columns</span>
             )}
           </button>
         </div>

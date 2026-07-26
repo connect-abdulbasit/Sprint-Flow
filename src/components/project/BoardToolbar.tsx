@@ -98,18 +98,18 @@ export default function BoardToolbar({
   const groupLabel = GROUP_OPTIONS.find((g) => g.id === groupBy)?.label ?? "None";
 
   return (
-    <div className="shrink-0 bg-[#09090b] px-6 pt-4">
+    <div className="shrink-0 bg-surface-sunken px-6 pt-4">
       <div className="flex flex-wrap items-center gap-3 max-w-[1600px] mx-auto">
         {/* Search */}
         <div className="relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 group-focus-within:text-blue-400 transition-colors" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted group-focus-within:text-accent transition-colors" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search board"
             aria-label="Search board"
-            className="w-[220px] rounded-lg border border-white/[0.08] bg-white/[0.03] pl-9 pr-3 py-2 text-[13px] text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all"
+            className="w-[220px] rounded-lg border border-border bg-hover pl-9 pr-3 py-2 text-[13px] text-fg placeholder-muted focus:outline-none focus:border-accent/50 focus:bg-hover-strong transition-all"
           />
         </div>
 
@@ -123,10 +123,10 @@ export default function BoardToolbar({
                 onClick={() => onToggleAssignee("unassigned")}
                 title="Unassigned"
                 aria-pressed={selected}
-                className={`relative -mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 ring-2 transition-all duration-150 hover:z-20 hover:-translate-y-0.5 ${
+                className={`relative -mr-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-muted2 ring-2 transition-all duration-150 hover:z-20 hover:-translate-y-0.5 ${
                   selected
-                    ? "z-10 scale-110 ring-blue-400 ring-offset-2 ring-offset-[#09090b] brightness-110"
-                    : "opacity-55 grayscale ring-[#09090b] hover:opacity-100 hover:grayscale-0"
+                    ? "z-10 scale-110 ring-accent ring-offset-2 ring-offset-surface-sunken brightness-110"
+                    : "opacity-55 grayscale ring-surface-sunken hover:opacity-100 hover:grayscale-0"
                 }`}
               >
                 <User className="h-3.5 w-3.5" />
@@ -147,8 +147,8 @@ export default function BoardToolbar({
                   m.userId
                 )} ${
                   selected
-                    ? "z-10 scale-110 ring-blue-400 ring-offset-2 ring-offset-[#09090b] brightness-125"
-                    : "opacity-55 grayscale ring-[#09090b] hover:opacity-100 hover:grayscale-0"
+                    ? "z-10 scale-110 ring-accent ring-offset-2 ring-offset-surface-sunken brightness-125"
+                    : "opacity-55 grayscale ring-surface-sunken hover:opacity-100 hover:grayscale-0"
                 }`}
               >
                 {initialsFromName(m.name || m.email)}
@@ -157,7 +157,7 @@ export default function BoardToolbar({
             );
           })}
           {overflow > 0 && (
-            <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-[10px] font-semibold text-zinc-400 ring-2 ring-[#09090b]">
+            <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-surface-2 text-[10px] font-semibold text-muted2 ring-2 ring-surface-sunken">
               +{overflow}
             </span>
           )}
@@ -173,28 +173,28 @@ export default function BoardToolbar({
             }}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors ${
               filterOpen || activeFilterCount > 0
-                ? "border-blue-500/40 bg-blue-500/10 text-blue-300"
-                : "border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:bg-white/[0.06]"
+                ? "border-accent/40 bg-accent/10 text-accent"
+                : "border-border bg-hover text-muted2 hover:bg-hover"
             }`}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
             Filter
             {activeFilterCount > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold text-white">
+              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white">
                 {activeFilterCount}
               </span>
             )}
           </button>
 
           {filterOpen && (
-            <div className="absolute left-0 top-full z-30 mt-1.5 w-56 rounded-xl border border-white/[0.1] bg-[#141418] p-3 shadow-2xl shadow-black/50">
+            <div className="absolute left-0 top-full z-30 mt-1.5 w-56 rounded-xl border border-border-hover bg-surface-hover p-3 shadow-lg">
               <FilterGroup
                 title="Type"
                 options={TYPE_OPTIONS}
                 selected={typeFilter}
                 onToggle={onToggleType}
               />
-              <div className="my-2 h-px bg-white/[0.06]" />
+              <div className="my-2 h-px bg-hover-strong" />
               <FilterGroup
                 title="Priority"
                 options={PRIORITY_OPTIONS}
@@ -215,8 +215,8 @@ export default function BoardToolbar({
             }}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors ${
               groupOpen || groupBy !== "none"
-                ? "border-blue-500/40 bg-blue-500/10 text-blue-300"
-                : "border-white/[0.08] bg-white/[0.03] text-zinc-300 hover:bg-white/[0.06]"
+                ? "border-accent/40 bg-accent/10 text-accent"
+                : "border-border bg-hover text-muted2 hover:bg-hover"
             }`}
           >
             <Layers className="h-3.5 w-3.5" />
@@ -225,7 +225,7 @@ export default function BoardToolbar({
           </button>
 
           {groupOpen && (
-            <div className="absolute left-0 top-full z-30 mt-1.5 w-44 rounded-xl border border-white/[0.1] bg-[#141418] p-1.5 shadow-2xl shadow-black/50">
+            <div className="absolute left-0 top-full z-30 mt-1.5 w-44 rounded-xl border border-border-hover bg-surface-hover p-1.5 shadow-lg">
               {GROUP_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
@@ -236,12 +236,12 @@ export default function BoardToolbar({
                   }}
                   className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-[13px] transition-colors ${
                     groupBy === opt.id
-                      ? "bg-white/[0.06] text-zinc-100"
-                      : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
+                      ? "bg-hover-strong text-fg"
+                      : "text-muted2 hover:bg-hover hover:text-fg"
                   }`}
                 >
                   {opt.label}
-                  {groupBy === opt.id && <Check className="h-3.5 w-3.5 text-blue-400" />}
+                  {groupBy === opt.id && <Check className="h-3.5 w-3.5 text-accent" />}
                 </button>
               ))}
             </div>
@@ -252,7 +252,7 @@ export default function BoardToolbar({
           <button
             type="button"
             onClick={onClearFilters}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12px] font-medium text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.04] transition-colors"
+            className="flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12px] font-medium text-muted hover:text-muted2 hover:bg-hover transition-colors"
           >
             <X className="h-3 w-3" />
             Clear
@@ -265,7 +265,7 @@ export default function BoardToolbar({
 
 function SelectedTick() {
   return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-blue-500 ring-2 ring-[#09090b]">
+    <span className="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-accent ring-2 ring-surface-sunken">
       <Check className="h-2 w-2 text-white" strokeWidth={3.5} />
     </span>
   );
@@ -284,7 +284,7 @@ function FilterGroup({
 }) {
   return (
     <div>
-      <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+      <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
         {title}
       </p>
       <div className="space-y-0.5">
@@ -295,13 +295,13 @@ function FilterGroup({
               key={opt.id}
               type="button"
               onClick={() => onToggle(opt.id)}
-              className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[13px] text-zinc-300 hover:bg-white/[0.04] transition-colors"
+              className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-[13px] text-muted2 hover:bg-hover transition-colors"
             >
               <span
                 className={`flex h-4 w-4 items-center justify-center rounded border transition-colors ${
                   isSelected
-                    ? "border-blue-500 bg-blue-500 text-white"
-                    : "border-zinc-600 bg-transparent"
+                    ? "border-accent bg-accent text-white"
+                    : "border-border-strong bg-transparent"
                 }`}
               >
                 {isSelected && <Check className="h-3 w-3" />}

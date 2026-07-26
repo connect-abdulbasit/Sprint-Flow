@@ -69,12 +69,12 @@ export default function ConfirmDialog({
 
   const confirmClass =
     variant === "danger"
-      ? "bg-red-500/15 hover:bg-red-500/25 text-red-200 border border-red-500/30"
-      : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-200 border border-emerald-500/30";
+      ? "bg-danger/15 hover:bg-danger/25 text-danger border border-danger/30"
+      : "bg-success/15 hover:bg-success/25 text-success border border-success/30";
 
   return (
     <div
-      className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-overlay p-4 backdrop-blur-sm"
       role="presentation"
       onClick={() => {
         if (!busy) onClose();
@@ -85,18 +85,18 @@ export default function ConfirmDialog({
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        className="relative w-full max-w-md rounded-xl border border-white/[0.1] bg-[#111115] shadow-2xl"
+        className="relative w-full max-w-md rounded-xl border border-border-hover bg-surface shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-5 py-4">
-          <h2 id="confirm-dialog-title" className="text-[15px] font-semibold text-zinc-100 pr-2">
+        <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+          <h2 id="confirm-dialog-title" className="text-[15px] font-semibold text-fg pr-2">
             {title}
           </h2>
           <button
             type="button"
             onClick={() => !busy && onClose()}
             disabled={busy}
-            className="shrink-0 rounded-md p-1 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+            className="shrink-0 rounded-md p-1 text-muted hover:bg-hover-strong hover:text-muted2 disabled:opacity-40"
             aria-label="Close"
           >
             <X className="h-4 w-4" />
@@ -104,24 +104,24 @@ export default function ConfirmDialog({
         </div>
 
         {description ? (
-          <div className="px-5 py-4 text-[13px] leading-relaxed text-zinc-400">{description}</div>
+          <div className="px-5 py-4 text-[13px] leading-relaxed text-muted2">{description}</div>
         ) : null}
 
         {errorMessage ? (
           <div
             role="alert"
-            className="mx-5 mt-4 rounded-lg border border-red-500/25 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-300"
+            className="mx-5 mt-4 rounded-lg border border-danger/25 bg-danger-soft px-3.5 py-2.5 text-[12.5px] text-danger"
           >
             {errorMessage}
           </div>
         ) : null}
 
-        <div className="flex flex-col-reverse gap-2 border-t border-white/[0.06] px-5 py-4 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end">
           <button
             type="button"
             onClick={() => !busy && onClose()}
             disabled={busy}
-            className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 disabled:opacity-40"
+            className="rounded-lg px-4 py-2.5 text-[13px] font-medium text-muted2 hover:bg-hover hover:text-fg disabled:opacity-40"
           >
             {cancelLabel}
           </button>

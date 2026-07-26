@@ -114,29 +114,29 @@ export default function CreateWorkspaceModal({
         className={`fixed inset-0 z-[1000] flex items-center justify-center p-4 ${backdropClass}`}
         onClick={handleClose}
       >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-overlay backdrop-blur-sm" />
 
         <div
           ref={modalRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="create-workspace-title"
-          className={`relative w-full max-w-md rounded-2xl overflow-hidden bg-[#0c0c0f] border border-white/[0.08] shadow-2xl ${animClass}`}
+          className={`relative w-full max-w-md rounded-2xl overflow-hidden bg-surface-sunken border border-border shadow-xl ${animClass}`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-8">
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h2 id="create-workspace-title" className="text-xl font-semibold text-zinc-100">
+                <h2 id="create-workspace-title" className="text-xl font-semibold text-fg">
                   New Workspace
                 </h2>
-                <p className="text-[13px] text-zinc-500 mt-1">
+                <p className="text-[13px] text-muted mt-1">
                   Create a new workspace for your projects.
                 </p>
               </div>
               <button
                 onClick={handleClose}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.05] transition-all"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-fg hover:bg-hover transition-all"
                 disabled={loading}
               >
                 <X className="w-4 h-4" />
@@ -145,7 +145,7 @@ export default function CreateWorkspaceModal({
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5">
+                <label className="text-[11px] font-semibold text-muted uppercase tracking-wider ml-0.5">
                   Name
                 </label>
                 <input
@@ -156,12 +156,12 @@ export default function CreateWorkspaceModal({
                   placeholder="e.g. Product Development"
                   required
                   disabled={loading}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-2.5 text-[14px] text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-[var(--color-accent)]/50 focus:bg-white/[0.05] transition-all"
+                  className="w-full bg-hover border border-border rounded-xl px-4 py-2.5 text-[14px] text-fg placeholder-muted focus:outline-none focus:border-[var(--color-accent)]/50 focus:bg-hover-strong transition-all"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5">
+                <label className="text-[11px] font-semibold text-muted uppercase tracking-wider ml-0.5">
                   Description
                 </label>
                 <textarea
@@ -170,12 +170,12 @@ export default function CreateWorkspaceModal({
                   placeholder="Briefly describe the workspace purpose..."
                   rows={3}
                   disabled={loading}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-[var(--color-accent)]/50 focus:bg-white/[0.05] transition-all resize-none"
+                  className="w-full bg-hover border border-border rounded-xl px-4 py-3 text-[14px] text-fg placeholder-muted focus:outline-none focus:border-[var(--color-accent)]/50 focus:bg-hover-strong transition-all resize-none"
                 />
               </div>
 
               {error && (
-                <p className="text-[13px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                <p className="text-[13px] text-danger bg-danger-soft border border-danger/25 rounded-lg px-3 py-2">
                   {error}
                 </p>
               )}

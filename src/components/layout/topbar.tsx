@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Bell, LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import ThemeToggle from "./theme-toggle";
 
 function getWorkspaceId(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
@@ -73,21 +74,23 @@ export default function Topbar() {
   return (
     <header className="h-14 flex items-center justify-end px-8 bg-transparent z-30">
       <div className="flex items-center gap-3">
+        <ThemeToggle />
+
         <button
           onClick={handleNotificationsClick}
-          className="cursor-pointer p-2 text-[#6b6b80] hover:text-[#f0f0f5] bg-[#111118]/25 hover:bg-[#111118]/65 border border-white/[0.05] rounded-xl transition-all duration-300 relative"
+          className="cursor-pointer p-2 text-muted hover:text-fg bg-surface/25 hover:bg-surface/65 border border-border rounded-xl transition-all duration-300 relative"
           title="Notifications"
           aria-label="Open notifications"
         >
           <Bell className="w-[18px] h-[18px]" />
           {hasUnreadNotifications && (
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#ff4f7c] rounded-full shadow-[0_0_8px_#ff4f7c]"></span>
+            <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-danger rounded-full shadow-[0_0_8px_var(--color-danger)]"></span>
           )}
         </button>
 
         <button
           onClick={handleLogout}
-          className="cursor-pointer p-2 text-[#6b6b80] hover:text-[#ff4f7c] bg-[#111118]/25 hover:bg-[#111118]/65 border border-white/[0.05] rounded-xl transition-all duration-300"
+          className="cursor-pointer p-2 text-muted hover:text-danger bg-surface/25 hover:bg-surface/65 border border-border rounded-xl transition-all duration-300"
           title="Logout"
         >
           <LogOut className="w-[18px] h-[18px]" />

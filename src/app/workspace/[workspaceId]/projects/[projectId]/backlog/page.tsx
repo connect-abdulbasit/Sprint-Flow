@@ -305,7 +305,7 @@ export default function ProjectBacklogPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#09090b]">
+    <div className="flex flex-col h-full bg-surface-sunken">
       <AlertDialog
         isOpen={actionAlert !== null}
         onClose={() => setActionAlert(null)}
@@ -366,8 +366,8 @@ export default function ProjectBacklogPage() {
       <div className="flex-1 overflow-y-auto px-10 py-8 space-y-6 custom-scrollbar">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[15px] font-semibold text-zinc-200">Sprint roadmap</h2>
-            <p className="text-[12px] text-zinc-500 mt-0.5">
+            <h2 className="text-[15px] font-semibold text-fg">Sprint roadmap</h2>
+            <p className="text-[12px] text-muted mt-0.5">
               Plan sprints, move work from the backlog, start the sprint, then complete it when done
               — same flow as Jira.
             </p>
@@ -375,7 +375,7 @@ export default function ProjectBacklogPage() {
           <div className="flex items-center gap-2">
             <Link
               href={`/workspace/${wid}/projects/${pid}/sprints`}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-[12px] font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05] transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-hover border border-border rounded-lg text-[12px] font-medium text-muted2 hover:text-fg hover:bg-hover transition-all"
             >
               <Calendar className="w-3.5 h-3.5" />
               Timeline
@@ -384,7 +384,7 @@ export default function ProjectBacklogPage() {
               type="button"
               onClick={() => setSprintModalOpen(true)}
               disabled={!canManageSprintAndTickets}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-500/10 border border-blue-500/15 rounded-lg text-[12px] font-medium text-blue-400 hover:bg-blue-500/15 transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-accent/10 border border-accent/15 rounded-lg text-[12px] font-medium text-accent hover:bg-accent/15 transition-all"
             >
               <Rocket className="w-3.5 h-3.5" />
               New sprint
@@ -397,7 +397,7 @@ export default function ProjectBacklogPage() {
         ) : (
           <>
             {planningAndActive.length === 0 ? (
-              <div className="rounded-lg border border-white/[0.05] bg-[#111115]/30 px-4 py-6 text-center text-[13px] text-zinc-500">
+              <div className="rounded-lg border border-border bg-surface/30 px-4 py-6 text-center text-[13px] text-muted">
                 No planned or active sprints yet. Create a sprint, then drag tickets from the
                 backlog into it (or use Move), then press Start when the team commits.
               </div>
@@ -436,15 +436,15 @@ export default function ProjectBacklogPage() {
             <div className="pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-[15px] font-semibold text-zinc-200">Backlog</h2>
-                  <p className="text-[12px] text-zinc-500 mt-0.5">
+                  <h2 className="text-[15px] font-semibold text-fg">Backlog</h2>
+                  <p className="text-[12px] text-muted mt-0.5">
                     {backlogTickets.length} unscheduled{" "}
                     {backlogTickets.length === 1 ? "ticket" : "tickets"}
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="text-[11px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="text-[11px] font-medium text-muted hover:text-muted2 transition-colors"
                   disabled
                 >
                   Archived
@@ -474,9 +474,9 @@ export default function ProjectBacklogPage() {
             {completedGroups.length > 0 && (
               <div className="pt-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="h-px flex-1 bg-white/[0.03]" />
-                  <span className="text-[11px] font-medium text-zinc-500">Completed sprints</span>
-                  <div className="h-px flex-1 bg-white/[0.03]" />
+                  <div className="h-px flex-1 bg-hover" />
+                  <span className="text-[11px] font-medium text-muted">Completed sprints</span>
+                  <div className="h-px flex-1 bg-hover" />
                 </div>
                 <div className="space-y-3 opacity-90">
                   {completedGroups.map((group) => (
@@ -498,8 +498,8 @@ export default function ProjectBacklogPage() {
             )}
 
             <div className="flex flex-col items-center justify-center py-12 opacity-30">
-              <Layers className="w-6 h-6 text-zinc-600 mb-2" />
-              <p className="text-[11px] text-zinc-600 font-medium">End of backlog</p>
+              <Layers className="w-6 h-6 text-muted mb-2" />
+              <p className="text-[11px] text-muted font-medium">End of backlog</p>
             </div>
           </>
         )}

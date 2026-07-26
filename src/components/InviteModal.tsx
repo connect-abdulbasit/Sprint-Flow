@@ -220,15 +220,15 @@ export default function InviteModal({
           100% { background-position: 200% 0; }
         }
         @keyframes successPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.4); }
-          50% { box-shadow: 0 0 0 12px rgba(0, 212, 170, 0); }
+          0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 40%, transparent); }
+          50% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--color-success) 0%, transparent); }
         }
         @keyframes checkDraw {
           from { stroke-dashoffset: 24; }
           to { stroke-dashoffset: 0; }
         }
         .invite-shimmer {
-          background: linear-gradient(90deg, transparent, rgba(79, 124, 255, 0.08), transparent);
+          background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-accent) 8%, transparent), transparent);
           background-size: 200% 100%;
           animation: shimmer 2s ease infinite;
         }
@@ -238,75 +238,55 @@ export default function InviteModal({
         className={`fixed inset-0 z-[1000] flex items-center justify-center p-4 ${backdropClass}`}
         onClick={handleClose}
       >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-overlay backdrop-blur-sm" />
 
         <div
           ref={modalRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="invite-modal-title"
-          className={`relative w-full max-w-lg rounded-2xl overflow-hidden ${animClass}`}
+          className={`relative w-full max-w-lg rounded-2xl overflow-hidden bg-surface border border-border shadow-xl ${animClass}`}
           onClick={(e) => e.stopPropagation()}
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(24, 24, 31, 0.98) 0%, rgba(17, 17, 24, 0.99) 100%)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
-            boxShadow:
-              "0 32px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(79, 124, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04)",
-          }}
         >
-          <div
-            className="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-[1px]"
-            style={{
-              background:
-                "linear-gradient(90deg, transparent, rgba(79, 124, 255, 0.5), rgba(162, 89, 255, 0.5), transparent)",
-            }}
-          />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[60%] h-[1px] bg-gradient-to-r from-transparent via-accent/50 to-transparent" />
 
           <div className="relative px-6 pt-6 pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, rgba(79, 124, 255, 0.15), rgba(162, 89, 255, 0.15))",
-                    border: "1px solid rgba(79, 124, 255, 0.2)",
-                  }}
-                >
-                  <Mail className="w-[18px] h-[18px] text-[#4f7cff]" />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-accent-soft border border-accent/20">
+                  <Mail className="w-[18px] h-[18px] text-accent" />
                 </div>
                 <div>
                   <h2
                     id="invite-modal-title"
-                    className="text-lg font-bold text-[#f0f0f5] tracking-tight"
+                    className="text-lg font-bold text-fg tracking-tight"
                     style={{ fontFamily: "var(--font-syne)" }}
                   >
                     Invite People
                   </h2>
-                  <p className="text-xs text-[#6b6b80] mt-0.5">to {workspaceName}</p>
+                  <p className="text-xs text-muted mt-0.5">to {workspaceName}</p>
                 </div>
               </div>
               <button
                 onClick={handleClose}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6b6b80] hover:text-[#f0f0f5] hover:bg-white/[0.06] transition-all duration-200"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-fg hover:bg-hover-strong transition-all duration-200"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          <div className="h-px bg-white/[0.06]" />
+          <div className="h-px bg-border" />
 
           <div className="px-6 py-5">
             {!success ? (
               <form onSubmit={handleSendInvite} className="space-y-5">
                 <div>
-                  <label className="block text-[13px] font-medium text-[#9090a8] mb-2">
+                  <label className="block text-[13px] font-medium text-muted2 mb-2">
                     Email address
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6b6b80] pointer-events-none" />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                     <input
                       ref={inputRef}
                       type="email"
@@ -317,88 +297,69 @@ export default function InviteModal({
                       }}
                       placeholder="colleague@company.com"
                       required
-                      className="w-full pl-10 pr-4 py-3 bg-[#0a0a0f] border border-white/[0.08] rounded-xl text-[#f0f0f5] text-sm placeholder-[#6b6b80] focus:outline-none focus:border-[#4f7cff]/50 focus:ring-1 focus:ring-[#4f7cff]/20 transition-all duration-200"
+                      className="w-full pl-10 pr-4 py-3 bg-surface-sunken border border-border rounded-xl text-fg text-sm placeholder-muted focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 transition-all duration-200"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-medium text-[#9090a8] mb-2">Role</label>
+                  <label className="block text-[13px] font-medium text-muted2 mb-2">Role</label>
                   <div className="grid grid-cols-3 gap-3">
                     <button
                       type="button"
                       onClick={() => setRole("member")}
-                      className="relative flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200"
-                      style={{
-                        background:
-                          role === "member"
-                            ? "linear-gradient(135deg, rgba(79, 124, 255, 0.12), rgba(79, 124, 255, 0.06))"
-                            : "rgba(255, 255, 255, 0.02)",
-                        border: `1px solid ${role === "member" ? "rgba(79, 124, 255, 0.3)" : "rgba(255, 255, 255, 0.06)"}`,
-                        color: role === "member" ? "#f0f0f5" : "#6b6b80",
-                      }}
+                      className={`relative flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        role === "member"
+                          ? "bg-accent-soft border border-accent/30 text-fg"
+                          : "bg-hover border border-border text-muted"
+                      }`}
                     >
                       <User
-                        className="w-4 h-4"
-                        style={{
-                          color: role === "member" ? "#4f7cff" : "#6b6b80",
-                        }}
+                        className={`w-4 h-4 ${role === "member" ? "text-accent" : "text-muted"}`}
                       />
                       Member
                       {role === "member" && (
-                        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#4f7cff]" />
+                        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-accent" />
                       )}
                     </button>
                     <button
                       type="button"
                       onClick={() => setRole("project_manager")}
-                      className="relative flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200"
-                      style={{
-                        background:
-                          role === "project_manager"
-                            ? "linear-gradient(135deg, rgba(255, 159, 67, 0.12), rgba(255, 159, 67, 0.06))"
-                            : "rgba(255, 255, 255, 0.02)",
-                        border: `1px solid ${role === "project_manager" ? "rgba(255, 159, 67, 0.3)" : "rgba(255, 255, 255, 0.06)"}`,
-                        color: role === "project_manager" ? "#f0f0f5" : "#6b6b80",
-                      }}
+                      className={`relative flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        role === "project_manager"
+                          ? "bg-warning-soft border border-warning/30 text-fg"
+                          : "bg-hover border border-border text-muted"
+                      }`}
                     >
                       <Shield
-                        className="w-4 h-4"
-                        style={{
-                          color: role === "project_manager" ? "#ff9f43" : "#6b6b80",
-                        }}
+                        className={`w-4 h-4 ${
+                          role === "project_manager" ? "text-warning" : "text-muted"
+                        }`}
                       />
                       PM
                       {role === "project_manager" && (
-                        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#ff9f43]" />
+                        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-warning" />
                       )}
                     </button>
                     <button
                       type="button"
                       onClick={() => setRole("admin")}
-                      className="relative flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200"
-                      style={{
-                        background:
-                          role === "admin"
-                            ? "linear-gradient(135deg, rgba(162, 89, 255, 0.12), rgba(162, 89, 255, 0.06))"
-                            : "rgba(255, 255, 255, 0.02)",
-                        border: `1px solid ${role === "admin" ? "rgba(162, 89, 255, 0.3)" : "rgba(255, 255, 255, 0.06)"}`,
-                        color: role === "admin" ? "#f0f0f5" : "#6b6b80",
-                      }}
+                      className={`relative flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                        role === "admin"
+                          ? "bg-[color-mix(in_srgb,var(--color-accent2)_12%,transparent)] border border-accent2/30 text-fg"
+                          : "bg-hover border border-border text-muted"
+                      }`}
                     >
                       <Shield
-                        className="w-4 h-4"
-                        style={{
-                          color: role === "admin" ? "#a259ff" : "#6b6b80",
-                        }}
+                        className={`w-4 h-4 ${role === "admin" ? "text-accent2" : "text-muted"}`}
                       />
                       Admin
                       {role === "admin" && (
-                        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-[#a259ff]" />
+                        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-accent2" />
                       )}
                     </button>
                   </div>
-                  <p className="text-[11px] text-[#6b6b80] mt-2">
+                  <p className="text-[11px] text-muted mt-2">
                     {role === "member"
                       ? "Members can view projects and update task statuses."
                       : role === "project_manager"
@@ -408,28 +369,16 @@ export default function InviteModal({
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-red-500/[0.08] border border-red-500/20">
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                    <p className="text-xs text-red-300">{error}</p>
+                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-danger-soft border border-danger/20">
+                    <AlertTriangle className="w-3.5 h-3.5 text-danger shrink-0" />
+                    <p className="text-xs text-danger">{error}</p>
                   </div>
                 )}
 
                 <button
                   type="submit"
                   disabled={loading || !email}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold rounded-xl transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{
-                    background:
-                      loading || !email
-                        ? "rgba(79, 124, 255, 0.15)"
-                        : "linear-gradient(135deg, #4f7cff, #6b93ff)",
-                    color: "#fff",
-                    border: "1px solid rgba(79, 124, 255, 0.3)",
-                    boxShadow:
-                      loading || !email
-                        ? "none"
-                        : "0 4px 16px rgba(79, 124, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
-                  }}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold rounded-xl transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed bg-gradient-to-r from-accent to-accent-strong text-white border border-accent/30 hover:opacity-95"
                 >
                   {loading ? (
                     <>
@@ -447,11 +396,8 @@ export default function InviteModal({
             ) : (
               <div className="text-center py-2">
                 <div
-                  className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-5"
+                  className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-5 bg-success-soft border border-success/25"
                   style={{
-                    background:
-                      "linear-gradient(135deg, rgba(0, 212, 170, 0.12), rgba(0, 212, 170, 0.06))",
-                    border: "1px solid rgba(0, 212, 170, 0.25)",
                     animation: "successPulse 2s ease infinite",
                   }}
                 >
@@ -459,7 +405,7 @@ export default function InviteModal({
                     viewBox="0 0 24 24"
                     className="w-7 h-7"
                     fill="none"
-                    stroke="#00d4aa"
+                    stroke="var(--color-success)"
                     strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -476,34 +422,27 @@ export default function InviteModal({
                 </div>
 
                 <h3
-                  className="text-lg font-bold text-[#f0f0f5] mb-1"
+                  className="text-lg font-bold text-fg mb-1"
                   style={{ fontFamily: "var(--font-syne)" }}
                 >
                   Invitation Sent!
                 </h3>
-                <p className="text-sm text-[#6b6b80] mb-5">
-                  Share this link with <span className="text-[#9090a8] font-medium">{email}</span>
+                <p className="text-sm text-muted mb-5">
+                  Share this link with <span className="text-muted2 font-medium">{email}</span>
                 </p>
 
-                <div
-                  className="flex items-center gap-2 p-1 rounded-xl mb-5"
-                  style={{
-                    background: "rgba(0, 0, 0, 0.3)",
-                    border: "1px solid rgba(255, 255, 255, 0.06)",
-                  }}
-                >
+                <div className="flex items-center gap-2 p-1 rounded-xl mb-5 bg-surface-sunken border border-border">
                   <div className="flex-1 flex items-center gap-2 px-3 py-2.5 min-w-0">
-                    <Link2 className="w-3.5 h-3.5 text-[#6b6b80] shrink-0" />
-                    <span className="text-xs text-[#9090a8] truncate">{inviteLink}</span>
+                    <Link2 className="w-3.5 h-3.5 text-muted shrink-0" />
+                    <span className="text-xs text-muted2 truncate">{inviteLink}</span>
                   </div>
                   <button
                     onClick={handleCopy}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold shrink-0 transition-all duration-200"
-                    style={{
-                      background: copied ? "rgba(0, 212, 170, 0.15)" : "rgba(79, 124, 255, 0.15)",
-                      color: copied ? "#00d4aa" : "#4f7cff",
-                      border: `1px solid ${copied ? "rgba(0, 212, 170, 0.25)" : "rgba(79, 124, 255, 0.2)"}`,
-                    }}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg text-xs font-semibold shrink-0 transition-all duration-200 border ${
+                      copied
+                        ? "bg-success-soft text-success border-success/25"
+                        : "bg-accent-soft text-accent border-accent/20"
+                    }`}
                   >
                     {copied ? (
                       <>
@@ -521,7 +460,7 @@ export default function InviteModal({
 
                 <button
                   onClick={handleSendAnother}
-                  className="flex items-center justify-center gap-2 mx-auto px-5 py-2.5 text-sm font-medium text-[#9090a8] hover:text-[#f0f0f5] rounded-xl hover:bg-white/[0.04] transition-all duration-200"
+                  className="flex items-center justify-center gap-2 mx-auto px-5 py-2.5 text-sm font-medium text-muted2 hover:text-fg rounded-xl hover:bg-hover transition-all duration-200"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   Send another invite
@@ -532,56 +471,48 @@ export default function InviteModal({
 
           {invitations.length > 0 && (
             <>
-              <div className="h-px bg-white/[0.06]" />
+              <div className="h-px bg-border" />
               <div className="px-6 py-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#6b6b80]">
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">
                     Pending Invitations
                   </h3>
-                  <span className="text-[10px] font-medium text-[#6b6b80] bg-white/[0.04] border border-white/[0.06] px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] font-medium text-muted bg-hover border border-border px-2 py-0.5 rounded-md">
                     {invitations.length}
                   </span>
                 </div>
                 {revokeError && (
-                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-red-500/[0.08] border border-red-500/20 mb-3">
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                    <p className="text-xs text-red-300">{revokeError}</p>
+                  <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-danger-soft border border-danger/20 mb-3">
+                    <AlertTriangle className="w-3.5 h-3.5 text-danger shrink-0" />
+                    <p className="text-xs text-danger">{revokeError}</p>
                   </div>
                 )}
                 <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
                   {loadingInvitations ? (
                     <div className="flex items-center justify-center py-4">
-                      <Loader2 className="w-4 h-4 animate-spin text-[#6b6b80]" />
+                      <Loader2 className="w-4 h-4 animate-spin text-muted" />
                     </div>
                   ) : (
                     invitations.map((inv) => (
                       <div
                         key={inv.id}
-                        className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-white/[0.03] transition-colors"
+                        className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl hover:bg-hover transition-colors"
                       >
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-bold"
-                          style={{
-                            background: "rgba(255, 255, 255, 0.04)",
-                            border: "1px solid rgba(255, 255, 255, 0.06)",
-                            color: "#6b6b80",
-                          }}
-                        >
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-bold bg-hover border border-border text-muted">
                           {inv.email.split("@")[0].slice(0, 2).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm text-[#f0f0f5] truncate block">{inv.email}</span>
+                          <span className="text-sm text-fg truncate block">{inv.email}</span>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span
-                              className="text-[10px] font-medium uppercase tracking-wider"
-                              style={{
-                                color: inv.role === "admin" ? "#a259ff" : "#4f7cff",
-                              }}
+                              className={`text-[10px] font-medium uppercase tracking-wider ${
+                                inv.role === "admin" ? "text-accent2" : "text-accent"
+                              }`}
                             >
                               {inv.role}
                             </span>
-                            <span className="w-0.5 h-0.5 rounded-full bg-[#6b6b80]" />
-                            <span className="text-[10px] text-[#6b6b80] flex items-center gap-1">
+                            <span className="w-0.5 h-0.5 rounded-full bg-muted" />
+                            <span className="text-[10px] text-muted flex items-center gap-1">
                               <Clock className="w-2.5 h-2.5" />
                               {new Date(inv.expiresAt).toLocaleDateString()}
                             </span>
@@ -590,7 +521,7 @@ export default function InviteModal({
                         <button
                           onClick={() => handleRevoke(inv.id)}
                           disabled={revokingId === inv.id}
-                          className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-[#6b6b80] hover:text-red-400 hover:bg-red-500/[0.08] transition-all duration-200 shrink-0 disabled:opacity-50"
+                          className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:text-danger hover:bg-danger-soft transition-all duration-200 shrink-0 disabled:opacity-50"
                           title="Revoke invitation"
                         >
                           {revokingId === inv.id ? (

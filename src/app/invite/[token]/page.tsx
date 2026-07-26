@@ -173,12 +173,12 @@ export default function InviteAcceptPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg)] text-[#f0f0f5] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[var(--color-bg)] text-fg flex items-center justify-center p-6">
       <div
         className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[600px] pointer-events-none"
         style={{
           background:
-            "radial-gradient(circle, rgba(79, 124, 255, 0.06) 0%, rgba(162, 89, 255, 0.03) 40%, transparent 70%)",
+            "radial-gradient(circle, color-mix(in srgb, var(--color-accent) 6%, transparent) 0%, color-mix(in srgb, var(--color-accent2) 3%, transparent) 40%, transparent 70%)",
         }}
       />
 
@@ -188,8 +188,8 @@ export default function InviteAcceptPage() {
           to { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes acceptPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.3); }
-          50% { box-shadow: 0 0 0 16px rgba(0, 212, 170, 0); }
+          0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 30%, transparent); }
+          50% { box-shadow: 0 0 0 16px transparent; }
         }
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(8px); }
@@ -204,7 +204,7 @@ export default function InviteAcceptPage() {
 
       <div className="relative w-full max-w-md" style={{ animation: "cardIn 0.5s ease forwards" }}>
         <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--color-accent)] to-[var(--color-accent2)] flex items-center justify-center text-sm font-black text-white shadow-[0_0_24px_rgba(79,124,255,0.25)]">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--color-accent)] to-[var(--color-accent2)] flex items-center justify-center text-sm font-black text-white shadow-[0_0_24px_var(--color-accent-soft)]">
             SF
           </div>
           <span
@@ -219,17 +219,17 @@ export default function InviteAcceptPage() {
           className="rounded-2xl overflow-hidden"
           style={{
             background:
-              "linear-gradient(180deg, rgba(24, 24, 31, 0.98) 0%, rgba(17, 17, 24, 0.99) 100%)",
-            border: "1px solid rgba(255, 255, 255, 0.08)",
+              "linear-gradient(180deg, var(--color-surface-2) 0%, var(--color-surface) 100%)",
+            border: "1px solid var(--color-border)",
             boxShadow:
-              "0 32px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(79, 124, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.04)",
+              "var(--shadow-xl), 0 0 0 1px var(--color-accent-soft), inset 0 1px 0 var(--color-border)",
           }}
         >
           <div
             className="h-[2px] w-full"
             style={{
               background:
-                "linear-gradient(90deg, transparent 10%, #4f7cff 30%, #a259ff 70%, transparent 90%)",
+                "linear-gradient(90deg, transparent 10%, var(--color-accent) 30%, var(--color-accent2) 70%, transparent 90%)",
             }}
           />
 
@@ -241,18 +241,18 @@ export default function InviteAcceptPage() {
                 <div
                   className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5"
                   style={{
-                    background: "rgba(255, 100, 100, 0.08)",
-                    border: "1px solid rgba(255, 100, 100, 0.2)",
+                    background: "color-mix(in srgb, var(--color-danger) 8%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)",
                   }}
                 >
                   {errorType === "not_found" || errorType === "expired" ? (
-                    <XCircle className="w-6 h-6 text-red-400" />
+                    <XCircle className="w-6 h-6 text-danger" />
                   ) : (
-                    <AlertTriangle className="w-6 h-6 text-amber-400" />
+                    <AlertTriangle className="w-6 h-6 text-warning" />
                   )}
                 </div>
                 <h2
-                  className="text-xl font-bold text-[#f0f0f5] mb-2"
+                  className="text-xl font-bold text-fg mb-2"
                   style={{ fontFamily: "var(--font-syne)" }}
                 >
                   {errorType === "not_found"
@@ -261,10 +261,10 @@ export default function InviteAcceptPage() {
                       ? "Invitation Expired"
                       : "Invitation Unavailable"}
                 </h2>
-                <p className="text-sm text-[#6b6b80] mb-6 max-w-[280px]">{error}</p>
+                <p className="text-sm text-muted mb-6 max-w-[280px]">{error}</p>
                 <Link
                   href="/organizations"
-                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#4f7cff] rounded-xl bg-[#4f7cff]/[0.08] border border-[#4f7cff]/20 hover:bg-[#4f7cff]/[0.12] transition-all duration-200 no-underline"
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-accent rounded-xl bg-accent/[0.08] border border-accent/20 hover:bg-accent/[0.12] transition-all duration-200 no-underline"
                 >
                   Go to Organizations
                   <ArrowRight className="w-4 h-4" />
@@ -275,25 +275,25 @@ export default function InviteAcceptPage() {
                 <div
                   className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
                   style={{
-                    background: "rgba(255, 100, 100, 0.08)",
-                    border: "1px solid rgba(255, 100, 100, 0.2)",
+                    background: "color-mix(in srgb, var(--color-danger) 8%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)",
                   }}
                 >
-                  <X className="w-7 h-7 text-red-400" />
+                  <X className="w-7 h-7 text-danger" />
                 </div>
                 <h2
-                  className="text-xl font-bold text-[#f0f0f5] mb-2"
+                  className="text-xl font-bold text-fg mb-2"
                   style={{ fontFamily: "var(--font-syne)" }}
                 >
                   Invitation Declined
                 </h2>
-                <p className="text-sm text-[#6b6b80] mb-1">
+                <p className="text-sm text-muted mb-1">
                   You&apos;ve declined the invitation to{" "}
-                  <span className="text-[#f0f0f5] font-medium">{invitation?.workspaceName}</span>
+                  <span className="text-fg font-medium">{invitation?.workspaceName}</span>
                 </p>
                 <Link
                   href="/organizations"
-                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[#9090a8] rounded-xl hover:bg-white/[0.04] transition-all duration-200 no-underline mt-4"
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-muted2 rounded-xl hover:bg-hover transition-all duration-200 no-underline mt-4"
                 >
                   Go to Organizations
                   <ArrowRight className="w-4 h-4" />
@@ -305,27 +305,27 @@ export default function InviteAcceptPage() {
                   className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
                   style={{
                     background:
-                      "linear-gradient(135deg, rgba(0, 212, 170, 0.12), rgba(0, 212, 170, 0.06))",
-                    border: "1px solid rgba(0, 212, 170, 0.25)",
+                      "linear-gradient(135deg, color-mix(in srgb, var(--color-success) 12%, transparent), color-mix(in srgb, var(--color-success) 6%, transparent))",
+                    border: "1px solid color-mix(in srgb, var(--color-success) 25%, transparent)",
                     animation: "acceptPulse 2s ease infinite",
                   }}
                 >
                   <Check
-                    className="w-7 h-7 text-[#00d4aa]"
+                    className="w-7 h-7 text-success"
                     style={{ animation: "checkScale 0.4s ease forwards" }}
                   />
                 </div>
                 <h2
-                  className="text-xl font-bold text-[#f0f0f5] mb-2"
+                  className="text-xl font-bold text-fg mb-2"
                   style={{ fontFamily: "var(--font-syne)" }}
                 >
                   Welcome aboard!
                 </h2>
-                <p className="text-sm text-[#6b6b80] mb-1">
+                <p className="text-sm text-muted mb-1">
                   You&apos;re now a member of{" "}
-                  <span className="text-[#f0f0f5] font-medium">{invitation?.workspaceName}</span>
+                  <span className="text-fg font-medium">{invitation?.workspaceName}</span>
                 </p>
-                <p className="text-xs text-[#6b6b80] flex items-center gap-1.5">
+                <p className="text-xs text-muted flex items-center gap-1.5">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   Redirecting you now…
                 </p>
@@ -333,11 +333,11 @@ export default function InviteAcceptPage() {
             ) : invitation ? (
               <div className="text-center">
                 <div
-                  className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-xl font-bold text-[#f0f0f5] mb-5"
+                  className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-xl font-bold text-fg mb-5"
                   style={{
                     background:
-                      "linear-gradient(135deg, rgba(79, 124, 255, 0.12), rgba(162, 89, 255, 0.08))",
-                    border: "1px solid rgba(79, 124, 255, 0.2)",
+                      "linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 12%, transparent), color-mix(in srgb, var(--color-accent2) 8%, transparent))",
+                    border: "1px solid color-mix(in srgb, var(--color-accent) 20%, transparent)",
                   }}
                 >
                   {invitation.workspaceName
@@ -349,50 +349,51 @@ export default function InviteAcceptPage() {
                 </div>
 
                 <h2
-                  className="text-xl font-bold text-[#f0f0f5] mb-1"
+                  className="text-xl font-bold text-fg mb-1"
                   style={{ fontFamily: "var(--font-syne)" }}
                 >
                   You&apos;re invited!
                 </h2>
-                <p className="text-sm text-[#6b6b80] mb-6">
-                  <span className="text-[#9090a8] font-medium">{invitation.invitedByName}</span> has
+                <p className="text-sm text-muted mb-6">
+                  <span className="text-muted2 font-medium">{invitation.invitedByName}</span> has
                   invited you to join
                 </p>
 
                 <div
                   className="rounded-xl p-4 mb-6"
                   style={{
-                    background: "rgba(255, 255, 255, 0.02)",
-                    border: "1px solid rgba(255, 255, 255, 0.06)",
+                    background: "var(--color-hover)",
+                    border: "1px solid var(--color-border)",
                   }}
                 >
                   <div className="flex items-center justify-center gap-3 mb-3">
-                    <Briefcase className="w-4 h-4 text-[#4f7cff]" />
-                    <h3 className="text-lg font-bold text-[#f0f0f5]">{invitation.workspaceName}</h3>
+                    <Briefcase className="w-4 h-4 text-accent" />
+                    <h3 className="text-lg font-bold text-fg">{invitation.workspaceName}</h3>
                   </div>
-                  <p className="text-xs text-[#9090a8] mb-3">
+                  <p className="text-xs text-muted2 mb-3">
                     Organization:{" "}
-                    <span className="text-[#f0f0f5] font-medium">
-                      {invitation.organizationName}
-                    </span>
+                    <span className="text-fg font-medium">{invitation.organizationName}</span>
                   </p>
-                  <div className="flex items-center justify-center gap-4 text-xs text-[#6b6b80]">
+                  <div className="flex items-center justify-center gap-4 text-xs text-muted">
                     <span className="flex items-center gap-1.5">
                       {invitation.role === "admin" ? (
-                        <Shield className="w-3.5 h-3.5 text-[#a259ff]" />
+                        <Shield className="w-3.5 h-3.5 text-accent2" />
                       ) : (
-                        <User className="w-3.5 h-3.5 text-[#4f7cff]" />
+                        <User className="w-3.5 h-3.5 text-accent" />
                       )}
                       <span
                         className="font-medium uppercase tracking-wider text-[10px]"
                         style={{
-                          color: invitation.role === "admin" ? "#a259ff" : "#4f7cff",
+                          color:
+                            invitation.role === "admin"
+                              ? "var(--color-accent2)"
+                              : "var(--color-accent)",
                         }}
                       >
                         {invitation.role}
                       </span>
                     </span>
-                    <span className="w-0.5 h-0.5 rounded-full bg-[#6b6b80]" />
+                    <span className="w-0.5 h-0.5 rounded-full bg-muted" />
                     <span className="flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5" />
                       Expires {new Date(invitation.expiresAt).toLocaleDateString()}
@@ -404,12 +405,12 @@ export default function InviteAcceptPage() {
                   <div
                     className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg mb-5 text-left"
                     style={{
-                      background: "rgba(255, 100, 100, 0.08)",
-                      border: "1px solid rgba(255, 100, 100, 0.2)",
+                      background: "color-mix(in srgb, var(--color-danger) 8%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--color-danger) 20%, transparent)",
                     }}
                   >
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-[#ff6464]" />
-                    <p className="text-xs text-[#ff8888]">{error}</p>
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-danger" />
+                    <p className="text-xs text-danger">{error}</p>
                   </div>
                 )}
 
@@ -419,11 +420,12 @@ export default function InviteAcceptPage() {
                   disabled={accepting || rejecting}
                   className="w-full flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-semibold rounded-xl transition-all duration-200 disabled:opacity-60 mb-3"
                   style={{
-                    background: "linear-gradient(135deg, #4f7cff, #6b93ff)",
-                    color: "#fff",
-                    border: "1px solid rgba(79, 124, 255, 0.3)",
+                    background:
+                      "linear-gradient(135deg, var(--color-accent), var(--color-accent-strong))",
+                    color: "white",
+                    border: "1px solid color-mix(in srgb, var(--color-accent) 30%, transparent)",
                     boxShadow:
-                      "0 4px 24px rgba(79, 124, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+                      "0 4px 24px color-mix(in srgb, var(--color-accent) 30%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
                   }}
                 >
                   {accepting ? (
@@ -443,7 +445,7 @@ export default function InviteAcceptPage() {
                 <button
                   onClick={handleReject}
                   disabled={accepting || rejecting}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium rounded-xl transition-all duration-200 disabled:opacity-60 text-[#9090a8] hover:text-red-300 hover:bg-red-500/[0.06] border border-transparent hover:border-red-500/20"
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3 text-sm font-medium rounded-xl transition-all duration-200 disabled:opacity-60 text-muted2 hover:text-danger hover:bg-danger/[0.06] border border-transparent hover:border-danger/20"
                 >
                   {rejecting ? (
                     <>
@@ -458,12 +460,15 @@ export default function InviteAcceptPage() {
                   )}
                 </button>
 
-                <p className="text-[11px] text-[#6b6b80] mt-4">
+                <p className="text-[11px] text-muted mt-4">
                   By accepting, you&apos;ll join as a{" "}
                   <span
                     className="font-medium"
                     style={{
-                      color: invitation.role === "admin" ? "#a259ff" : "#4f7cff",
+                      color:
+                        invitation.role === "admin"
+                          ? "var(--color-accent2)"
+                          : "var(--color-accent)",
                     }}
                   >
                     {invitation.role}
@@ -474,8 +479,8 @@ export default function InviteAcceptPage() {
           </div>
         </div>
 
-        <p className="text-center text-[11px] text-[#6b6b80] mt-6">
-          Powered by <span className="font-semibold text-[#9090a8]">SprintFlow</span>
+        <p className="text-center text-[11px] text-muted mt-6">
+          Powered by <span className="font-semibold text-muted2">SprintFlow</span>
         </p>
       </div>
     </div>

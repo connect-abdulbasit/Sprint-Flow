@@ -112,7 +112,7 @@ export default function ProjectModal({
         onClick={handleClose}
         role="presentation"
       >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-overlay backdrop-blur-sm" />
 
         {/* Dialog */}
         <div
@@ -120,17 +120,17 @@ export default function ProjectModal({
           role="dialog"
           aria-modal="true"
           aria-label={isEditMode ? "Edit project" : "Create new project"}
-          className={`relative w-full max-w-lg rounded-2xl overflow-hidden bg-[#0c0c0f] border border-white/[0.08] shadow-2xl ${animClass}`}
+          className={`relative w-full max-w-lg rounded-2xl overflow-hidden bg-surface-sunken border border-border shadow-xl ${animClass}`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-8">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
               <div>
-                <h2 className="text-xl font-semibold text-zinc-100">
+                <h2 className="text-xl font-semibold text-fg">
                   {isEditMode ? "Edit project" : "Create new project"}
                 </h2>
-                <p className="text-[13px] text-zinc-500 mt-1">
+                <p className="text-[13px] text-muted mt-1">
                   {isEditMode
                     ? "Update the project details below."
                     : "Set up your project and get started."}
@@ -140,7 +140,7 @@ export default function ProjectModal({
                 type="button"
                 onClick={handleClose}
                 aria-label="Close dialog"
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.05] transition-all"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-muted hover:text-fg hover:bg-hover transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -152,9 +152,9 @@ export default function ProjectModal({
               <div className="space-y-1.5">
                 <label
                   htmlFor="project-name"
-                  className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5"
+                  className="text-[11px] font-semibold text-muted uppercase tracking-wider ml-0.5"
                 >
-                  Name <span className="text-red-400">*</span>
+                  Name <span className="text-danger">*</span>
                 </label>
                 <input
                   ref={inputRef}
@@ -165,7 +165,7 @@ export default function ProjectModal({
                   placeholder="e.g. Design System"
                   required
                   aria-required="true"
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-2.5 text-[14px] text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all"
+                  className="w-full bg-hover border border-border rounded-xl px-4 py-2.5 text-[14px] text-fg placeholder-muted focus:outline-none focus:border-accent/50 focus:bg-hover-strong transition-all"
                 />
               </div>
 
@@ -173,7 +173,7 @@ export default function ProjectModal({
               <div className="space-y-1.5">
                 <label
                   htmlFor="project-desc"
-                  className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5"
+                  className="text-[11px] font-semibold text-muted uppercase tracking-wider ml-0.5"
                 >
                   Description
                 </label>
@@ -183,14 +183,14 @@ export default function ProjectModal({
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Briefly describe the project goals…"
                   rows={3}
-                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-[14px] text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.05] transition-all resize-none"
+                  className="w-full bg-hover border border-border rounded-xl px-4 py-3 text-[14px] text-fg placeholder-muted focus:outline-none focus:border-accent/50 focus:bg-hover-strong transition-all resize-none"
                 />
               </div>
 
               {/* Inline error */}
               {formError && (
                 <p
-                  className="text-[13px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2"
+                  className="text-[13px] text-danger bg-danger-soft border border-danger/25 rounded-lg px-4 py-2"
                   role="alert"
                 >
                   {formError}
@@ -203,14 +203,14 @@ export default function ProjectModal({
                   type="button"
                   onClick={handleClose}
                   disabled={submitting}
-                  className="px-4 py-2 rounded-lg text-[13px] font-medium text-zinc-400 hover:text-zinc-200 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg text-[13px] font-medium text-muted2 hover:text-fg transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || !name.trim()}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-zinc-100 hover:bg-white text-zinc-950 text-[14px] font-semibold rounded-lg transition-all active:scale-[0.98] disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-fg hover:bg-fg-strong text-bg text-[14px] font-semibold rounded-lg transition-all active:scale-[0.98] disabled:opacity-50"
                 >
                   {submitting ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

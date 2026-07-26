@@ -7,7 +7,7 @@ import Topbar from "./topbar";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <WorkspaceNavProvider>
-      <div className="flex h-screen bg-transparent text-[#f0f0f5] overflow-hidden font-sans">
+      <div className="flex h-screen bg-transparent text-fg overflow-hidden font-sans">
         <Sidebar />
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-transparent">
           <Topbar />
