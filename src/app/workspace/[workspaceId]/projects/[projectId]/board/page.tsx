@@ -40,6 +40,7 @@ import {
 } from "@/lib/board-columns";
 import { BoardColumnsSkeleton } from "@/components/ui/skeleton";
 import { initialsFromName } from "@/lib/initials";
+import BoardToolbar, { type GroupBy } from "@/components/project/BoardToolbar";
 import type { LucideIcon } from "lucide-react";
 
 function buildSprintPickerOptions(sprints: ProjectSprint[], currentSprintId: string | null) {
@@ -90,6 +91,56 @@ const typeColors: Record<string, string> = {
 };
 
 const COLUMN_DND_MIME = "application/x-sprintflow-board-column-index";
+
+const PRIORITY_GROUP_ORDER = ["urgent", "high", "medium", "low"];
+const TYPE_GROUP_ORDER = ["feature", "bug", "task", "improvement"];
+
+interface TicketGroup {
+  key: string;
+  label: string;
+  tickets: ProjectTicket[];
+}
+
+/** Splits a column's tickets into labeled sections for the "Group by" board mode. */
+function groupColumnTickets(tickets: ProjectTicket[], groupBy: GroupBy): TicketGroup[] {
+  if (groupBy === "none") {
+    return [{ key: "all", label: "", tickets }];
+  }
+
+  const map = new Map<string, TicketGroup>();
+  for (const t of tickets) {
+    let key: string;
+    let label: string;
+    if (groupBy === "assignee") {
+      key = t.assigneeId ?? "unassigned";
+      label = t.assigneeName ?? "Unassigned";
+    } else if (groupBy === "priority") {
+      key = t.priority || "medium";
+      label = key.charAt(0).toUpperCase() + key.slice(1);
+    } else {
+      key = t.type || "task";
+      label = key.charAt(0).toUpperCase() + key.slice(1);
+    }
+    const existing = map.get(key);
+    if (existing) existing.tickets.push(t);
+    else map.set(key, { key, label, tickets: [t] });
+  }
+
+  const groups = Array.from(map.values());
+  groups.sort((a, b) => {
+    if (groupBy === "priority") {
+      return PRIORITY_GROUP_ORDER.indexOf(a.key) - PRIORITY_GROUP_ORDER.indexOf(b.key);
+    }
+    if (groupBy === "type") {
+      return TYPE_GROUP_ORDER.indexOf(a.key) - TYPE_GROUP_ORDER.indexOf(b.key);
+    }
+    // Assignee: named people first (alphabetical), unassigned last.
+    if (a.key === "unassigned") return 1;
+    if (b.key === "unassigned") return -1;
+    return a.label.localeCompare(b.label);
+  });
+  return groups;
+}
 
 /** Strip index k = drop before column k; k === len = after last column. */
 function columnInsertIndexAfterRemove(from: number, k: number, len: number): number {
@@ -149,6 +200,40 @@ export default function ProjectBoardPage() {
     migrateTo: string;
     ticketCount: number;
   } | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [assigneeFilter, setAssigneeFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [priorityFilter, setPriorityFilter] = useState<string[]>([]);
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+
+  const toggleInList = useCallback(
+    (value: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
+      setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
+    },
+    []
+  );
+
+  const clearFilters = useCallback(() => {
+    setSearch("");
+    setAssigneeFilter([]);
+    setTypeFilter([]);
+    setPriorityFilter([]);
+  }, []);
+
+  const matchesFilters = useCallback(
+    (t: ProjectTicket) => {
+      const q = search.trim().toLowerCase();
+      if (q && !`${t.key} ${t.title}`.toLowerCase().includes(q)) return false;
+      if (assigneeFilter.length > 0 && !assigneeFilter.includes(t.assigneeId ?? "unassigned")) {
+        return false;
+      }
+      if (typeFilter.length > 0 && !typeFilter.includes(t.type)) return false;
+      if (priorityFilter.length > 0 && !priorityFilter.includes(t.priority)) return false;
+      return true;
+    },
+    [search, assigneeFilter, typeFilter, priorityFilter]
+  );
 
   const boardColumnDefs = useMemo(
     () => normalizeBoardColumns(project?.boardColumns ?? null),
@@ -535,6 +620,125 @@ export default function ProjectBoardPage() {
     }
   }, [removeCtx, boardColumnDefs, tickets, pid, persistBoardColumns]);
 
+  const renderTicketCard = (
+    ticket: ProjectTicket,
+    index: number,
+    columnId: string,
+    isOver: boolean,
+    enableReorder: boolean
+  ) => (
+    <div key={ticket.id}>
+      {enableReorder && isOver && dropTargetIndex === index && (
+        <div className="h-0.5 bg-blue-500 rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
+      )}
+      <div
+        draggable
+        onDragStart={(e) => handleDragStart(e, ticket.id)}
+        onDragEnd={handleDragEnd}
+        onDragOver={enableReorder ? (e) => handleCardDragOver(e, index) : undefined}
+        onDrop={(e) => void handleDrop(e, columnId)}
+        onClick={() => openDetail(ticket)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openDetail(ticket);
+          }
+        }}
+        tabIndex={0}
+        className={`group/card relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#111115] p-3.5 pr-10 shadow-sm transition-all select-none hover:border-white/[0.1] hover:bg-[#141418] active:cursor-grabbing ${
+          draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
+        }`}
+      >
+        <div className="pointer-events-none absolute top-2.5 right-2.5 text-zinc-600" aria-hidden>
+          <GripVertical className="h-3.5 w-3.5" />
+        </div>
+
+        <div className="mb-2.5 flex flex-wrap items-center gap-2">
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] font-medium capitalize ${typeColors[ticket.type] || typeColors.task}`}
+          >
+            {ticket.type}
+          </span>
+          <span
+            className={`rounded border px-1.5 py-0.5 text-[10px] font-medium capitalize ${priorityColors[ticket.priority] || priorityColors.medium}`}
+          >
+            {ticket.priority}
+          </span>
+          {ticket.blockedByOpenDependencies ? (
+            <span
+              className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
+              title="Blocked by prerequisites not done yet"
+            >
+              <Link2 className="h-3 w-3" aria-hidden />
+              Waiting
+            </span>
+          ) : null}
+        </div>
+
+        <div className="mb-1 font-mono text-[11px] text-zinc-600">{ticket.key}</div>
+
+        <h4 className="mb-4 text-[13px] font-medium leading-snug text-zinc-300 group-hover/card:text-zinc-100">
+          {ticket.title}
+        </h4>
+
+        <div className="flex items-center justify-between">
+          <div
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700/50 bg-zinc-800 text-[9px] font-semibold text-zinc-400"
+            title={ticket.assigneeName ?? "Unassigned"}
+          >
+            {initialsFromName(ticket.assigneeName)}
+          </div>
+          {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
+            <div className="rounded bg-zinc-800/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+              {ticket.storyPoints} pts
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderColumnCards = (
+    column: BoardColumnConfig,
+    columnTickets: ProjectTicket[],
+    isOver: boolean
+  ) => {
+    if (groupBy === "none") {
+      return (
+        <>
+          {columnTickets.map((ticket, index) =>
+            renderTicketCard(ticket, index, column.id, isOver, true)
+          )}
+          {isOver && dropTargetIndex === columnTickets.length && (
+            <div className="h-0.5 bg-blue-500 rounded-full mx-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
+          )}
+        </>
+      );
+    }
+
+    const groups = groupColumnTickets(columnTickets, groupBy);
+    return (
+      <>
+        {groups.map((g) => (
+          <div key={g.key} className="space-y-2">
+            <div className="flex items-center gap-2 px-1 pt-1">
+              <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+                {g.label}
+              </span>
+              <span className="shrink-0 rounded bg-zinc-800/60 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600">
+                {g.tickets.length}
+              </span>
+              <div className="h-px flex-1 bg-white/[0.05]" />
+            </div>
+            {g.tickets.map((ticket, index) =>
+              renderTicketCard(ticket, index, column.id, isOver, false)
+            )}
+          </div>
+        ))}
+      </>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full bg-[#09090b]">
       <ProjectPageHeader />
@@ -592,6 +796,23 @@ export default function ProjectBoardPage() {
           </Link>
         </div>
       </div>
+
+      {boardReady && boardFocusSprintId && (
+        <BoardToolbar
+          search={search}
+          onSearchChange={setSearch}
+          members={members}
+          assigneeFilter={assigneeFilter}
+          onToggleAssignee={(id) => toggleInList(id, setAssigneeFilter)}
+          typeFilter={typeFilter}
+          priorityFilter={priorityFilter}
+          onToggleType={(t) => toggleInList(t, setTypeFilter)}
+          onTogglePriority={(p) => toggleInList(p, setPriorityFilter)}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
+          onClearFilters={clearFilters}
+        />
+      )}
 
       {addColumnOpen && (
         <div
@@ -743,7 +964,9 @@ export default function ProjectBoardPage() {
       ) : (
         <div className="flex-1 overflow-x-auto p-6 flex flex-nowrap items-stretch gap-0 custom-scrollbar">
           {boardColumnDefs.map((column, columnIndex) => {
-            const columnTickets = boardTickets.filter((t) => t.status === column.id);
+            const columnTickets = boardTickets.filter(
+              (t) => t.status === column.id && matchesFilters(t)
+            );
             const isOver = dragOverColumn === column.id && draggedTicketId !== null;
             const ColIcon = COLUMN_ICON_MAP[column.id] ?? LayoutGrid;
             const slotActive = columnDropSlot === columnIndex && draggedColumnIndex !== null;
@@ -844,83 +1067,7 @@ export default function ProjectBoardPage() {
                     onDragOver={handleColumnDragOver}
                     onDrop={(e) => void handleDrop(e, column.id)}
                   >
-                    {columnTickets.map((ticket, index) => (
-                      <div key={ticket.id}>
-                        {isOver && dropTargetIndex === index && (
-                          <div className="h-0.5 bg-blue-500 rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
-                        )}
-                        <div
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, ticket.id)}
-                          onDragEnd={handleDragEnd}
-                          onDragOver={(e) => handleCardDragOver(e, index)}
-                          onDrop={(e) => void handleDrop(e, column.id)}
-                          onClick={() => openDetail(ticket)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              openDetail(ticket);
-                            }
-                          }}
-                          tabIndex={0}
-                          className={`group/card relative cursor-pointer rounded-lg border border-white/[0.05] bg-[#111115] p-3.5 pr-10 shadow-sm transition-all select-none hover:border-white/[0.1] hover:bg-[#141418] active:cursor-grabbing ${
-                            draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
-                          }`}
-                        >
-                          <div
-                            className="pointer-events-none absolute top-2.5 right-2.5 text-zinc-600"
-                            aria-hidden
-                          >
-                            <GripVertical className="h-3.5 w-3.5" />
-                          </div>
-
-                          <div className="mb-2.5 flex flex-wrap items-center gap-2">
-                            <span
-                              className={`rounded px-1.5 py-0.5 text-[10px] font-medium capitalize ${typeColors[ticket.type] || typeColors.task}`}
-                            >
-                              {ticket.type}
-                            </span>
-                            <span
-                              className={`rounded border px-1.5 py-0.5 text-[10px] font-medium capitalize ${priorityColors[ticket.priority] || priorityColors.medium}`}
-                            >
-                              {ticket.priority}
-                            </span>
-                            {ticket.blockedByOpenDependencies ? (
-                              <span
-                                className="inline-flex items-center gap-0.5 rounded border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-400"
-                                title="Blocked by prerequisites not done yet"
-                              >
-                                <Link2 className="h-3 w-3" aria-hidden />
-                                Waiting
-                              </span>
-                            ) : null}
-                          </div>
-
-                          <div className="mb-1 font-mono text-[11px] text-zinc-600">
-                            {ticket.key}
-                          </div>
-
-                          <h4 className="mb-4 text-[13px] font-medium leading-snug text-zinc-300 group-hover/card:text-zinc-100">
-                            {ticket.title}
-                          </h4>
-
-                          <div className="flex items-center justify-between">
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full border border-zinc-700/50 bg-zinc-800 text-[9px] font-semibold text-zinc-400">
-                              {initialsFromName(ticket.assigneeName)}
-                            </div>
-                            {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
-                              <div className="rounded bg-zinc-800/80 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
-                                {ticket.storyPoints} pts
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {isOver && dropTargetIndex === columnTickets.length && (
-                      <div className="h-0.5 bg-blue-500 rounded-full mx-1 animate-pulse shadow-[0_0_6px_rgba(59,130,246,0.5)]" />
-                    )}
+                    {renderColumnCards(column, columnTickets, isOver)}
 
                     <button
                       type="button"

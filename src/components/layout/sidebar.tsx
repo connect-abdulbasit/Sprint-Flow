@@ -12,10 +12,14 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Bell,
+  Plus,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import OrgWorkspaceSwitcher from "./org-workspace-switcher";
+import { fetchProjects, type Project } from "@/lib/projects-api";
+import { projectKeyPrefix } from "@/lib/ticket-key";
 
 interface NavItemDef {
   name: string;
@@ -36,6 +40,9 @@ export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+  const [projectsExpanded, setProjectsExpanded] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
   const { workspaceIdForNav } = useWorkspaceNav();
 
   // AUD-059: this row was styled as clickable (pointer cursor, hover state) but had no
@@ -126,6 +133,34 @@ export default function Sidebar() {
       cancelled = true;
     };
   }, []);
+
+  // Auto-open the Projects group whenever the user is anywhere under /projects so the
+  // active project is visible in the tree.
+  useEffect(() => {
+    if (pathname.includes("/projects")) setProjectsExpanded(true);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!projectsExpanded || !workspaceIdForNav) return;
+
+    let cancelled = false;
+    setProjectsLoading(true);
+    fetchProjects(workspaceIdForNav)
+      .then((data) => {
+        if (!cancelled) setProjects(data);
+      })
+      .catch(() => {
+        if (!cancelled) setProjects([]);
+      })
+      .finally(() => {
+        if (!cancelled) setProjectsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // Re-fetch on navigation so newly created projects show up without a reload.
+  }, [projectsExpanded, workspaceIdForNav, pathname]);
 
   const userInitials =
     currentUser?.name
@@ -226,6 +261,100 @@ export default function Sidebar() {
     );
   };
 
+  const activeProjectId = pathname.match(/\/projects\/([^/]+)/)?.[1] ?? "";
+
+  const ProjectsNavItem = ({ item }: { item: NavItemDef }) => {
+    const active = isItemActive(item);
+
+    // When collapsed there's no room for an inline tree, so fall back to the plain link.
+    if (isCollapsed) {
+      return <NavItem item={item} />;
+    }
+
+    return (
+      <div>
+        <div
+          className={`group flex items-center rounded-lg transition-all duration-200 relative ${
+            active
+              ? "text-white bg-white/[0.07]"
+              : "text-[#9090a8] hover:text-[#d0d0db] hover:bg-white/[0.03]"
+          }`}
+        >
+          {active && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--color-accent)] rounded-r-full" />
+          )}
+          <Link
+            href={item.href}
+            className="flex items-center gap-3 flex-1 min-w-0 px-3 py-2 text-[13px] font-medium"
+          >
+            <item.icon
+              className={`w-[17px] h-[17px] shrink-0 transition-colors duration-200 ${
+                active ? "text-[var(--color-accent)]" : "text-[#6b6b80] group-hover:text-[#9090a8]"
+              }`}
+            />
+            <span className="flex-1 truncate">{item.name}</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setProjectsExpanded((v) => !v)}
+            aria-label={projectsExpanded ? "Collapse projects" : "Expand projects"}
+            aria-expanded={projectsExpanded}
+            className="p-1.5 mr-1.5 rounded-md text-[#6b6b80] hover:text-[#d0d0db] hover:bg-white/[0.06] transition-colors shrink-0"
+          >
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                projectsExpanded ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+        </div>
+
+        {projectsExpanded && (
+          <div className="mt-1 ml-[22px] pl-2.5 border-l border-white/[0.06] space-y-0.5">
+            {projectsLoading && projects.length === 0 ? (
+              <div className="px-2 py-1.5 text-[12px] text-[#6b6b80]">Loading projects…</div>
+            ) : projects.length === 0 ? (
+              <Link
+                href={item.href}
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[12px] text-[#6b6b80] hover:text-[#9090a8] hover:bg-white/[0.03] transition-colors"
+              >
+                <Plus className="w-3 h-3" />
+                Create a project
+              </Link>
+            ) : (
+              projects.map((p) => {
+                const isActiveProject = activeProjectId === p.id;
+                return (
+                  <Link
+                    key={p.id}
+                    href={`${workspaceBase}/projects/${p.id}/board`}
+                    title={p.name}
+                    className={`group/proj flex items-center gap-2 px-2 py-1.5 rounded-md text-[12.5px] font-medium transition-colors ${
+                      isActiveProject
+                        ? "text-white bg-white/[0.06]"
+                        : "text-[#9090a8] hover:text-[#d0d0db] hover:bg-white/[0.03]"
+                    }`}
+                  >
+                    <span
+                      className={`shrink-0 w-5 h-5 rounded-[5px] flex items-center justify-center text-[9px] font-bold tracking-tight transition-colors ${
+                        isActiveProject
+                          ? "bg-[var(--color-accent)]/20 text-[var(--color-accent)]"
+                          : "bg-white/[0.05] text-[#8888a0] group-hover/proj:text-[#a8a8c0]"
+                      }`}
+                    >
+                      {projectKeyPrefix(p.name).slice(0, 2)}
+                    </span>
+                    <span className="flex-1 truncate">{p.name}</span>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const SectionLabel = ({ label, dot }: { label: string; dot?: string }) => {
     if (isCollapsed) {
       return <div className="mx-auto w-5 h-px bg-[#333339] my-2" />;
@@ -255,9 +384,13 @@ export default function Sidebar() {
         {sections.map((section) => (
           <div key={section.label} className="space-y-0.5">
             <SectionLabel label={section.label} dot={section.dot} />
-            {section.items.map((item) => (
-              <NavItem key={item.name} item={item} />
-            ))}
+            {section.items.map((item) =>
+              item.name === "Projects" ? (
+                <ProjectsNavItem key={item.name} item={item} />
+              ) : (
+                <NavItem key={item.name} item={item} />
+              )
+            )}
           </div>
         ))}
       </nav>
