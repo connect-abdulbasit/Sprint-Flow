@@ -29,15 +29,6 @@ export class SprintRepository {
     return row ?? null;
   }
 
-  async findActiveForProject(projectId: string) {
-    const [row] = await db
-      .select()
-      .from(sprintsTable)
-      .where(and(eq(sprintsTable.projectId, projectId), eq(sprintsTable.status, "active")))
-      .execute();
-    return row ?? null;
-  }
-
   async insert(data: SprintInsert) {
     const [row] = await db.insert(sprintsTable).values(data).returning().execute();
     return row!;

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, type FormEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
 import { X, ChevronRight, Loader2 } from "lucide-react";
 import type { Project } from "@/lib/projects-api";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface ProjectModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export default function ProjectModal({
   const [formError, setFormError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(modalRef, isOpen);
 
   const isEditMode = Boolean(projectToEdit);
 
@@ -41,14 +44,14 @@ export default function ProjectModal({
     }
   }, [isOpen, projectToEdit]);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     if (submitting) return;
     setClosing(true);
     setTimeout(() => {
       onClose();
       setClosing(false);
     }, 200);
-  };
+  }, [submitting, onClose]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -76,7 +79,8 @@ export default function ProjectModal({
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  });
+    // Previously ran with no dependency array at all, re-subscribing on every render.
+  }, [isOpen, handleClose]);
 
   if (!isOpen && !closing) return null;
 
@@ -112,6 +116,7 @@ export default function ProjectModal({
 
         {/* Dialog */}
         <div
+          ref={modalRef}
           role="dialog"
           aria-modal="true"
           aria-label={isEditMode ? "Edit project" : "Create new project"}

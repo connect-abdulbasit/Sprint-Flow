@@ -34,10 +34,9 @@ export class OrganizationController {
       return NextResponse.json(result);
     } catch (error) {
       console.error("Create organization error:", error);
-      return NextResponse.json(
-        { error: (error as Error)?.message ?? "Failed to create organization" },
-        { status: 500 }
-      );
+      const message = (error as Error)?.message ?? "Failed to create organization";
+      const status = message.includes("must be at most") ? 400 : 500;
+      return NextResponse.json({ error: message }, { status });
     }
   }
 
@@ -115,7 +114,11 @@ export class OrganizationController {
     } catch (error) {
       console.error("Update organization error:", error);
       const message = (error as Error)?.message ?? "Failed to update organization";
-      const status = message.includes("Forbidden") ? 403 : 500;
+      const status = message.includes("Forbidden")
+        ? 403
+        : message.includes("No fields") || message.includes("must be at most")
+          ? 400
+          : 500;
       return NextResponse.json({ error: message }, { status });
     }
   }

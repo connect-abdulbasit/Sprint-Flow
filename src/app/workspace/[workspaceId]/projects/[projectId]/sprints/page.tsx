@@ -2,7 +2,7 @@
 
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
 import CreateSprintModal from "@/components/project/CreateSprintModal";
-import { Calendar, Plus, CheckCircle2, ArrowRight } from "lucide-react";
+import { Calendar, Plus, CheckCircle2, ArrowRight, AlertCircle } from "lucide-react";
 import { SprintTimelineSkeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -16,13 +16,20 @@ export default function ProjectSprintsPage() {
   const [sprints, setSprints] = useState<ProjectSprint[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  // AUD-017: see overview/page.tsx — a failed fetch previously looked identical to
+  // "zero sprints" with no error surfaced.
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!pid) return;
     setLoading(true);
+    setLoadError(null);
     fetchSprints(pid)
       .then(setSprints)
-      .catch(() => setSprints([]))
+      .catch((err) => {
+        setSprints([]);
+        setLoadError(err instanceof Error ? err.message : "Failed to load sprints.");
+      })
       .finally(() => setLoading(false));
   }, [pid]);
 
@@ -50,6 +57,24 @@ export default function ProjectSprintsPage() {
       )}
 
       <div className="flex-1 overflow-y-auto px-10 py-8 space-y-8 custom-scrollbar">
+        {loadError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-[13px] text-red-300"
+          >
+            <span className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {loadError}
+            </span>
+            <button
+              type="button"
+              onClick={load}
+              className="shrink-0 rounded-lg border border-red-500/25 px-3 py-1.5 font-semibold text-red-200 hover:bg-red-500/10"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-[15px] font-semibold text-zinc-200">Sprint timeline</h2>

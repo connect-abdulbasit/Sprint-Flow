@@ -28,7 +28,7 @@ export interface UpdateProjectPayload {
   boardColumns?: BoardColumnConfig[];
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
     super(message);
@@ -298,7 +298,10 @@ export async function createTicket(
 export async function updateTicket(
   projectId: string,
   ticketId: string,
-  payload: Partial<CreateTicketPayload>
+  payload: Partial<CreateTicketPayload> & {
+    /** Optimistic-concurrency token; see AUD-036. */
+    expectedUpdatedAt?: string;
+  }
 ): Promise<ProjectTicketDetail> {
   const res = await fetch(
     `/api/projects/${encodeURIComponent(projectId)}/tickets/${encodeURIComponent(ticketId)}`,

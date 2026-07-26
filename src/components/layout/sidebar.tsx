@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useWorkspaceNav } from "@/contexts/workspace-nav-context";
 import {
@@ -32,10 +32,19 @@ interface NavSectionDef {
 
 export default function Sidebar() {
   const pathname = usePathname() || "";
+  const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
   const { workspaceIdForNav } = useWorkspaceNav();
+
+  // AUD-059: this row was styled as clickable (pointer cursor, hover state) but had no
+  // handler at all. It now performs the same sign-out action as the topbar's logout
+  // button, rather than inventing a new destination page under this fix.
+  const handleSignOut = async () => {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/signin");
+  };
 
   const workspaceBase = workspaceIdForNav
     ? `/workspace/${workspaceIdForNav}`
@@ -265,8 +274,12 @@ export default function Sidebar() {
       </button>
 
       <div className="px-4 py-3 border-t border-[#333339]">
-        <div
-          className={`flex items-center gap-3 cursor-pointer hover:bg-white/[0.04] p-2 rounded-xl transition-colors ${
+        <button
+          type="button"
+          onClick={() => void handleSignOut()}
+          title="Sign out"
+          aria-label={`Sign out (${currentUser?.email ?? "current account"})`}
+          className={`w-full flex items-center gap-3 cursor-pointer hover:bg-white/[0.04] p-2 rounded-xl transition-colors text-left ${
             isCollapsed ? "justify-center" : ""
           }`}
         >
@@ -283,7 +296,7 @@ export default function Sidebar() {
               </div>
             </div>
           )}
-        </div>
+        </button>
       </div>
     </aside>
   );

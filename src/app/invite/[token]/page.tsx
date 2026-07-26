@@ -52,6 +52,13 @@ export default function InviteAcceptPage() {
         const data = await res.json();
 
         if (!res.ok) {
+          // AUD-066: previously fell through to a generic dead-end error instead of
+          // prompting sign-in, even though the accept-click path already handled this
+          // correctly with a callbackUrl redirect.
+          if (res.status === 401) {
+            router.push(`/signin?callbackUrl=/invite/${token}`);
+            return;
+          }
           setErrorType(res.status === 404 ? "not_found" : "general");
           setError(data.error || "This invitation could not be loaded.");
           setLoading(false);
@@ -75,6 +82,13 @@ export default function InviteAcceptPage() {
         if (data.status === "declined") {
           setErrorType("general");
           setError("This invitation has been declined.");
+          setLoading(false);
+          return;
+        }
+
+        if (data.status === "revoked") {
+          setErrorType("general");
+          setError("This invitation has been revoked by a workspace admin.");
           setLoading(false);
           return;
         }
@@ -110,6 +124,9 @@ export default function InviteAcceptPage() {
           router.push(`/signin?callbackUrl=/invite/${token}`);
           return;
         }
+        if (data.errorType === "email_mismatch") {
+          setErrorType("email_mismatch");
+        }
         setError(data.error || "Failed to accept invitation.");
         setAccepting(false);
         return;
@@ -139,6 +156,10 @@ export default function InviteAcceptPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 401) {
+          router.push(`/signin?callbackUrl=/invite/${token}`);
+          return;
+        }
         setError(data.error || "Failed to decline invitation.");
         setRejecting(false);
         return;

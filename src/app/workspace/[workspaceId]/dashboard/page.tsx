@@ -309,37 +309,63 @@ export default function DashboardPage() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // AUD-017: each response's .ok was checked individually, but there was no error state
+  // anywhere in this component — a failed section just silently kept its default value,
+  // rendering identically to "this workspace genuinely has zero data."
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
+      setLoadError(null);
       try {
         const [wsRes, actRes, dashRes] = await Promise.all([
           fetch(`/api/workspaces/${workspaceId}`),
           fetch(`/api/workspaces/${workspaceId}/activities`),
           fetch(`/api/workspaces/${workspaceId}/dashboard`),
         ]);
+        if (cancelled) return;
+
+        const failedRequests: string[] = [];
 
         if (wsRes.ok) {
           const data = await wsRes.json();
           setWorkspace({ name: data.name, color: data.color ?? "#4f7cff" });
+        } else {
+          failedRequests.push("workspace details");
         }
         if (actRes.ok) {
           const data = extractItems<ActivityItem>(await actRes.json());
           setActivities(data);
+        } else {
+          failedRequests.push("recent activity");
         }
         if (dashRes.ok) {
           const data = await dashRes.json();
           setDashboard(data);
+        } else {
+          failedRequests.push("dashboard metrics");
+        }
+
+        if (failedRequests.length > 0) {
+          setLoadError(`Couldn't load ${failedRequests.join(", ")}. Showing what's available.`);
         }
       } catch (err) {
+        if (cancelled) return;
         console.error("Dashboard load error:", err);
+        setLoadError("Network error. Could not load this dashboard.");
       } finally {
-        setLoaded(true);
+        if (!cancelled) setLoaded(true);
       }
     }
 
     load();
-  }, [workspaceId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId, reloadToken]);
 
   const ws = workspace ?? { name: workspaceId, color: "#4f7cff" };
   const fallbackSprint = dashboard?.activeSprint ?? null;
@@ -416,6 +442,24 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6 pb-12">
+      {loadError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-[13px] text-red-300"
+        >
+          <span className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {loadError}
+          </span>
+          <button
+            type="button"
+            onClick={() => setReloadToken((n) => n + 1)}
+            className="shrink-0 rounded-lg border border-red-500/25 px-3 py-1.5 font-semibold text-red-200 hover:bg-red-500/10"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-end gap-4 transition-all duration-700 opacity-100 translate-y-0">
         {sprint && (
           <div className="flex items-center gap-3 sm:ml-auto">

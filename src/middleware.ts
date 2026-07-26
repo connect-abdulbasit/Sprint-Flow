@@ -27,6 +27,28 @@ function isPublicApi(pathname: string) {
   return pathname.startsWith("/api/auth");
 }
 
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * AUD-027: defense-in-depth against CSRF. SameSite=Lax on the auth cookies already
+ * blocks the classic cross-site form-POST attack in modern browsers, but that's the
+ * only defense currently in place — no Origin/Referer check backs it up. This rejects
+ * state-changing API requests whose Origin header doesn't match the app's own origin.
+ * Requests with no Origin header at all are let through rather than blocked outright,
+ * since some legitimate same-origin requests omit it; this is a supplementary check; it
+ * does not replace SameSite as the primary defense.
+ */
+function hasCrossOriginMismatch(req: NextRequest): boolean {
+  if (SAFE_METHODS.has(req.method)) return false;
+  const origin = req.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).host !== req.nextUrl.host;
+  } catch {
+    return true;
+  }
+}
+
 async function getUser(req: NextRequest) {
   const cookieHeader = req.headers.get("cookie") ?? "";
   const refreshToken = req.cookies.get("refreshToken")?.value;
@@ -69,9 +91,24 @@ function forwardCookies(from: Response, to: NextResponse) {
   }
 }
 
+function isApiPath(pathname: string) {
+  return pathname.startsWith("/api/");
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  if (isStaticAsset(pathname) || isPublicApi(pathname)) {
+  if (isStaticAsset(pathname)) {
+    return NextResponse.next();
+  }
+
+  // AUD-027: checked before the public-API bypass below, so it also covers
+  // /api/auth/* — login-CSRF (tricking a browser into submitting a cross-site sign-in)
+  // is exactly the kind of request that bypass would otherwise let straight through.
+  if (isApiPath(pathname) && hasCrossOriginMismatch(req)) {
+    return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
+  }
+
+  if (isPublicApi(pathname)) {
     return NextResponse.next();
   }
 
@@ -90,6 +127,13 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!isAuthenticated) {
+    // AUD-028: an API caller previously received a 307 redirect to the (HTML) signin
+    // page — a fetch() client following it transparently sees a 200 OK with HTML in
+    // the body, not the 401 its `res.ok` check is looking for. Page navigations still
+    // get the redirect; API calls now get a real 401 JSON response.
+    if (isApiPath(pathname)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const signinUrl = new URL("/signin", req.url);
     signinUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(signinUrl);

@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { taskDependenciesTable, tasksTable } from "@/modules/task/task.schema";
 import { projectsTable } from "@/modules/project/project.schema";
-import { and, eq, inArray, max, ne, or } from "drizzle-orm";
+import { and, eq, inArray, max, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 export type TaskInsert = typeof tasksTable.$inferInsert;
@@ -10,6 +10,14 @@ export type TaskRow = typeof tasksTable.$inferSelect;
 export class TaskRepository {
   async createWithNextTicketNumber(data: Omit<TaskInsert, "ticketNumber">) {
     return db.transaction(async (tx) => {
+      // AUD-034: SELECT MAX + INSERT was two statements with no locking. The unique
+      // index on (projectId, ticketNumber) stopped a silent duplicate, but two
+      // concurrent creates in the same project could both read the same MAX and then
+      // have the loser blow up with an unhandled constraint-violation 500. An
+      // advisory lock scoped to the project serializes ticket-number assignment so the
+      // race — and that failure mode — can't happen at all.
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${data.projectId}))`);
+
       const [agg] = await tx
         .select({ maxNum: max(tasksTable.ticketNumber) })
         .from(tasksTable)

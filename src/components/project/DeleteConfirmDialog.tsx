@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, type FormEvent } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 export interface DeleteConfirmDialogProps {
   isOpen: boolean;
@@ -27,6 +28,8 @@ export default function DeleteConfirmDialog({
   const [closing, setClosing] = useState(false);
   const [typed, setTyped] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, isOpen);
 
   const expected = nameToConfirm.trim();
   const matches = expected.length > 0 && typed.trim() === expected;
@@ -105,6 +108,7 @@ export default function DeleteConfirmDialog({
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
         <div
+          ref={dialogRef}
           role="alertdialog"
           aria-modal="true"
           aria-label={`Delete ${resourceLabel} confirmation`}

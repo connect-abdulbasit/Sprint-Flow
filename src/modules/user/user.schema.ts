@@ -30,6 +30,10 @@ export const usersTable = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     email: varchar("email", { length: 255 }).notNull(),
     passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+    // Tracks which identity provider created this account so OAuth sign-in can never
+    // silently take over an account that was created (and secured) with a password.
+    // See AUD-001.
+    authProvider: varchar("auth_provider", { length: 20 }).notNull().default("password"),
     avatarUrl: text("avatar_url"),
     lastLogin: timestamp("last_login", { withTimezone: true }),
     activeOrganizationId: uuid("active_organization_id").references(
