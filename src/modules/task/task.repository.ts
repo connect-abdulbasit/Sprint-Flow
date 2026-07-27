@@ -45,6 +45,10 @@ export class TaskRepository {
         projectId: tasksTable.projectId,
         ticketNumber: tasksTable.ticketNumber,
         sprintId: tasksTable.sprintId,
+        epicId: tasksTable.epicId,
+        parentTaskId: tasksTable.parentTaskId,
+        orderIndex: tasksTable.orderIndex,
+        labels: tasksTable.labels,
         title: tasksTable.title,
         description: tasksTable.description,
         type: tasksTable.type,
@@ -75,6 +79,10 @@ export class TaskRepository {
         projectName: projectsTable.name,
         ticketNumber: tasksTable.ticketNumber,
         sprintId: tasksTable.sprintId,
+        epicId: tasksTable.epicId,
+        parentTaskId: tasksTable.parentTaskId,
+        orderIndex: tasksTable.orderIndex,
+        labels: tasksTable.labels,
         title: tasksTable.title,
         description: tasksTable.description,
         type: tasksTable.type,
@@ -106,6 +114,10 @@ export class TaskRepository {
       priority: string;
       status: string;
       sprintId: string | null;
+      epicId: string | null;
+      parentTaskId: string | null;
+      orderIndex: number;
+      labels: string[] | null;
       assigneeId: string | null;
       assigneeName: string | null;
       reporterId: string;
@@ -127,14 +139,61 @@ export class TaskRepository {
 
   async delete(id: string) {
     await db.transaction(async (tx) => {
+      const subtaskRows = await tx
+        .select({ id: tasksTable.id })
+        .from(tasksTable)
+        .where(eq(tasksTable.parentTaskId, id))
+        .execute();
+      const idsBeingRemoved = [id, ...subtaskRows.map((r) => r.id)];
       await tx
         .delete(taskDependenciesTable)
         .where(
-          or(eq(taskDependenciesTable.taskId, id), eq(taskDependenciesTable.dependsOnTaskId, id))
+          or(
+            inArray(taskDependenciesTable.taskId, idsBeingRemoved),
+            inArray(taskDependenciesTable.dependsOnTaskId, idsBeingRemoved)
+          )
         )
         .execute();
       await tx.delete(tasksTable).where(eq(tasksTable.id, id)).execute();
     });
+  }
+
+  /** Direct subtasks of a task (one level only). */
+  async findSubtasks(parentTaskId: string) {
+    return db.select().from(tasksTable).where(eq(tasksTable.parentTaskId, parentTaskId)).execute();
+  }
+
+  async countSubtasks(parentTaskId: string) {
+    const [row] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(tasksTable)
+      .where(eq(tasksTable.parentTaskId, parentTaskId))
+      .execute();
+    return row?.count ?? 0;
+  }
+
+  /** Keeps subtasks' denormalized epicId in sync when their parent's epic changes. */
+  async setEpicIdForSubtasks(parentTaskId: string, epicId: string | null) {
+    await db
+      .update(tasksTable)
+      .set({ epicId, updatedAt: new Date() })
+      .where(eq(tasksTable.parentTaskId, parentTaskId))
+      .execute();
+  }
+
+  /** Ticket ids (outside `excludeTaskIds`) that depend on any of `taskIds` as a
+   * prerequisite — used to pre-check the `dependsOnTaskId` ON DELETE RESTRICT
+   * constraint before a cascade-delete, so a raw constraint violation never
+   * surfaces as an opaque 500. */
+  async findExternalDependents(taskIds: string[], excludeTaskIds: string[]) {
+    if (taskIds.length === 0) return [];
+    const rows = await db
+      .select({ taskId: taskDependenciesTable.taskId })
+      .from(taskDependenciesTable)
+      .where(inArray(taskDependenciesTable.dependsOnTaskId, taskIds))
+      .execute();
+    const excluded = new Set(excludeTaskIds);
+    return [...new Set(rows.map((r) => r.taskId))].filter((id) => !excluded.has(id));
   }
 
   async findByIdAndProject(taskId: string, projectId: string) {

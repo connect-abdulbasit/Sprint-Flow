@@ -12,6 +12,7 @@ import {
   Bug,
   Zap,
   PlusCircle,
+  BookOpen,
   Link2,
   GripVertical,
   ChevronDown,
@@ -37,6 +38,7 @@ const typeConfig = {
   bug: { icon: Bug, color: "text-danger", label: "Bug" },
   feature: { icon: Zap, color: "text-accent2", label: "Feature" },
   improvement: { icon: PlusCircle, color: "text-success", label: "Improvement" },
+  story: { icon: BookOpen, color: "text-accent2", label: "Story" },
 };
 
 const STATUS_STYLE: Record<string, { pill: string; icon: typeof Circle; iconClass: string }> = {
@@ -83,6 +85,9 @@ export default function TicketItem({
   canEdit = false,
   onStatusChange,
   onAssigneeChange,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }: {
   ticket: ProjectTicket;
   onSelect?: (_ticket: ProjectTicket) => void;
@@ -92,6 +97,10 @@ export default function TicketItem({
   canEdit?: boolean;
   onStatusChange?: (_ticketId: string, _status: string) => void | Promise<void>;
   onAssigneeChange?: (_ticketId: string, _assigneeId: string | null) => void | Promise<void>;
+  /** Shows a bulk-select checkbox at the start of the row (Backlog/Epic List). */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (_ticketId: string) => void;
 }) {
   const suppressClickRef = useRef(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -154,6 +163,17 @@ export default function TicketItem({
       }}
       tabIndex={onSelect ? 0 : undefined}
     >
+      {selectable ? (
+        <input
+          type="checkbox"
+          checked={selected}
+          onClick={stopRowClick}
+          onChange={() => onToggleSelect?.(ticket.id)}
+          className="shrink-0 rounded border-border-strong"
+          aria-label={`Select ${ticket.title}`}
+        />
+      ) : null}
+
       {isDraggable ? (
         <span
           className="shrink-0 cursor-grab text-muted opacity-0 transition-opacity group-hover:opacity-100 active:cursor-grabbing"

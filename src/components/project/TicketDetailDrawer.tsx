@@ -19,17 +19,25 @@ import {
   X,
 } from "lucide-react";
 import {
+  createTicketAttachment,
   createTimeEntry,
+  createSubtask,
+  deleteAttachment,
   deleteTicket,
   deleteTimeEntry,
   fetchTicket,
+  fetchTicketActivity,
+  fetchTicketAttachments,
   updateTicket,
   ticketImageUrl,
+  type ActivityLogEntry,
+  type Epic,
   type ProjectMember,
   type ProjectTicket,
   type ProjectTicketDetail,
   type TicketType,
 } from "@/lib/projects-api";
+import AttachmentsPanel from "@/components/project/detail/AttachmentsPanel";
 import { initialsFromName } from "@/lib/initials";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { DEFAULT_STATUS_FORM_OPTIONS } from "@/lib/board-columns";
@@ -37,7 +45,7 @@ import { TICKET_PRIORITY_LABELS, TICKET_PRIORITIES } from "@/lib/ticket-priority
 import { validateTicketImageFile } from "@/lib/ticket-image-upload";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
-const TYPES: TicketType[] = ["task", "bug", "feature", "improvement"];
+const TYPES: TicketType[] = ["story", "task", "bug", "improvement", "feature"];
 
 const STATUS_LABEL: Record<string, string> = {
   todo: "To do",
@@ -337,7 +345,7 @@ function extractItems<T>(payload: T[] | { items?: T[] }) {
   return Array.isArray(payload?.items) ? payload.items : [];
 }
 
-export interface TicketDetailModalProps {
+export interface TicketDetailDrawerProps {
   workspaceId?: string;
   projectId: string;
   ticketId: string | null;
@@ -347,13 +355,22 @@ export interface TicketDetailModalProps {
   sprintPickerOptions?: { id: string | null; name: string }[];
   statusOptions?: { value: string; label: string }[];
   linkableTickets?: ProjectTicket[];
+  /** Project epics, for the epic picker (top-level issues only, hidden for subtasks). */
+  epics?: Epic[];
+  /** The project's full flat ticket list — used to derive this ticket's subtasks
+   * (rows whose parentTaskId matches) and its parent (if this ticket is itself a
+   * subtask), without a dedicated subtasks/parent endpoint. */
+  allTickets?: ProjectTicket[];
+  /** Lets the host page "navigate" to a different ticket within the same drawer
+   * (e.g. clicking a parent/subtask link) instead of closing it. */
+  onNavigateToTicket?: (_ticketId: string) => void;
   isOpen: boolean;
   onClose: () => void;
   onUpdated: (_ticket: ProjectTicket) => void;
   onDeleted: (_ticketId: string) => void;
 }
 
-export default function TicketDetailModal({
+export default function TicketDetailDrawer({
   workspaceId,
   projectId,
   ticketId,
@@ -363,11 +380,14 @@ export default function TicketDetailModal({
   sprintPickerOptions,
   statusOptions,
   linkableTickets = [],
+  epics = [],
+  allTickets = [],
+  onNavigateToTicket,
   isOpen,
   onClose,
   onUpdated,
   onDeleted,
-}: TicketDetailModalProps) {
+}: TicketDetailDrawerProps) {
   const [detail, setDetail] = useState<ProjectTicketDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -381,6 +401,13 @@ export default function TicketDetailModal({
   const [storyPoints, setStoryPoints] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [ticketSprintId, setTicketSprintId] = useState("");
+  const [epicId, setEpicId] = useState("");
+  const [labelsInput, setLabelsInput] = useState("");
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const [creatingSubtask, setCreatingSubtask] = useState(false);
+  const [subtaskError, setSubtaskError] = useState<string | null>(null);
+  const [activity, setActivity] = useState<ActivityLogEntry[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [clearImage, setClearImage] = useState(false);
   const [dependsOnIds, setDependsOnIds] = useState<string[]>([]);
@@ -688,6 +715,8 @@ export default function TicketDetailModal({
     );
     setDueDate(dueDateToInput(d.dueDate));
     setTicketSprintId(d.sprintId ?? "");
+    setEpicId(d.epicId ?? "");
+    setLabelsInput((d.labels ?? []).join(", "));
     setImageFile(null);
     setClearImage(false);
     setDependsOnIds(d.dependsOn?.map((x) => x.id) ?? []);
@@ -763,6 +792,68 @@ export default function TicketDetailModal({
       .sort((a, b) => a.ticketNumber - b.ticketNumber);
   }, [linkableTickets, ticketId]);
 
+  const subtasks = useMemo(
+    () => (detail ? allTickets.filter((t) => t.parentTaskId === detail.id) : []),
+    [allTickets, detail]
+  );
+
+  const parentTicket = useMemo(
+    () =>
+      detail?.parentTaskId ? (allTickets.find((t) => t.id === detail.parentTaskId) ?? null) : null,
+    [allTickets, detail]
+  );
+
+  const handleAddSubtask = async () => {
+    if (!detail) return;
+    const trimmedTitle = newSubtaskTitle.trim();
+    if (!trimmedTitle) return;
+    setCreatingSubtask(true);
+    setSubtaskError(null);
+    try {
+      await createSubtask(projectId, detail.id, { title: trimmedTitle });
+      setNewSubtaskTitle("");
+      onUpdated(detail);
+    } catch (err) {
+      setSubtaskError(err instanceof Error ? err.message : "Failed to create subtask");
+    } finally {
+      setCreatingSubtask(false);
+    }
+  };
+
+  const toggleSubtaskDone = async (subtask: ProjectTicket) => {
+    try {
+      const updated = await updateTicket(projectId, subtask.id, {
+        status: subtask.status === "done" ? "todo" : "done",
+      });
+      onUpdated(updated);
+    } catch {
+      // Best-effort — the subtask list refreshes from the parent's onUpdated
+      // refetch either way; no separate error surface for this quick toggle.
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen || !ticketId || !projectId) {
+      setActivity([]);
+      return;
+    }
+    let cancelled = false;
+    setActivityLoading(true);
+    fetchTicketActivity(projectId, ticketId)
+      .then((rows) => {
+        if (!cancelled) setActivity(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setActivity([]);
+      })
+      .finally(() => {
+        if (!cancelled) setActivityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, ticketId, projectId]);
+
   const blockedDependencyOptions = useMemo(
     () => linkPickerOptions.filter((ticket) => dependsOnIds.includes(ticket.id)),
     [linkPickerOptions, dependsOnIds]
@@ -797,6 +888,8 @@ export default function TicketDetailModal({
       sprintDirty ||
       imageFile !== null ||
       clearImage ||
+      (!detail.parentTaskId && (epicId || "") !== (detail.epicId ?? "")) ||
+      labelsInput.trim() !== (detail.labels ?? []).join(", ") ||
       JSON.stringify(sortedIds(dependsOnIds)) !==
         JSON.stringify(sortedIds(detail.dependsOn?.map((d) => d.id) ?? []))
     );
@@ -804,6 +897,8 @@ export default function TicketDetailModal({
     detail,
     title,
     description,
+    epicId,
+    labelsInput,
     type,
     priority,
     status,
@@ -1007,6 +1102,13 @@ export default function TicketDetailModal({
           ? { sprintId: ticketSprintId === "" ? null : ticketSprintId }
           : {}),
         ...(imageBase64 !== undefined ? { imageBase64, imageMimeType } : {}),
+        // A subtask's epic always follows its parent's — only top-level issues
+        // can have their epic changed directly.
+        ...(!detail.parentTaskId ? { epicId: epicId === "" ? null : epicId } : {}),
+        labels: labelsInput
+          .split(",")
+          .map((l) => l.trim())
+          .filter(Boolean),
         dependsOnTaskIds: dependsOnIds,
       });
       setDetail(updated);
@@ -1122,12 +1224,12 @@ export default function TicketDetailModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-[1000] flex items-center justify-center bg-overlay-strong p-3 sm:p-5 backdrop-blur-sm"
+        className="fixed inset-0 z-[1000] flex justify-end bg-overlay-strong backdrop-blur-sm"
         onClick={() => !submitting && !deleting && onClose()}
       >
         <div
           ref={modalRef}
-          className="relative flex max-h-[94vh] w-[95%] sm:w-[92%] max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-surface-sunken shadow-2xl transition-all duration-300"
+          className="relative flex h-full w-full flex-col overflow-hidden border-l border-border bg-surface-sunken shadow-2xl transition-transform duration-300 sm:w-[92%] lg:w-[900px] lg:max-w-[92vw]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="ticket-detail-title"
@@ -1558,6 +1660,44 @@ export default function TicketDetailModal({
                       </SidebarField>
                     )}
 
+                    {detail.parentTaskId && parentTicket ? (
+                      <SidebarField label="Parent">
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToTicket?.(parentTicket.id)}
+                          disabled={!onNavigateToTicket}
+                          className="flex items-center gap-1.5 text-left text-[13px] text-accent hover:underline disabled:no-underline disabled:text-muted2"
+                        >
+                          <CornerDownRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          <span className="font-mono">{parentTicket.key}</span>
+                          <span className="truncate text-muted2">{parentTicket.title}</span>
+                        </button>
+                      </SidebarField>
+                    ) : (
+                      epics.length > 0 && (
+                        <SidebarField label="Epic">
+                          {canEdit ? (
+                            <select
+                              value={epicId}
+                              onChange={(e) => setEpicId(e.target.value)}
+                              className="w-full cursor-pointer rounded-md border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
+                            >
+                              <option value="">No epic</option>
+                              {epics.map((ep) => (
+                                <option key={ep.id} value={ep.id}>
+                                  {ep.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <p className="text-[14px] text-muted2">
+                              {epics.find((ep) => ep.id === detail.epicId)?.name ?? "No epic"}
+                            </p>
+                          )}
+                        </SidebarField>
+                      )
+                    )}
+
                     <SidebarField label="Assignee">
                       {canEdit ? (
                         <div className="flex items-center gap-2">
@@ -1861,9 +2001,119 @@ export default function TicketDetailModal({
                     </SidebarField>
 
                     <SidebarField label="Labels">
-                      <button type="button" disabled className="text-left text-[14px] text-muted">
-                        None
-                      </button>
+                      {canEdit ? (
+                        <input
+                          value={labelsInput}
+                          onChange={(e) => setLabelsInput(e.target.value)}
+                          placeholder="frontend, urgent, design"
+                          className="w-full rounded-md border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] text-fg placeholder:text-muted focus:border-accent/40 focus:outline-none"
+                        />
+                      ) : (detail.labels ?? []).length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {detail.labels!.map((l) => (
+                            <span
+                              key={l}
+                              className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[11px] text-muted2"
+                            >
+                              {l}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[14px] text-muted">None</p>
+                      )}
+                    </SidebarField>
+
+                    {!detail.parentTaskId && (
+                      <SidebarField
+                        label={`Subtasks${subtasks.length ? ` (${subtasks.filter((s) => s.status === "done").length}/${subtasks.length})` : ""}`}
+                      >
+                        <div className="space-y-1.5">
+                          {subtasks.map((s) => (
+                            <div
+                              key={s.id}
+                              className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={s.status === "done"}
+                                onChange={() => void toggleSubtaskDone(s)}
+                                className="rounded border-border-strong"
+                                aria-label={`Mark ${s.title} as done`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => onNavigateToTicket?.(s.id)}
+                                disabled={!onNavigateToTicket}
+                                className={`min-w-0 flex-1 truncate text-left text-[13px] hover:underline disabled:no-underline ${s.status === "done" ? "text-muted line-through" : "text-fg"}`}
+                              >
+                                {s.title}
+                              </button>
+                            </div>
+                          ))}
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <input
+                              value={newSubtaskTitle}
+                              onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  void handleAddSubtask();
+                                }
+                              }}
+                              placeholder="Add subtask..."
+                              className="min-w-0 flex-1 rounded-md border border-border-hover bg-surface-2/90 px-2.5 py-1.5 text-[13px] text-fg placeholder:text-muted focus:border-accent/40 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              disabled={!newSubtaskTitle.trim() || creatingSubtask}
+                              onClick={() => void handleAddSubtask()}
+                              className="rounded-md bg-hover px-2.5 py-1.5 text-[12px] font-medium text-muted2 hover:bg-hover-strong disabled:opacity-40"
+                            >
+                              {creatingSubtask ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                "Add"
+                              )}
+                            </button>
+                          </div>
+                          {subtaskError && (
+                            <p className="text-[12px] text-danger">{subtaskError}</p>
+                          )}
+                        </div>
+                      </SidebarField>
+                    )}
+
+                    <SidebarField label="Attachments">
+                      <AttachmentsPanel
+                        refreshKey={detail.id}
+                        fetchAttachments={() => fetchTicketAttachments(projectId, detail.id)}
+                        createAttachment={(url, label) =>
+                          createTicketAttachment(projectId, detail.id, { fileUrl: url, label })
+                        }
+                        deleteAttachment={(id) => deleteAttachment(projectId, id)}
+                        canDelete={() => true}
+                      />
+                    </SidebarField>
+
+                    <SidebarField label="Activity">
+                      {activityLoading ? (
+                        <p className="text-[13px] text-muted">Loading…</p>
+                      ) : activity.length === 0 ? (
+                        <p className="text-[13px] text-muted">No activity yet</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {activity.slice(0, 8).map((a) => (
+                            <li key={a.id} className="text-[12px] leading-snug text-muted2">
+                              <span className="font-medium text-fg">{a.userName ?? "Someone"}</span>{" "}
+                              {a.action.replace(/_/g, " ")}{" "}
+                              <span className="text-muted">
+                                {formatRelativeTime(new Date(a.createdAt))}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </SidebarField>
 
                     <p className="pt-2 text-[11px] leading-relaxed text-muted">

@@ -1,5 +1,7 @@
-import { pgTable, text, uuid, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, index, check } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { tasksTable } from "@/modules/task/task.schema";
+import { epicsTable } from "@/modules/epic/epic.schema";
 import { usersTable } from "@/modules/user/user.schema";
 import { workspacesTable } from "@/modules/workspace/workspace.schema";
 import { relations } from "drizzle-orm";
@@ -10,9 +12,16 @@ export const commentsTable = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     // AUD-019: these previously had no `.references()` at all — deleting a ticket left
     // its comments permanently orphaned in the table (no cascade, no cleanup path).
-    taskId: uuid("task_id")
-      .notNull()
-      .references(() => tasksTable.id, { onDelete: "cascade", onUpdate: "cascade" }),
+    // Nullable because a comment now belongs to exactly one of taskId/epicId (see
+    // the comments_exactly_one_parent check below).
+    taskId: uuid("task_id").references(() => tasksTable.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    epicId: uuid("epic_id").references(() => epicsTable.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
     workspaceId: uuid("workspace_id")
       .notNull()
       .references(() => workspacesTable.id, { onDelete: "cascade", onUpdate: "cascade" }),
@@ -27,9 +36,14 @@ export const commentsTable = pgTable(
   },
   (t) => ({
     taskIdx: index("comments_task_idx").on(t.taskId),
+    epicIdx: index("comments_epic_idx").on(t.epicId),
     userIdx: index("comments_user_idx").on(t.userId),
     workspaceIdx: index("comments_workspace_idx").on(t.workspaceId),
     parentIdx: index("comments_parent_idx").on(t.parentId),
+    exactlyOneParent: check(
+      "comments_exactly_one_parent",
+      sql`(task_id is not null and epic_id is null) or (task_id is null and epic_id is not null)`
+    ),
   })
 );
 
@@ -37,6 +51,10 @@ export const commentsRelations = relations(commentsTable, ({ one, many }) => ({
   task: one(tasksTable, {
     fields: [commentsTable.taskId],
     references: [tasksTable.id],
+  }),
+  epic: one(epicsTable, {
+    fields: [commentsTable.epicId],
+    references: [epicsTable.id],
   }),
   workspace: one(workspacesTable, {
     fields: [commentsTable.workspaceId],

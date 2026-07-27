@@ -10,6 +10,7 @@ import {
   date,
   integer,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { customType } from "drizzle-orm/pg-core/columns/custom";
 import { projectsTable } from "@/modules/project/project.schema";
@@ -19,8 +20,11 @@ import { relations } from "drizzle-orm";
 import { commentsTable } from "@/modules/comment/comment.schema";
 import { attachmentsTable } from "@/modules/attachment/attachment.schema";
 import { timeEntriesTable } from "@/modules/time_entry/time_entry.schema";
+import { epicsTable } from "@/modules/epic/epic.schema";
 
-export const taskTypeEnum = pgEnum("task_type", ["task", "bug", "feature", "improvement"]);
+// "story" added alongside the original 4 values for the Epic/Issue hierarchy —
+// additive-only enum change, no existing rows/values are touched.
+export const taskTypeEnum = pgEnum("task_type", ["task", "bug", "feature", "improvement", "story"]);
 
 /** Binary ticket image stored in Postgres `bytea` (node-pg returns `Buffer`). */
 export const pgBytea = customType<{ data: Buffer | null; driverData: Buffer | null }>({
@@ -67,6 +71,21 @@ export const tasksTable = pgTable(
       onDelete: "set null",
       onUpdate: "cascade",
     }),
+    /** Nullable — a task with no epic is a top-level backlog item. */
+    epicId: uuid("epic_id").references(() => epicsTable.id, {
+      onDelete: "set null",
+      onUpdate: "cascade",
+    }),
+    /** Self-referential; non-null marks this row as a subtask of another task.
+     * Depth is capped at 1 level in TaskService, not the DB — a subtask may
+     * never itself have a non-null parentTaskId. */
+    parentTaskId: uuid("parent_task_id").references((): AnyPgColumn => tasksTable.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
+    /** Manual position for backlog/board ordering. */
+    orderIndex: integer("order_index").notNull().default(0),
+    labels: text("labels").array(),
     title: varchar("title", { length: 500 }).notNull(),
     description: text("description"),
     type: taskTypeEnum("type").notNull(),
@@ -96,6 +115,8 @@ export const tasksTable = pgTable(
     sprintIdx: index("tasks_sprint_idx").on(t.sprintId),
     assigneeIdx: index("tasks_assignee_idx").on(t.assigneeId),
     reporterIdx: index("tasks_reporter_idx").on(t.reporterId),
+    epicIdx: index("tasks_epic_idx").on(t.epicId),
+    parentTaskIdx: index("tasks_parent_task_idx").on(t.parentTaskId),
     projectTicketNumUq: uniqueIndex("tasks_project_ticket_number_uq").on(
       t.projectId,
       t.ticketNumber
@@ -125,6 +146,16 @@ export const tasksRelations = relations(tasksTable, ({ one, many }) => ({
     fields: [tasksTable.sprintId],
     references: [sprintsTable.id],
   }),
+  epic: one(epicsTable, {
+    fields: [tasksTable.epicId],
+    references: [epicsTable.id],
+  }),
+  parentTask: one(tasksTable, {
+    fields: [tasksTable.parentTaskId],
+    references: [tasksTable.id],
+    relationName: "task_subtasks",
+  }),
+  subtasks: many(tasksTable, { relationName: "task_subtasks" }),
   assignee: one(usersTable, {
     fields: [tasksTable.assigneeId],
     references: [usersTable.id],

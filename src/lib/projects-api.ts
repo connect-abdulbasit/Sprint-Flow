@@ -100,6 +100,10 @@ export interface MyTask {
   priority: string;
   status: string;
   sprintId: string | null;
+  epicId: string | null;
+  parentTaskId: string | null;
+  orderIndex: number;
+  labels: string[];
   assigneeId: string | null;
   assigneeName: string | null;
   reporterId: string;
@@ -117,7 +121,7 @@ export async function fetchMyTasks(workspaceId: string): Promise<MyTask[]> {
   return extractItems(data);
 }
 
-export type TicketType = "task" | "bug" | "feature" | "improvement";
+export type TicketType = "task" | "bug" | "feature" | "improvement" | "story";
 
 export interface TicketDependencyLink {
   id: string;
@@ -137,6 +141,10 @@ export interface ProjectTicket {
   priority: string;
   status: string;
   sprintId: string | null;
+  epicId: string | null;
+  parentTaskId: string | null;
+  orderIndex: number;
+  labels: string[];
   assigneeId: string | null;
   assigneeName: string | null;
   reporterId: string;
@@ -206,12 +214,27 @@ export interface CreateTicketPayload {
   priority?: string;
   status?: string;
   sprintId?: string | null;
+  epicId?: string | null;
+  parentTaskId?: string | null;
+  orderIndex?: number;
+  labels?: string[] | null;
   assigneeId?: string | null;
   dueDate?: string | null;
   storyPoints?: number | null;
   imageBase64?: string | null;
   imageMimeType?: string | null;
   dependsOnTaskIds?: string[];
+}
+
+/** Thin wrapper over createTicket for the "Create Subtask" flow — a subtask is
+ * just a ticket with parentTaskId set; the server denormalizes epicId/sprintId
+ * from the parent regardless of what's passed here. */
+export async function createSubtask(
+  projectId: string,
+  parentTaskId: string,
+  payload: Pick<CreateTicketPayload, "title" | "description" | "assigneeId" | "priority" | "status">
+): Promise<ProjectTicketDetail> {
+  return createTicket(projectId, { ...payload, parentTaskId, type: "task" });
 }
 
 export async function fetchTickets(projectId: string): Promise<ProjectTicket[]> {
@@ -392,4 +415,261 @@ export async function completeSprint(projectId: string, sprintId: string): Promi
     { method: "POST" }
   );
   return handleResponse<ProjectSprint>(res);
+}
+
+// ---------------------------------------------------------------------------
+// Epics
+// ---------------------------------------------------------------------------
+
+export type EpicStatus = "backlog" | "in_progress" | "done";
+
+export interface Epic {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  status: EpicStatus;
+  priority: string;
+  ownerId: string | null;
+  ownerName: string | null;
+  color: string | null;
+  icon: string | null;
+  labels: string[];
+  startDate: string | null;
+  dueDate: string | null;
+  orderIndex: number;
+  archivedAt: string | null;
+  issueCount: number;
+  completedIssueCount: number;
+  progressPercent: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateEpicPayload {
+  name: string;
+  description?: string | null;
+  status?: EpicStatus;
+  priority?: string;
+  ownerId?: string | null;
+  color?: string | null;
+  icon?: string | null;
+  labels?: string[] | null;
+  startDate?: string | null;
+  dueDate?: string | null;
+}
+
+export type UpdateEpicPayload = Partial<CreateEpicPayload>;
+
+export async function fetchEpics(
+  projectId: string,
+  opts?: { includeArchived?: boolean }
+): Promise<Epic[]> {
+  const qs = opts?.includeArchived ? "?includeArchived=1" : "";
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/epics${qs}`);
+  const data = await handleResponse<Epic[] | PaginatedResponse<Epic>>(res);
+  return extractItems(data);
+}
+
+export async function fetchEpic(projectId: string, epicId: string): Promise<Epic> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}`
+  );
+  return handleResponse<Epic>(res);
+}
+
+export async function createEpic(projectId: string, payload: CreateEpicPayload): Promise<Epic> {
+  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/epics`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<Epic>(res);
+}
+
+export async function updateEpic(
+  projectId: string,
+  epicId: string,
+  payload: UpdateEpicPayload
+): Promise<Epic> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  return handleResponse<Epic>(res);
+}
+
+export async function deleteEpic(projectId: string, epicId: string): Promise<void> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}`,
+    { method: "DELETE" }
+  );
+  await handleResponse<void>(res);
+}
+
+export async function archiveEpic(projectId: string, epicId: string): Promise<Epic> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}/archive`,
+    { method: "POST" }
+  );
+  return handleResponse<Epic>(res);
+}
+
+export async function unarchiveEpic(projectId: string, epicId: string): Promise<Epic> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}/unarchive`,
+    { method: "POST" }
+  );
+  return handleResponse<Epic>(res);
+}
+
+/** Duplicates the epic shell only — does not deep-copy its issues. */
+export async function duplicateEpic(projectId: string, epicId: string): Promise<Epic> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}/duplicate`,
+    { method: "POST" }
+  );
+  return handleResponse<Epic>(res);
+}
+
+export async function moveEpic(
+  projectId: string,
+  epicId: string,
+  targetIndex: number
+): Promise<Epic[]> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}/move`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetIndex }),
+    }
+  );
+  const data = await handleResponse<Epic[] | PaginatedResponse<Epic>>(res);
+  return extractItems(data);
+}
+
+// ---------------------------------------------------------------------------
+// Activity (per-entity feed, shared by epics/tickets/subtasks)
+// ---------------------------------------------------------------------------
+
+export interface ActivityLogEntry {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  userName: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  createdAt: string;
+}
+
+export async function fetchEpicActivity(
+  projectId: string,
+  epicId: string
+): Promise<ActivityLogEntry[]> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}/activity`
+  );
+  const data = await handleResponse<PaginatedResponse<ActivityLogEntry>>(res);
+  return extractItems(data);
+}
+
+export async function fetchTicketActivity(
+  projectId: string,
+  ticketId: string
+): Promise<ActivityLogEntry[]> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/tickets/${encodeURIComponent(ticketId)}/activity`
+  );
+  const data = await handleResponse<PaginatedResponse<ActivityLogEntry>>(res);
+  return extractItems(data);
+}
+
+// ---------------------------------------------------------------------------
+// Attachments (lightweight URL+label links, at the ticket or epic level)
+// ---------------------------------------------------------------------------
+
+export interface TicketAttachment {
+  id: string;
+  taskId: string | null;
+  epicId: string | null;
+  fileUrl: string;
+  label: string | null;
+  uploadedBy: string;
+  uploaderName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateAttachmentPayload {
+  fileUrl: string;
+  label?: string | null;
+}
+
+export async function fetchTicketAttachments(
+  projectId: string,
+  ticketId: string
+): Promise<TicketAttachment[]> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/tickets/${encodeURIComponent(ticketId)}/attachments`
+  );
+  const data = await handleResponse<{ items: TicketAttachment[] }>(res);
+  return data.items;
+}
+
+export async function createTicketAttachment(
+  projectId: string,
+  ticketId: string,
+  payload: CreateAttachmentPayload
+): Promise<TicketAttachment> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/tickets/${encodeURIComponent(ticketId)}/attachments`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  return handleResponse<TicketAttachment>(res);
+}
+
+export async function fetchEpicAttachments(
+  projectId: string,
+  epicId: string
+): Promise<TicketAttachment[]> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}/attachments`
+  );
+  const data = await handleResponse<{ items: TicketAttachment[] }>(res);
+  return data.items;
+}
+
+export async function createEpicAttachment(
+  projectId: string,
+  epicId: string,
+  payload: CreateAttachmentPayload
+): Promise<TicketAttachment> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/epics/${encodeURIComponent(epicId)}/attachments`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+  return handleResponse<TicketAttachment>(res);
+}
+
+export async function deleteAttachment(projectId: string, attachmentId: string): Promise<void> {
+  const res = await fetch(
+    `/api/projects/${encodeURIComponent(projectId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    { method: "DELETE" }
+  );
+  await handleResponse<void>(res);
 }

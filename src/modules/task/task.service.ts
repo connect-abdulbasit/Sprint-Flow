@@ -1,6 +1,7 @@
 import { authRepository } from "@/modules/auth/auth.repository";
 import { projectRepository } from "@/modules/project/project.repository";
 import { sprintRepository } from "@/modules/sprint/sprint.repository";
+import { epicRepository } from "@/modules/epic/epic.repository";
 import { taskRepository, type TaskInsert, type TaskRow } from "@/modules/task/task.repository";
 import { activityService } from "@/modules/activity/activity.service";
 import { ticketKey } from "@/lib/ticket-key";
@@ -67,6 +68,10 @@ type TicketFields = {
   projectId: string;
   ticketNumber: number;
   sprintId: string | null;
+  epicId: string | null;
+  parentTaskId: string | null;
+  orderIndex: number;
+  labels: string[] | null;
   title: string;
   description: string | null;
   type: TaskRow["type"];
@@ -113,6 +118,10 @@ function serializeTicket(
     priority: row.priority as TicketPriority,
     status: row.status,
     sprintId: row.sprintId,
+    epicId: row.epicId,
+    parentTaskId: row.parentTaskId,
+    orderIndex: row.orderIndex,
+    labels: row.labels ?? [],
     assigneeId: row.assigneeId,
     assigneeName: row.assigneeName,
     reporterId: row.reporterId,
@@ -287,6 +296,34 @@ export class TaskService {
     }
   }
 
+  private async assertEpicAssignable(projectId: string, epicId: string | null | undefined) {
+    if (epicId === undefined || epicId === null) return;
+    const epic = await epicRepository.findByIdAndProject(epicId, projectId);
+    if (!epic) {
+      throw new Error("Epic not found or does not belong to this project");
+    }
+  }
+
+  /** Enforces the single-level subtask cap: a subtask's parent must not itself
+   * be a subtask, and a task that already has subtasks can never become one.
+   * Returns the parent row (used by callers to denormalize epicId/sprintId). */
+  private async assertSubtaskAllowed(projectId: string, parentTaskId: string, forTaskId?: string) {
+    const parent = await taskRepository.findByIdAndProject(parentTaskId, projectId);
+    if (!parent) {
+      throw new Error("Parent ticket not found or does not belong to this project");
+    }
+    if (parent.parentTaskId) {
+      throw new Error("Subtasks cannot be nested more than one level deep");
+    }
+    if (forTaskId) {
+      const childCount = await taskRepository.countSubtasks(forTaskId);
+      if (childCount > 0) {
+        throw new Error("A ticket that already has subtasks cannot itself become a subtask");
+      }
+    }
+    return parent;
+  }
+
   private async resolveAssignee(projectId: string, assigneeId: string | null) {
     if (assigneeId === null) {
       return { assigneeId: null, assigneeName: null as string | null };
@@ -312,6 +349,9 @@ export class TaskService {
       priority?: string;
       status?: string;
       sprintId?: string | null;
+      epicId?: string | null;
+      parentTaskId?: string | null;
+      labels?: string[] | null;
       assigneeId?: string | null;
       dueDate?: string | null;
       storyPoints?: number | null;
@@ -329,7 +369,20 @@ export class TaskService {
     }
     const { project } = membership;
     const assignee = await this.resolveAssignee(projectId, body.assigneeId ?? null);
-    await this.assertSprintAssignable(projectId, body.sprintId ?? null);
+
+    // A subtask is not independently sprint-scheduled and its epic is always
+    // denormalized from its parent, regardless of what the client sent.
+    let sprintId = body.sprintId ?? null;
+    let epicId = body.epicId ?? null;
+    if (body.parentTaskId) {
+      const parent = await this.assertSubtaskAllowed(projectId, body.parentTaskId);
+      sprintId = null;
+      epicId = parent.epicId;
+    } else {
+      await this.assertSprintAssignable(projectId, sprintId);
+      await this.assertEpicAssignable(projectId, epicId);
+    }
+
     const priority: TicketPriority =
       body.priority !== undefined && body.priority !== ""
         ? normalizeTicketPriority(body.priority)
@@ -346,7 +399,10 @@ export class TaskService {
       type: body.type ?? "task",
       priority,
       status: body.status ?? "todo",
-      sprintId: body.sprintId ?? null,
+      sprintId,
+      epicId,
+      parentTaskId: body.parentTaskId ?? null,
+      labels: body.labels ?? null,
       assigneeId: assignee.assigneeId,
       assigneeName: assignee.assigneeName,
       reporterId: userId,
@@ -367,7 +423,7 @@ export class TaskService {
       workspaceId: project.workspaceId,
       userId,
       action: "created",
-      entityType: "task",
+      entityType: created.parentTaskId ? "subtask" : "task",
       entityId: created.id,
       entityName: created.title,
     });
@@ -400,6 +456,10 @@ export class TaskService {
       priority: string;
       status: string;
       sprintId: string | null;
+      epicId: string | null;
+      parentTaskId: string | null;
+      orderIndex: number;
+      labels: string[] | null;
       assigneeId: string | null;
       reporterId: string;
       dueDate: string | null;
@@ -466,6 +526,27 @@ export class TaskService {
       await this.assertSprintAssignable(projectId, body.sprintId);
       patch.sprintId = body.sprintId;
     }
+    if (body.labels !== undefined) patch.labels = body.labels;
+    if (body.orderIndex !== undefined) patch.orderIndex = body.orderIndex;
+
+    // A subtask's epic always follows its parent's, and it's never independently
+    // sprint-scheduled — this takes precedence over any sprintId/epicId also
+    // present in the same request.
+    let epicCascadeToSubtasks: string | null | undefined;
+    if (body.parentTaskId !== undefined) {
+      if (body.parentTaskId === null) {
+        patch.parentTaskId = null;
+      } else {
+        const parent = await this.assertSubtaskAllowed(projectId, body.parentTaskId, ticketId);
+        patch.parentTaskId = body.parentTaskId;
+        patch.sprintId = null;
+        patch.epicId = parent.epicId;
+      }
+    } else if (body.epicId !== undefined) {
+      await this.assertEpicAssignable(projectId, body.epicId);
+      patch.epicId = body.epicId;
+      epicCascadeToSubtasks = body.epicId;
+    }
     if (body.dueDate !== undefined) patch.dueDate = body.dueDate;
     if (body.storyPoints !== undefined) patch.storyPoints = body.storyPoints;
 
@@ -517,12 +598,44 @@ export class TaskService {
       throw new Error("Ticket not found");
     }
 
+    if (epicCascadeToSubtasks !== undefined) {
+      await taskRepository.setEpicIdForSubtasks(ticketId, epicCascadeToSubtasks);
+    }
+
+    const activityEntityType = updated.parentTaskId ? "subtask" : "task";
+
     if (body.status === "done" && existing.status !== "done") {
       await activityService.logActivity({
         workspaceId: workspaceIdForActivity,
         userId,
         action: "completed",
-        entityType: "task",
+        entityType: activityEntityType,
+        entityId: updated.id,
+        entityName: updated.title,
+      });
+    }
+
+    if (body.priority !== undefined && patch.priority !== existing.priority) {
+      await activityService.logActivity({
+        workspaceId: workspaceIdForActivity,
+        userId,
+        action: "priority_changed",
+        entityType: activityEntityType,
+        entityId: updated.id,
+        entityName: updated.title,
+      });
+    }
+
+    if (
+      (body.epicId !== undefined && patch.epicId !== existing.epicId) ||
+      (body.parentTaskId !== undefined && patch.parentTaskId !== existing.parentTaskId) ||
+      (body.sprintId !== undefined && patch.sprintId !== existing.sprintId)
+    ) {
+      await activityService.logActivity({
+        workspaceId: workspaceIdForActivity,
+        userId,
+        action: "moved",
+        entityType: activityEntityType,
         entityId: updated.id,
         entityName: updated.title,
       });
@@ -533,7 +646,7 @@ export class TaskService {
         workspaceId: workspaceIdForActivity,
         userId,
         action: "assigned",
-        entityType: "task",
+        entityType: activityEntityType,
         entityId: updated.id,
         entityName: updated.title,
       });
@@ -581,6 +694,24 @@ export class TaskService {
     }
 
     return this.getTicket(userId, projectId, ticketId, false);
+  }
+
+  async getTicketActivity(
+    userId: string,
+    projectId: string,
+    ticketId: string,
+    pagination: Parameters<typeof activityService.getEntityActivities>[2]
+  ) {
+    const project = await projectRepository.getProjectIfMember(userId, projectId);
+    if (!project) {
+      throw new Error("Project not found or access denied");
+    }
+    const ticket = await taskRepository.findByIdAndProject(ticketId, projectId);
+    if (!ticket) {
+      throw new Error("Ticket not found");
+    }
+    const entityType = ticket.parentTaskId ? "subtask" : "task";
+    return activityService.getEntityActivities(entityType, ticketId, pagination);
   }
 
   async deleteTicket(userId: string, projectId: string, ticketId: string) {

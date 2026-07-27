@@ -6,6 +6,7 @@ import {
   createTicket,
   deleteTicket,
   updateTicket,
+  type Epic,
   type ProjectMember,
   type ProjectTicket,
   type TicketType,
@@ -16,7 +17,7 @@ import { TICKET_PRIORITY_LABELS, TICKET_PRIORITIES } from "@/lib/ticket-priority
 import { validateTicketImageFile } from "@/lib/ticket-image-upload";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
-const TYPES: TicketType[] = ["task", "bug", "feature", "improvement"];
+const TYPES: TicketType[] = ["story", "task", "bug", "improvement", "feature"];
 
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -38,6 +39,10 @@ export interface TicketFormModalProps {
   sprintPickerSprints?: { id: string; name: string }[];
   /** Initial sprint when creating from a sprint section (null = backlog). */
   defaultSprintId?: string | null;
+  /** Project epics, for the epic picker (omitted/empty hides the field). */
+  epics?: Epic[];
+  /** Initial epic when creating from within an Epic Detail page. */
+  defaultEpicId?: string | null;
   /** When set (e.g. from project board), status dropdown uses these values/labels. */
   statusOptions?: { value: string; label: string }[];
   /** Tickets in this project to link as prerequisites when creating (optional). */
@@ -56,6 +61,8 @@ export default function TicketFormModal({
   initialStatus = "todo",
   sprintPickerSprints = [],
   defaultSprintId = null,
+  epics = [],
+  defaultEpicId = null,
   statusOptions,
   linkableTickets = [],
   isOpen,
@@ -70,6 +77,7 @@ export default function TicketFormModal({
   const [status, setStatus] = useState("todo");
   const [assigneeId, setAssigneeId] = useState<string>("");
   const [createSprintId, setCreateSprintId] = useState<string | null>(null);
+  const [epicId, setEpicId] = useState<string | null>(null);
   const [storyPoints, setStoryPoints] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [clearImage, setClearImage] = useState(false);
@@ -99,6 +107,7 @@ export default function TicketFormModal({
           ? String(ticket.storyPoints)
           : ""
       );
+      setEpicId(ticket.epicId ?? null);
     } else {
       setTitle("");
       setDescription("");
@@ -109,8 +118,9 @@ export default function TicketFormModal({
       setCreateSprintId(defaultSprintId ?? null);
       setStoryPoints("");
       setCreateDependsOnIds([]);
+      setEpicId(defaultEpicId ?? null);
     }
-  }, [isOpen, mode, ticket, initialStatus, defaultSprintId]);
+  }, [isOpen, mode, ticket, initialStatus, defaultSprintId, defaultEpicId]);
 
   // AUD-015 / AUD-056: this, the app's most-used modal, previously had no Escape-to-close
   // handler at all.
@@ -175,6 +185,7 @@ export default function TicketFormModal({
           assigneeId: assigneePayload,
           storyPoints: storyPointsVal,
           sprintId: createSprintId,
+          epicId,
           ...(createDependsOnIds.length > 0 ? { dependsOnTaskIds: createDependsOnIds } : {}),
           ...(imageBase64 !== undefined ? { imageBase64, imageMimeType } : {}),
         });
@@ -188,6 +199,7 @@ export default function TicketFormModal({
           status,
           assigneeId: assigneePayload,
           storyPoints: storyPointsVal,
+          ...(!ticket.parentTaskId ? { epicId } : {}),
           ...(imageBase64 !== undefined ? { imageBase64, imageMimeType } : {}),
         });
         onSaved(updated);
@@ -384,6 +396,24 @@ export default function TicketFormModal({
                   placeholder="Optional"
                 />
               </div>
+
+              {epics.length > 0 && (!ticket || !ticket.parentTaskId) && (
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-muted">Epic</label>
+                  <select
+                    value={epicId ?? ""}
+                    onChange={(e) => setEpicId(e.target.value === "" ? null : e.target.value)}
+                    className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
+                  >
+                    <option value="">No epic</option>
+                    {epics.map((ep) => (
+                      <option key={ep.id} value={ep.id}>
+                        {ep.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {mode === "create" && sprintPickerSprints.length > 0 && (
                 <div>

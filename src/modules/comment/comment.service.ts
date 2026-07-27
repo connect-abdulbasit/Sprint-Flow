@@ -2,6 +2,7 @@ import { commentRepository } from "./comment.repository";
 import { authRepository } from "@/modules/auth/auth.repository";
 import { workspaceRepository } from "@/modules/workspace/workspace.repository";
 import { taskRepository } from "@/modules/task/task.repository";
+import { epicRepository } from "@/modules/epic/epic.repository";
 import { projectRepository } from "@/modules/project/project.repository";
 import { notificationService } from "@/modules/notification/notification.service";
 
@@ -27,6 +28,47 @@ function taskDetailUrl(workspaceId: string, projectId: string, taskId: string, c
   const params = new URLSearchParams({ ticketId: taskId });
   if (commentId) params.set("commentId", commentId);
   return `/workspace/${workspaceId}/projects/${projectId}/backlog?${params.toString()}`;
+}
+
+function epicDetailUrl(workspaceId: string, projectId: string, epicId: string, commentId?: string) {
+  const params = new URLSearchParams();
+  if (commentId) params.set("commentId", commentId);
+  const qs = params.toString();
+  return `/workspace/${workspaceId}/projects/${projectId}/epics/${epicId}${qs ? `?${qs}` : ""}`;
+}
+
+function resolveMentionedUserIds(
+  content: string,
+  members: { userId: string; name: string | null }[],
+  excludeUserId: string
+) {
+  const mentionedNames = extractMentions(content);
+  const byFullName = new Map<string, string>();
+  const byFirstName = new Map<string, string[]>();
+  for (const member of members) {
+    const full = normalizeName(member.name);
+    if (full) byFullName.set(full, member.userId);
+    const first = firstName(member.name);
+    if (first) {
+      const existing = byFirstName.get(first) ?? [];
+      existing.push(member.userId);
+      byFirstName.set(first, existing);
+    }
+  }
+  const mentionedUserIds = new Set<string>();
+  for (const mentionName of mentionedNames) {
+    const fullMatch = byFullName.get(mentionName);
+    if (fullMatch) {
+      mentionedUserIds.add(fullMatch);
+      continue;
+    }
+    const firstMatches = byFirstName.get(mentionName);
+    if (firstMatches?.length === 1) {
+      mentionedUserIds.add(firstMatches[0]);
+    }
+  }
+  mentionedUserIds.delete(excludeUserId);
+  return mentionedUserIds;
 }
 
 export class CommentService {
@@ -160,6 +202,95 @@ export class CommentService {
     }
 
     return comment;
+  }
+
+  async addEpicComment(data: {
+    epicId: string;
+    workspaceId: string;
+    userId: string;
+    content: string;
+    parentId?: string;
+  }) {
+    const epic = await epicRepository.findById(data.epicId);
+    if (!epic) {
+      throw new Error("Epic not found");
+    }
+    // Same AUD-005-style membership derivation as task comments: never trust the
+    // client-supplied workspaceId, re-derive it from the epic's own project.
+    const project = await projectRepository.findById(epic.projectId);
+    if (!project) {
+      throw new Error("Epic not found");
+    }
+    const isMember = await projectRepository.isProjectMember(epic.projectId, data.userId);
+    if (!isMember) {
+      throw new Error("Forbidden: you do not have access to this epic");
+    }
+    const workspaceId = project.workspaceId;
+
+    const [actor, members] = await Promise.all([
+      authRepository.findUserById(data.userId),
+      workspaceRepository.listMembersWithUsers(workspaceId),
+    ]);
+    const mentionedUserIds = resolveMentionedUserIds(data.content, members, data.userId);
+
+    const comment = await commentRepository.createComment({
+      epicId: data.epicId,
+      workspaceId,
+      userId: data.userId,
+      content: data.content,
+      parentId: data.parentId ?? null,
+      mentionedUserIds: mentionedUserIds.size > 0 ? [...mentionedUserIds] : null,
+    });
+
+    const actorName = actor?.name ?? "Someone";
+    const mentionRedirectUrl = epicDetailUrl(workspaceId, epic.projectId, epic.id, comment.id);
+
+    for (const mentionedUserId of mentionedUserIds) {
+      await this.notifyWithFallback({
+        workspaceId,
+        userId: mentionedUserId,
+        originUserId: data.userId,
+        type: "mention",
+        targetType: "comment",
+        targetId: comment.id,
+        redirectUrl: mentionRedirectUrl,
+        title: `${actorName} mentioned you`,
+        message: `${actorName} mentioned you in a comment on epic "${epic.name}".`,
+      });
+    }
+
+    const relatedUserIds = new Set<string>();
+    if (epic.ownerId) relatedUserIds.add(epic.ownerId);
+    relatedUserIds.delete(data.userId);
+    for (const mentionedUserId of mentionedUserIds) relatedUserIds.delete(mentionedUserId);
+
+    for (const recipientId of relatedUserIds) {
+      await this.notifyWithFallback({
+        workspaceId,
+        userId: recipientId,
+        originUserId: data.userId,
+        type: "task_comment",
+        targetType: "task",
+        targetId: data.epicId,
+        redirectUrl: mentionRedirectUrl,
+        title: `New comment on epic "${epic.name}"`,
+        message: `${actorName} commented: "${data.content.slice(0, 110)}${data.content.length > 110 ? "..." : ""}"`,
+      });
+    }
+
+    return comment;
+  }
+
+  async getEpicComments(epicId: string, currentUserId: string) {
+    const epic = await epicRepository.findById(epicId);
+    if (!epic) {
+      throw new Error("Epic not found");
+    }
+    const isMember = await projectRepository.isProjectMember(epic.projectId, currentUserId);
+    if (!isMember) {
+      throw new Error("Forbidden: you do not have access to this epic");
+    }
+    return commentRepository.getEpicComments(epicId, currentUserId);
   }
 
   async getTaskComments(taskId: string, currentUserId: string) {

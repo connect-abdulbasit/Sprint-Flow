@@ -1,13 +1,14 @@
 "use client";
 
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
-import TicketDetailModal from "@/components/project/TicketDetailModal";
+import TicketDetailDrawer from "@/components/project/TicketDetailDrawer";
 import TicketFormModal from "@/components/project/TicketFormModal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import {
   Plus,
   GripVertical,
   Circle,
+  ChevronRight,
   Loader2,
   Eye,
   CheckCircle2,
@@ -24,10 +25,12 @@ import {
   fetchTickets,
   fetchSprints,
   fetchProject,
+  fetchEpics,
   updateProject,
   updateTicket,
   ApiError,
   type BoardColumnConfig,
+  type Epic,
   type Project,
   type ProjectMember,
   type ProjectSprint,
@@ -101,8 +104,13 @@ interface TicketGroup {
   tickets: ProjectTicket[];
 }
 
-/** Splits a column's tickets into labeled sections for the "Group by" board mode. */
-function groupColumnTickets(tickets: ProjectTicket[], groupBy: GroupBy): TicketGroup[] {
+/** Splits a column's tickets into labeled sections for the "Group by" board mode.
+ * "epic" grouping is what renders the board's epic swimlanes. */
+function groupColumnTickets(
+  tickets: ProjectTicket[],
+  groupBy: GroupBy,
+  epicNameById: Map<string, string>
+): TicketGroup[] {
   if (groupBy === "none") {
     return [{ key: "all", label: "", tickets }];
   }
@@ -117,6 +125,9 @@ function groupColumnTickets(tickets: ProjectTicket[], groupBy: GroupBy): TicketG
     } else if (groupBy === "priority") {
       key = t.priority || "medium";
       label = key.charAt(0).toUpperCase() + key.slice(1);
+    } else if (groupBy === "epic") {
+      key = t.epicId ?? "no_epic";
+      label = t.epicId ? (epicNameById.get(t.epicId) ?? "Unknown epic") : "No epic";
     } else {
       key = t.type || "task";
       label = key.charAt(0).toUpperCase() + key.slice(1);
@@ -133,6 +144,11 @@ function groupColumnTickets(tickets: ProjectTicket[], groupBy: GroupBy): TicketG
     }
     if (groupBy === "type") {
       return TYPE_GROUP_ORDER.indexOf(a.key) - TYPE_GROUP_ORDER.indexOf(b.key);
+    }
+    if (groupBy === "epic") {
+      if (a.key === "no_epic") return 1;
+      if (b.key === "no_epic") return -1;
+      return a.label.localeCompare(b.label);
     }
     // Assignee: named people first (alphabetical), unassigned last.
     if (a.key === "unassigned") return 1;
@@ -172,7 +188,9 @@ export default function ProjectBoardPage() {
   const [conflictError, setConflictError] = useState<string | null>(null);
   const [sprints, setSprints] = useState<ProjectSprint[]>([]);
   const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [epics, setEpics] = useState<Epic[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [columnError, setColumnError] = useState<string | null>(null);
   const [boardReady, setBoardReady] = useState(false);
 
@@ -205,7 +223,10 @@ export default function ProjectBoardPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string[]>([]);
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [priorityFilter, setPriorityFilter] = useState<string[]>([]);
+  const [epicFilter, setEpicFilter] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
+
+  const epicNameById = useMemo(() => new Map(epics.map((e) => [e.id, e.name])), [epics]);
 
   const memberAvatarById = useMemo(
     () => new Map(members.map((m) => [m.userId, m.avatarUrl ?? null])),
@@ -224,6 +245,7 @@ export default function ProjectBoardPage() {
     setAssigneeFilter([]);
     setTypeFilter([]);
     setPriorityFilter([]);
+    setEpicFilter([]);
   }, []);
 
   const matchesFilters = useCallback(
@@ -235,9 +257,10 @@ export default function ProjectBoardPage() {
       }
       if (typeFilter.length > 0 && !typeFilter.includes(t.type)) return false;
       if (priorityFilter.length > 0 && !priorityFilter.includes(t.priority)) return false;
+      if (epicFilter.length > 0 && !epicFilter.includes(t.epicId ?? "")) return false;
       return true;
     },
-    [search, assigneeFilter, typeFilter, priorityFilter]
+    [search, assigneeFilter, typeFilter, priorityFilter, epicFilter]
   );
 
   const boardColumnDefs = useMemo(
@@ -260,12 +283,14 @@ export default function ProjectBoardPage() {
       fetchWorkspaceMembers(wid),
       fetchSprints(pid),
       fetchProject(pid),
+      fetchEpics(pid),
     ])
-      .then(([t, m, sp, p]) => {
+      .then(([t, m, sp, p, e]) => {
         setTickets(t);
         setMembers(m);
         setSprints(sp);
         setProject(p);
+        setEpics(e);
         setLoadError(null);
       })
       .catch(() => setLoadError("Could not load board"))
@@ -355,10 +380,12 @@ export default function ProjectBoardPage() {
     };
   }, [sprints, boardFocusSprintId]);
 
-  /** Sprint board never lists backlog-only tickets (`sprintId === null`). When no active/completed sprint exists yet, show nothing. */
+  /** Sprint board never lists backlog-only tickets (`sprintId === null`). When no
+   * active/completed sprint exists yet, show nothing. Subtasks are never independent
+   * board cards — they're not sprint-scheduled and render nested inside their parent. */
   const boardTickets = useMemo(() => {
     if (boardFocusSprintId === null) return [];
-    return tickets.filter((t) => t.sprintId === boardFocusSprintId);
+    return tickets.filter((t) => t.sprintId === boardFocusSprintId && !t.parentTaskId);
   }, [tickets, boardFocusSprintId]);
 
   const orphanBoardTickets = useMemo(
@@ -733,25 +760,44 @@ export default function ProjectBoardPage() {
       );
     }
 
-    const groups = groupColumnTickets(columnTickets, groupBy);
+    const groups = groupColumnTickets(columnTickets, groupBy, epicNameById);
     return (
       <>
-        {groups.map((g) => (
-          <div key={g.key} className="space-y-2">
-            <div className="flex items-center gap-2 px-1 pt-1">
-              <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted">
-                {g.label}
-              </span>
-              <span className="shrink-0 rounded bg-surface-2/60 px-1.5 py-0.5 text-[10px] font-medium text-muted">
-                {g.tickets.length}
-              </span>
-              <div className="h-px flex-1 bg-hover" />
+        {groups.map((g) => {
+          const groupCollapseKey = `${column.id}:${g.key}`;
+          const isCollapsed = collapsedGroups.has(groupCollapseKey);
+          return (
+            <div key={g.key} className="space-y-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setCollapsedGroups((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(groupCollapseKey)) next.delete(groupCollapseKey);
+                    else next.add(groupCollapseKey);
+                    return next;
+                  })
+                }
+                className="flex w-full items-center gap-2 px-1 pt-1"
+              >
+                <ChevronRight
+                  className={`h-3 w-3 shrink-0 text-muted transition-transform ${isCollapsed ? "" : "rotate-90"}`}
+                />
+                <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted">
+                  {g.label}
+                </span>
+                <span className="shrink-0 rounded bg-surface-2/60 px-1.5 py-0.5 text-[10px] font-medium text-muted">
+                  {g.tickets.length}
+                </span>
+                <div className="h-px flex-1 bg-hover" />
+              </button>
+              {!isCollapsed &&
+                g.tickets.map((ticket, index) =>
+                  renderTicketCard(ticket, index, column.id, isOver, false)
+                )}
             </div>
-            {g.tickets.map((ticket, index) =>
-              renderTicketCard(ticket, index, column.id, isOver, false)
-            )}
-          </div>
-        ))}
+          );
+        })}
       </>
     );
   };
@@ -825,6 +871,9 @@ export default function ProjectBoardPage() {
           priorityFilter={priorityFilter}
           onToggleType={(t) => toggleInList(t, setTypeFilter)}
           onTogglePriority={(p) => toggleInList(p, setPriorityFilter)}
+          epics={epics}
+          epicFilter={epicFilter}
+          onToggleEpic={(id) => toggleInList(id, setEpicFilter)}
           groupBy={groupBy}
           onGroupByChange={setGroupBy}
           onClearFilters={clearFilters}
@@ -951,6 +1000,7 @@ export default function ProjectBoardPage() {
           defaultSprintId={boardFocusSprintId}
           statusOptions={statusFormOptions}
           linkableTickets={tickets}
+          epics={epics}
           isOpen={createModalOpen}
           onClose={closeCreateModal}
           onSaved={handleTicketSaved}
@@ -958,7 +1008,7 @@ export default function ProjectBoardPage() {
       )}
 
       {detailTicketId && (
-        <TicketDetailModal
+        <TicketDetailDrawer
           projectId={pid}
           workspaceId={wid}
           ticketId={detailTicketId}
@@ -967,6 +1017,9 @@ export default function ProjectBoardPage() {
           sprintPickerOptions={sprintPickerOptions}
           statusOptions={statusFormOptions}
           linkableTickets={tickets}
+          epics={epics}
+          allTickets={tickets}
+          onNavigateToTicket={(id) => setDetailTicketId(id)}
           isOpen={Boolean(detailTicketId)}
           onClose={closeDetail}
           onUpdated={handleTicketSaved}

@@ -559,6 +559,54 @@ export function ProjectSettingsBodySkeleton() {
   );
 }
 
+export function EpicsGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="bg-surface border border-border rounded-xl p-5">
+          <div className="flex items-start justify-between mb-4">
+            <Skeleton className="w-9 h-9 rounded-lg" />
+            <Skeleton className="w-10 h-10 rounded-full" />
+          </div>
+          <Skeleton className="h-5 w-3/4 rounded mb-2" />
+          <Skeleton className="h-3 w-1/2 rounded mb-4" />
+          <Skeleton className="h-1.5 w-full rounded-full mb-4" />
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-6 w-6 rounded-full" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function EpicDetailSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-64 rounded-lg" />
+          <Skeleton className="h-4 w-40 rounded" />
+        </div>
+        <Skeleton className="h-14 w-14 rounded-full" />
+      </div>
+      <Skeleton className="h-24 w-full rounded-xl" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          <Skeleton className="h-32 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProjectGridSkeleton({ count = 6 }: { count?: number }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ChevronRight,
   FolderKanban,
   Plus,
   LayoutList,
@@ -9,6 +8,8 @@ import {
   Timer,
   Settings,
   BarChart2,
+  Milestone,
+  ListTodo,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
@@ -16,6 +17,7 @@ import { useEffect, useState } from "react";
 import { fetchProject, type Project } from "@/lib/projects-api";
 import { projectKeyPrefix } from "@/lib/ticket-key";
 import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
+import Breadcrumbs from "@/components/ui/Breadcrumbs";
 
 export default function ProjectPageHeader() {
   const { workspaceId, projectId } = useParams();
@@ -48,6 +50,16 @@ export default function ProjectPageHeader() {
       href: `/workspace/${wid}/projects/${pid}/overview`,
       icon: BarChart2,
     },
+    {
+      name: "Epics",
+      href: `/workspace/${wid}/projects/${pid}/epics`,
+      icon: Milestone,
+    },
+    {
+      name: "All Issues",
+      href: `/workspace/${wid}/projects/${pid}/issues`,
+      icon: ListTodo,
+    },
     { name: "Board", href: `/workspace/${wid}/projects/${pid}/board`, icon: Columns },
     {
       name: "Backlog",
@@ -58,6 +70,11 @@ export default function ProjectPageHeader() {
       name: "Sprints",
       href: `/workspace/${wid}/projects/${pid}/sprints`,
       icon: Timer,
+    },
+    {
+      name: "Reports",
+      href: `/workspace/${wid}/projects/${pid}/reports`,
+      icon: BarChart2,
     },
     {
       name: "Settings",
@@ -77,23 +94,14 @@ export default function ProjectPageHeader() {
 
   return (
     <div className="px-10 pt-6 pb-0 border-b border-border bg-surface-sunken/60 backdrop-blur-xl sticky top-0 z-10">
-      <div className="flex items-center gap-1.5 mb-5 ml-0.5 text-[12px] font-medium">
-        <Link
-          href={`/workspace/${wid}/dashboard`}
-          className="text-muted hover:text-accent transition-colors flex items-center gap-1.5"
-        >
-          <FolderKanban className="w-3 h-3" />
-          Workspace
-        </Link>
-        <ChevronRight className="w-3 h-3 text-muted" />
-        <Link
-          href={`/workspace/${wid}/projects`}
-          className="text-muted hover:text-accent transition-colors"
-        >
-          Projects
-        </Link>
-        <ChevronRight className="w-3 h-3 text-muted" />
-        <span className="text-muted2">{name}</span>
+      <div className="mb-5 ml-0.5">
+        <Breadcrumbs
+          items={[
+            { label: "Workspace", href: `/workspace/${wid}/dashboard`, icon: FolderKanban },
+            { label: "Projects", href: `/workspace/${wid}/projects` },
+            { label: name },
+          ]}
+        />
       </div>
 
       <div className="flex items-center justify-between mb-6">

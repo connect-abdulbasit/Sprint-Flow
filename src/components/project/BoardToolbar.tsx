@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Search, SlidersHorizontal, Layers, ChevronDown, User, Check, X } from "lucide-react";
 import UserAvatar from "@/components/ui/user-avatar";
-import type { ProjectMember } from "@/lib/projects-api";
+import type { Epic, ProjectMember } from "@/lib/projects-api";
 
-export type GroupBy = "none" | "assignee" | "priority" | "type";
+export type GroupBy = "none" | "assignee" | "priority" | "type" | "epic";
 
 const TYPE_OPTIONS: { id: string; label: string }[] = [
   { id: "feature", label: "Feature" },
@@ -26,6 +26,7 @@ const GROUP_OPTIONS: { id: GroupBy; label: string }[] = [
   { id: "assignee", label: "Assignee" },
   { id: "priority", label: "Priority" },
   { id: "type", label: "Type" },
+  { id: "epic", label: "Epic" },
 ];
 
 // Deterministic accent per assignee — semantic tokens stay vivid in light & dark.
@@ -69,6 +70,9 @@ interface BoardToolbarProps {
   priorityFilter: string[];
   onToggleType: (_type: string) => void;
   onTogglePriority: (_priority: string) => void;
+  epics?: Epic[];
+  epicFilter?: string[];
+  onToggleEpic?: (_epicId: string) => void;
   groupBy: GroupBy;
   onGroupByChange: (_group: GroupBy) => void;
   onClearFilters: () => void;
@@ -86,6 +90,9 @@ export default function BoardToolbar({
   priorityFilter,
   onToggleType,
   onTogglePriority,
+  epics = [],
+  epicFilter = [],
+  onToggleEpic,
   groupBy,
   onGroupByChange,
   onClearFilters,
@@ -104,7 +111,7 @@ export default function BoardToolbar({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  const activeFilterCount = typeFilter.length + priorityFilter.length;
+  const activeFilterCount = typeFilter.length + priorityFilter.length + epicFilter.length;
   const hasAnyActive =
     activeFilterCount > 0 || assigneeFilter.length > 0 || search.trim().length > 0;
 
@@ -216,6 +223,17 @@ export default function BoardToolbar({
                 selected={priorityFilter}
                 onToggle={onTogglePriority}
               />
+              {epics.length > 0 && onToggleEpic && (
+                <>
+                  <div className="my-2 h-px bg-hover-strong" />
+                  <FilterGroup
+                    title="Epic"
+                    options={epics.map((e) => ({ id: e.id, label: e.name }))}
+                    selected={epicFilter}
+                    onToggle={onToggleEpic}
+                  />
+                </>
+              )}
             </div>
           )}
         </div>

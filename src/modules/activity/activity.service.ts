@@ -23,6 +23,10 @@ export class ActivityService {
   async getWorkspaceActivities(workspaceId: string, pagination: PaginationInput) {
     return activityRepository.getWorkspaceActivities(workspaceId, pagination);
   }
+
+  async getEntityActivities(entityType: string, entityId: string, pagination: PaginationInput) {
+    return activityRepository.getEntityActivities(entityType, entityId, pagination);
+  }
 }
 
 export const activityService = new ActivityService();

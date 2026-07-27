@@ -1,6 +1,7 @@
 export * from "@/modules/activity/activity.schema";
 export * from "@/modules/attachment/attachment.schema";
 export * from "@/modules/comment/comment.schema";
+export * from "@/modules/epic/epic.schema";
 export * from "@/modules/notification/notification.schema";
 export * from "@/modules/organization/organization.schema";
 export * from "@/modules/workspace/workspace.schema";

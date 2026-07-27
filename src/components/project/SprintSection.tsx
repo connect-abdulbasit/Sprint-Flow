@@ -41,6 +41,8 @@ interface SprintSectionProps {
   enableTicketDrag?: boolean;
   /** When set, dropping a ticket onto this section runs the handler (target sprint is implicit). */
   onTicketDrop?: (_ticketId: string) => void | Promise<void>;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (_ticketId: string) => void;
 }
 
 export default function SprintSection({
@@ -60,6 +62,8 @@ export default function SprintSection({
   onAssigneeChange,
   enableTicketDrag = false,
   onTicketDrop,
+  selectedIds,
+  onToggleSelect,
 }: SprintSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -293,6 +297,9 @@ export default function SprintSection({
                       canEdit={canEditTickets}
                       onStatusChange={onStatusChange}
                       onAssigneeChange={onAssigneeChange}
+                      selectable={Boolean(selectedIds)}
+                      selected={selectedIds?.has(ticket.id) ?? false}
+                      onToggleSelect={onToggleSelect}
                     />
                   </div>
                   {showMove && (
