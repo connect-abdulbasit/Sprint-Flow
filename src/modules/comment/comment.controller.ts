@@ -63,12 +63,66 @@ export class CommentController {
     }
   }
 
+  async addEpicComment(
+    req: NextRequest,
+    context: {
+      params: Promise<{ id: string; epicId: string }>;
+    }
+  ) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      const { id: workspaceId, epicId } = await context.params;
+      const body = await req.json();
+      const comment = await commentService.addEpicComment({
+        epicId,
+        workspaceId,
+        userId: user.id,
+        content: body.content,
+        parentId: body.parentId ?? undefined,
+      });
+      return NextResponse.json(comment);
+    } catch (error) {
+      console.error("Add epic comment error:", error);
+      const message = (error as Error)?.message ?? "Failed to add comment";
+      return NextResponse.json({ error: message }, { status: commentErrorStatus(message) });
+    }
+  }
+
+  async getEpicComments(
+    req: NextRequest,
+    context: {
+      params: Promise<{ id: string; epicId: string }>;
+    }
+  ) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      const { epicId } = await context.params;
+      const comments = await commentService.getEpicComments(epicId, user.id);
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 50,
+        maxPageSize: 200,
+      });
+      return NextResponse.json(paginateArray(comments, pagination));
+    } catch (error) {
+      console.error("Get epic comments error:", error);
+      const message = (error as Error)?.message ?? "Failed to get comments";
+      return NextResponse.json({ error: message }, { status: commentErrorStatus(message) });
+    }
+  }
+
   async deleteComment(
     req: NextRequest,
     context: {
+      // Shared by both the task-comments and epic-comments delete routes —
+      // only `commentId` is actually read below.
       params: Promise<{
         id: string;
-        taskId: string;
         commentId: string;
       }>;
     }

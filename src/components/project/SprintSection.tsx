@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, type DragEvent } from "react";
-import type { ProjectTicket, SprintGroup } from "@/lib/projects-api";
+import type { ProjectMember, ProjectTicket, SprintGroup } from "@/lib/projects-api";
 import TicketItem, { TICKET_DRAG_MIME } from "./TicketItem";
 import {
   ChevronDown,
@@ -32,10 +32,17 @@ interface SprintSectionProps {
   onDeleteSprint?: (_sprintId: string) => void;
   ticketMoveOptions?: TicketMoveOption[];
   onMoveTicket?: (_ticketId: string, _sprintId: string | null) => void | Promise<void>;
+  members?: ProjectMember[];
+  statusOptions?: { value: string; label: string }[];
+  canEditTickets?: boolean;
+  onStatusChange?: (_ticketId: string, _status: string) => void | Promise<void>;
+  onAssigneeChange?: (_ticketId: string, _assigneeId: string | null) => void | Promise<void>;
   /** When true, tickets can be dragged to another section that accepts drops. */
   enableTicketDrag?: boolean;
   /** When set, dropping a ticket onto this section runs the handler (target sprint is implicit). */
   onTicketDrop?: (_ticketId: string) => void | Promise<void>;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (_ticketId: string) => void;
 }
 
 export default function SprintSection({
@@ -48,8 +55,15 @@ export default function SprintSection({
   onDeleteSprint,
   ticketMoveOptions = [],
   onMoveTicket,
+  members = [],
+  statusOptions = [],
+  canEditTickets = false,
+  onStatusChange,
+  onAssigneeChange,
   enableTicketDrag = false,
   onTicketDrop,
+  selectedIds,
+  onToggleSelect,
 }: SprintSectionProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -70,10 +84,10 @@ export default function SprintSection({
 
   const statusBadgeClass =
     sprint.status === "active"
-      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/10"
+      ? "bg-success-soft text-success border border-success/10"
       : sprint.status === "completed"
-        ? "bg-zinc-500/10 text-zinc-400 border border-zinc-500/10"
-        : "bg-blue-500/10 text-blue-400 border border-blue-500/10";
+        ? "bg-hover text-muted2 border border-border"
+        : "bg-accent-soft text-accent border border-accent/10";
 
   const showMove = Boolean(onMoveTicket && ticketMoveOptions.length > 0);
   const dropEnabled = Boolean(onTicketDrop);
@@ -114,7 +128,7 @@ export default function SprintSection({
     <>
       <div
         className={`mb-3 last:mb-0 rounded-lg transition-shadow ${
-          dropHighlight ? "ring-2 ring-blue-500/35 ring-offset-0 ring-offset-[#09090b]" : ""
+          dropHighlight ? "ring-2 ring-accent/35 ring-offset-0 ring-offset-surface-sunken" : ""
         }`}
         onDragOver={dropEnabled ? handleDragOver : undefined}
         onDragEnter={dropEnabled ? handleDragEnter : undefined}
@@ -122,17 +136,17 @@ export default function SprintSection({
         onDrop={dropEnabled ? handleDrop : undefined}
       >
         <div
-          className="group flex cursor-pointer items-center gap-3 rounded-t-lg border border-white/[0.05] bg-[#111115] px-4 py-2.5 transition-all hover:bg-[#141418]"
+          className="group flex cursor-pointer items-center gap-3 rounded-t-lg border border-border bg-surface px-4 py-2.5 transition-all hover:bg-surface-hover"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {isExpanded ? (
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 text-muted shrink-0" />
             ) : (
-              <ChevronRight className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
+              <ChevronRight className="w-3.5 h-3.5 text-muted shrink-0" />
             )}
 
-            <span className="text-[13px] font-semibold text-zinc-200 truncate">
+            <span className="text-[13px] font-semibold text-fg truncate">
               {isBacklog ? "Backlog" : sprint.name}
             </span>
 
@@ -144,15 +158,15 @@ export default function SprintSection({
               </span>
             )}
 
-            <span className="text-[11px] text-zinc-600 shrink-0">
+            <span className="text-[11px] text-muted shrink-0">
               {sprint.tickets.length} {sprint.tickets.length === 1 ? "task" : "tasks"}
             </span>
           </div>
 
           <div className="flex items-center gap-4 shrink-0">
             {!isBacklog && sprint.startDate && mounted && (
-              <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
-                <Calendar className="w-3 h-3 text-zinc-600" />
+              <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                <Calendar className="w-3 h-3 text-muted" />
                 {new Date(sprint.startDate + "T12:00:00Z").toLocaleDateString("en-US", {
                   month: "short",
                   day: "numeric",
@@ -171,16 +185,13 @@ export default function SprintSection({
             {!isBacklog && (
               <div className="flex items-center gap-3">
                 <div
-                  className="flex items-center gap-1 text-[11px] text-zinc-500"
+                  className="flex items-center gap-1 text-[11px] text-muted"
                   title="Story Points"
                 >
-                  <Clock className="w-3 h-3 text-zinc-600" />
+                  <Clock className="w-3 h-3 text-muted" />
                   {totalPoints} pts
                 </div>
-                <div
-                  className="flex items-center gap-1 text-[11px] text-emerald-400/80"
-                  title="Completed"
-                >
+                <div className="flex items-center gap-1 text-[11px] text-success" title="Completed">
                   <CheckCircle2 className="w-3 h-3" />
                   {doneTickets}/{sprint.tickets.length}
                 </div>
@@ -195,7 +206,7 @@ export default function SprintSection({
                 <button
                   type="button"
                   onClick={() => onStartSprint(sprint.id)}
-                  className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/15 text-[11px] font-medium text-blue-400 border border-blue-500/20 rounded-md transition-colors flex items-center gap-1"
+                  className="px-2.5 py-1 bg-accent/10 hover:bg-accent/15 text-[11px] font-medium text-accent border border-accent/20 rounded-md transition-colors flex items-center gap-1"
                 >
                   <Play className="w-3 h-3 fill-current" />
                   Start
@@ -211,7 +222,7 @@ export default function SprintSection({
                       sprintName: sprint.name,
                     })
                   }
-                  className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/15 text-[11px] font-medium text-emerald-400 border border-emerald-500/20 rounded-md transition-colors flex items-center gap-1"
+                  className="px-2.5 py-1 bg-success/10 hover:bg-success/15 text-[11px] font-medium text-success border border-success/20 rounded-md transition-colors flex items-center gap-1"
                 >
                   <Flag className="w-3 h-3" />
                   Complete
@@ -222,7 +233,7 @@ export default function SprintSection({
                   <button
                     type="button"
                     onClick={() => setMenuOpen((o) => !o)}
-                    className="p-1 text-zinc-600 hover:text-zinc-300 hover:bg-white/[0.05] rounded-md transition-all"
+                    className="p-1 text-muted hover:text-muted2 hover:bg-hover rounded-md transition-all"
                     aria-expanded={menuOpen}
                     aria-haspopup="true"
                   >
@@ -236,7 +247,7 @@ export default function SprintSection({
                         aria-label="Close menu"
                         onClick={() => setMenuOpen(false)}
                       />
-                      <div className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-lg border border-white/[0.08] bg-[#141418] py-1 shadow-xl">
+                      <div className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-lg border border-border bg-surface-hover py-1 shadow-xl">
                         <button
                           type="button"
                           onClick={() => {
@@ -247,7 +258,7 @@ export default function SprintSection({
                               sprintName: sprint.name,
                             });
                           }}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-red-400 hover:bg-white/[0.04]"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-danger hover:bg-hover"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           Delete sprint
@@ -262,30 +273,38 @@ export default function SprintSection({
         </div>
 
         {!isBacklog && sprint.goal?.trim() && isExpanded && (
-          <div className="border-x border-white/[0.04] border-t-0 bg-[#0e0e12] px-4 py-2 text-[12px] text-zinc-500">
-            <span className="font-medium text-zinc-400">Goal: </span>
+          <div className="border-x border-border border-t-0 bg-surface-sunken px-4 py-2 text-[12px] text-muted">
+            <span className="font-medium text-muted2">Goal: </span>
             {sprint.goal}
           </div>
         )}
 
         {isExpanded && (
-          <div className="border-x border-b border-white/[0.04] bg-[#0c0c0f] rounded-b-lg overflow-hidden">
+          <div className="border-x border-b border-border bg-surface-sunken rounded-b-lg overflow-visible">
             {sprint.tickets.length > 0 ? (
               sprint.tickets.map((ticket) => (
                 <div
                   key={ticket.id}
-                  className="flex items-stretch border-b border-white/[0.03] last:border-b-0"
+                  className="relative flex items-stretch border-b border-border last:border-b-0"
                 >
                   <div className="min-w-0 flex-1">
                     <TicketItem
                       ticket={ticket}
                       onSelect={onTicketSelect}
                       draggableTicketId={enableTicketDrag ? ticket.id : undefined}
+                      members={members}
+                      statusOptions={statusOptions}
+                      canEdit={canEditTickets}
+                      onStatusChange={onStatusChange}
+                      onAssigneeChange={onAssigneeChange}
+                      selectable={Boolean(selectedIds)}
+                      selected={selectedIds?.has(ticket.id) ?? false}
+                      onToggleSelect={onToggleSelect}
                     />
                   </div>
                   {showMove && (
                     <div
-                      className="flex shrink-0 items-center border-l border-white/[0.03] bg-[#0c0c0f] px-2"
+                      className="flex shrink-0 items-center border-l border-border bg-surface-sunken px-2"
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => e.stopPropagation()}
                     >
@@ -302,7 +321,7 @@ export default function SprintSection({
                           void onMoveTicket(ticket.id, next);
                           e.target.selectedIndex = 0;
                         }}
-                        className="max-w-[120px] cursor-pointer rounded border border-white/[0.08] bg-zinc-900/80 py-1 pl-1.5 pr-1 text-[10px] text-zinc-400 focus:border-blue-500/30 focus:outline-none"
+                        className="max-w-[120px] cursor-pointer rounded border border-border bg-surface-2/80 py-1 pl-1.5 pr-1 text-[10px] text-muted2 focus:border-accent/30 focus:outline-none"
                       >
                         <option value="">Move…</option>
                         {ticketMoveOptions.map((opt) => (
@@ -319,7 +338,7 @@ export default function SprintSection({
                 </div>
               ))
             ) : (
-              <div className="px-4 py-6 text-center text-[12px] text-zinc-600">
+              <div className="px-4 py-6 text-center text-[12px] text-muted">
                 No tasks yet. Add tickets from the backlog or create one here.
               </div>
             )}
@@ -330,7 +349,7 @@ export default function SprintSection({
                 e.stopPropagation();
                 onCreateTask?.();
               }}
-              className="flex w-full items-center gap-2 border-t border-white/[0.03] px-4 py-2 text-left text-[12px] text-zinc-600 transition-all hover:bg-white/[0.02] hover:text-zinc-400"
+              className="flex w-full items-center gap-2 border-t border-border px-4 py-2 text-left text-[12px] text-muted transition-all hover:bg-hover hover:text-muted2"
             >
               <Plus className="w-3 h-3" />
               Create task
@@ -352,13 +371,13 @@ export default function SprintSection({
         description={
           confirmAction?.type === "complete" ? (
             <>
-              Incomplete tickets move to the <strong className="text-zinc-300">backlog</strong>.
-              Done tickets stay on this sprint for history.
+              Incomplete tickets move to the <strong className="text-muted2">backlog</strong>. Done
+              tickets stay on this sprint for history.
             </>
           ) : confirmAction?.type === "delete" ? (
             <>
               This planned sprint will be removed. Tickets in it return to the{" "}
-              <strong className="text-zinc-300">backlog</strong>.
+              <strong className="text-muted2">backlog</strong>.
             </>
           ) : null
         }

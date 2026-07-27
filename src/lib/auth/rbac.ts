@@ -19,6 +19,10 @@ export const PERMISSIONS = [
   "tasks:view",
   "sprints:create",
   "sprints:edit",
+  "epics:create",
+  "epics:edit",
+  "epics:view",
+  "epics:update_status",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -42,6 +46,10 @@ const ROLE_PERMISSIONS: Record<WorkspaceRole, ReadonlySet<Permission>> = {
     "tasks:view",
     "sprints:create",
     "sprints:edit",
+    "epics:create",
+    "epics:edit",
+    "epics:view",
+    "epics:update_status",
   ]),
 
   project_manager: new Set<Permission>([
@@ -56,9 +64,19 @@ const ROLE_PERMISSIONS: Record<WorkspaceRole, ReadonlySet<Permission>> = {
     "tasks:view",
     "sprints:create",
     "sprints:edit",
+    "epics:create",
+    "epics:edit",
+    "epics:view",
+    "epics:update_status",
   ]),
 
-  member: new Set<Permission>(["projects:view", "tasks:update_status", "tasks:view"]),
+  member: new Set<Permission>([
+    "projects:view",
+    "tasks:update_status",
+    "tasks:view",
+    "epics:view",
+    "epics:update_status",
+  ]),
 };
 
 const ROLE_HIERARCHY: Record<WorkspaceRole, number> = {

@@ -46,11 +46,11 @@ const STATUS_LABELS: Record<StatusBucket, string> = {
 };
 
 const STATUS_COLORS: Record<StatusBucket, string> = {
-  todo: "bg-zinc-500",
-  in_progress: "bg-blue-500",
-  review: "bg-purple-500",
-  blocked: "bg-rose-500",
-  done: "bg-emerald-500",
+  todo: "bg-muted",
+  in_progress: "bg-accent",
+  review: "bg-accent2",
+  blocked: "bg-danger",
+  done: "bg-success",
 };
 
 const PRIORITY_LABELS: Record<PriorityBucket, string> = {
@@ -61,10 +61,10 @@ const PRIORITY_LABELS: Record<PriorityBucket, string> = {
 };
 
 const PRIORITY_COLORS: Record<PriorityBucket, string> = {
-  urgent: "bg-rose-500",
-  high: "bg-amber-500",
-  medium: "bg-blue-500",
-  low: "bg-zinc-500",
+  urgent: "bg-danger",
+  high: "bg-warning",
+  medium: "bg-accent",
+  low: "bg-muted",
 };
 
 function normalizeStatus(status: string): StatusBucket {
@@ -108,28 +108,22 @@ function ReportsSkeleton() {
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-5"
-          >
-            <div className="h-8 w-8 rounded-lg bg-white/[0.06] animate-pulse mb-4" />
-            <div className="h-7 w-16 rounded bg-white/[0.06] animate-pulse mb-2" />
-            <div className="h-3 w-24 rounded bg-white/[0.06] animate-pulse" />
+          <div key={i} className="rounded-2xl border border-border bg-surface p-5">
+            <div className="h-8 w-8 rounded-lg bg-hover-strong animate-pulse mb-4" />
+            <div className="h-7 w-16 rounded bg-hover-strong animate-pulse mb-2" />
+            <div className="h-3 w-24 rounded bg-hover-strong animate-pulse" />
           </div>
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {Array.from({ length: 2 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-6"
-          >
-            <div className="h-4 w-40 rounded bg-white/[0.06] animate-pulse mb-5" />
+          <div key={i} className="rounded-2xl border border-border bg-surface p-6">
+            <div className="h-4 w-40 rounded bg-hover-strong animate-pulse mb-5" />
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((__, j) => (
                 <div key={j}>
-                  <div className="h-3 w-full rounded bg-white/[0.06] animate-pulse mb-2" />
-                  <div className="h-1.5 w-full rounded-full bg-white/[0.06] animate-pulse" />
+                  <div className="h-3 w-full rounded bg-hover-strong animate-pulse mb-2" />
+                  <div className="h-1.5 w-full rounded-full bg-hover-strong animate-pulse" />
                 </div>
               ))}
             </div>
@@ -333,8 +327,8 @@ export default function ReportsPage() {
   const workspaceColor = workspace?.color ?? "#4f7cff";
 
   return (
-    <div className="flex flex-col h-full bg-[#09090b]">
-      <div className="px-10 py-8 border-b border-white/[0.04] bg-[#0c0c0f]/50 backdrop-blur-xl sticky top-0 z-10">
+    <div className="flex flex-col h-full bg-surface-sunken">
+      <div className="px-10 py-8 border-b border-border bg-surface-sunken/50 backdrop-blur-xl sticky top-0 z-10">
         <div className="flex items-end justify-between gap-4">
           <div className="flex items-center gap-4">
             <div
@@ -348,15 +342,15 @@ export default function ReportsPage() {
               <BarChart3 className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Reports</h1>
-              <p className="mt-1 text-[13px] text-zinc-500">
+              <h1 className="text-2xl font-semibold tracking-tight text-fg">Reports</h1>
+              <p className="mt-1 text-[13px] text-muted">
                 {workspaceName} analytics across projects, tasks, and sprints
               </p>
             </div>
           </div>
           <button
             onClick={() => setReloadKey((k) => k + 1)}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-white/[0.08] bg-white/[0.02] text-zinc-300 hover:text-zinc-100 hover:bg-white/[0.04] transition-colors text-[13px] font-medium"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border border-border bg-hover text-muted2 hover:text-fg hover:bg-hover transition-colors text-[13px] font-medium"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Refresh
@@ -368,12 +362,12 @@ export default function ReportsPage() {
         {loading ? (
           <ReportsSkeleton />
         ) : error ? (
-          <div className="rounded-2xl border border-rose-500/20 bg-rose-500/8 p-5 flex items-center gap-3 text-rose-300 text-[13px]">
+          <div className="rounded-2xl border border-danger/20 bg-danger/8 p-5 flex items-center gap-3 text-danger text-[13px]">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span className="flex-1">{error}</span>
             <button
               onClick={() => setReloadKey((k) => k + 1)}
-              className="px-3 py-1.5 rounded-md bg-rose-500/15 hover:bg-rose-500/25 transition-colors"
+              className="px-3 py-1.5 rounded-md bg-danger/15 hover:bg-danger/25 transition-colors"
             >
               Retry
             </button>
@@ -386,64 +380,59 @@ export default function ReportsPage() {
                   label: "Projects",
                   value: totalProjects,
                   icon: FolderKanban,
-                  color: "text-blue-400",
+                  color: "text-accent",
                 },
                 {
                   label: "Total Tasks",
                   value: totalTickets,
                   icon: Layers3,
-                  color: "text-zinc-300",
+                  color: "text-muted2",
                 },
                 {
                   label: "Completion Rate",
                   value: `${completionRate}%`,
                   icon: CheckCircle2,
-                  color: "text-emerald-400",
+                  color: "text-success",
                 },
                 {
                   label: "Active Sprints",
                   value: activeSprints,
                   icon: Timer,
-                  color: "text-purple-400",
+                  color: "text-accent2",
                 },
                 {
                   label: "Overdue Tasks",
                   value: overdueCount,
                   icon: AlertCircle,
-                  color: "text-rose-400",
+                  color: "text-danger",
                 },
-                { label: "Members", value: membersCount, icon: Users, color: "text-cyan-400" },
+                { label: "Members", value: membersCount, icon: Users, color: "text-accent3" },
               ].map((card) => (
-                <div
-                  key={card.label}
-                  className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-5"
-                >
+                <div key={card.label} className="rounded-2xl border border-border bg-surface p-5">
                   <div
-                    className={`w-9 h-9 rounded-lg bg-white/[0.03] flex items-center justify-center mb-4 ${card.color}`}
+                    className={`w-9 h-9 rounded-lg bg-hover flex items-center justify-center mb-4 ${card.color}`}
                   >
                     <card.icon className="w-4.5 h-4.5" />
                   </div>
                   <div className={`text-2xl font-semibold ${card.color}`}>{card.value}</div>
-                  <div className="text-[11px] text-zinc-500 mt-1">{card.label}</div>
+                  <div className="text-[11px] text-muted mt-1">{card.label}</div>
                 </div>
               ))}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-6">
-                <h2 className="text-[14px] font-semibold text-zinc-200 mb-5">
-                  Task Status Distribution
-                </h2>
+              <div className="rounded-2xl border border-border bg-surface p-6">
+                <h2 className="text-[14px] font-semibold text-fg mb-5">Task Status Distribution</h2>
                 <div className="space-y-4">
                   {(Object.keys(statusCounts) as StatusBucket[]).map((key) => (
                     <div key={key}>
                       <div className="flex items-center justify-between text-[12px] mb-1.5">
-                        <span className="text-zinc-400">{STATUS_LABELS[key]}</span>
-                        <span className="text-zinc-500">
+                        <span className="text-muted2">{STATUS_LABELS[key]}</span>
+                        <span className="text-muted">
                           {statusCounts[key]} · {getPercent(statusCounts[key], totalTickets)}%
                         </span>
                       </div>
-                      <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                      <div className="h-1.5 w-full bg-surface-3 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${STATUS_COLORS[key]} transition-all duration-700`}
                           style={{ width: `${getPercent(statusCounts[key], totalTickets)}%` }}
@@ -454,18 +443,18 @@ export default function ReportsPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-6">
-                <h2 className="text-[14px] font-semibold text-zinc-200 mb-5">Priority Breakdown</h2>
+              <div className="rounded-2xl border border-border bg-surface p-6">
+                <h2 className="text-[14px] font-semibold text-fg mb-5">Priority Breakdown</h2>
                 <div className="space-y-4">
                   {(Object.keys(priorityCounts) as PriorityBucket[]).map((key) => (
                     <div key={key}>
                       <div className="flex items-center justify-between text-[12px] mb-1.5">
-                        <span className="text-zinc-400">{PRIORITY_LABELS[key]}</span>
-                        <span className="text-zinc-500">
+                        <span className="text-muted2">{PRIORITY_LABELS[key]}</span>
+                        <span className="text-muted">
                           {priorityCounts[key]} · {getPercent(priorityCounts[key], totalTickets)}%
                         </span>
                       </div>
-                      <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                      <div className="h-1.5 w-full bg-surface-3 rounded-full overflow-hidden">
                         <div
                           className={`h-full rounded-full ${PRIORITY_COLORS[key]} transition-all duration-700`}
                           style={{ width: `${getPercent(priorityCounts[key], totalTickets)}%` }}
@@ -478,34 +467,30 @@ export default function ReportsPage() {
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-              <div className="xl:col-span-2 rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-6">
-                <h2 className="text-[14px] font-semibold text-zinc-200 mb-4">
-                  Project Performance
-                </h2>
+              <div className="xl:col-span-2 rounded-2xl border border-border bg-surface p-6">
+                <h2 className="text-[14px] font-semibold text-fg mb-4">Project Performance</h2>
                 {projectPerformance.length === 0 ? (
-                  <p className="text-[12px] text-zinc-500">No projects available yet.</p>
+                  <p className="text-[12px] text-muted">No projects available yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {projectPerformance.map((project) => (
                       <div
                         key={project.id}
-                        className="rounded-xl border border-white/[0.05] bg-[#101015] px-4 py-3"
+                        className="rounded-xl border border-border bg-surface-sunken px-4 py-3"
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-[13px] text-zinc-200 font-medium truncate">
-                            {project.name}
-                          </p>
-                          <span className="text-[11px] text-zinc-500">
+                          <p className="text-[13px] text-fg font-medium truncate">{project.name}</p>
+                          <span className="text-[11px] text-muted">
                             {project.done}/{project.total} done
                           </span>
                         </div>
-                        <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden mb-2">
+                        <div className="h-1.5 w-full bg-surface-3 rounded-full overflow-hidden mb-2">
                           <div
-                            className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                            className="h-full rounded-full bg-success transition-all duration-700"
                             style={{ width: `${project.completion}%` }}
                           />
                         </div>
-                        <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                        <div className="flex items-center justify-between text-[11px] text-muted">
                           <span>{project.completion}% complete</span>
                           <span>
                             {project.inProgress} active · {project.blocked} blocked
@@ -517,53 +502,47 @@ export default function ReportsPage() {
                 )}
               </div>
 
-              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-6 space-y-4">
-                <h2 className="text-[14px] font-semibold text-zinc-200">Delivery Snapshot</h2>
-                <div className="rounded-xl border border-white/[0.05] bg-[#101015] p-4">
-                  <p className="text-[11px] text-zinc-500">Completed Tasks (14 days)</p>
-                  <p className="text-xl font-semibold text-emerald-400 mt-1">{doneLast14Days}</p>
+              <div className="rounded-2xl border border-border bg-surface p-6 space-y-4">
+                <h2 className="text-[14px] font-semibold text-fg">Delivery Snapshot</h2>
+                <div className="rounded-xl border border-border bg-surface-sunken p-4">
+                  <p className="text-[11px] text-muted">Completed Tasks (14 days)</p>
+                  <p className="text-xl font-semibold text-success mt-1">{doneLast14Days}</p>
                 </div>
-                <div className="rounded-xl border border-white/[0.05] bg-[#101015] p-4">
-                  <p className="text-[11px] text-zinc-500">Story Points Delivered</p>
-                  <p className="text-xl font-semibold text-purple-400 mt-1">
-                    {totalStoryPointsDone}
-                  </p>
+                <div className="rounded-xl border border-border bg-surface-sunken p-4">
+                  <p className="text-[11px] text-muted">Story Points Delivered</p>
+                  <p className="text-xl font-semibold text-accent2 mt-1">{totalStoryPointsDone}</p>
                 </div>
-                <div className="rounded-xl border border-white/[0.05] bg-[#101015] p-4">
-                  <p className="text-[11px] text-zinc-500">Current Flow</p>
-                  <p className="text-xl font-semibold text-blue-400 mt-1">
+                <div className="rounded-xl border border-border bg-surface-sunken p-4">
+                  <p className="text-[11px] text-muted">Current Flow</p>
+                  <p className="text-xl font-semibold text-accent mt-1">
                     {inProgressTickets} in progress
                   </p>
-                  <p className="text-[11px] text-zinc-500 mt-1">{blockedTickets} blocked</p>
+                  <p className="text-[11px] text-muted mt-1">{blockedTickets} blocked</p>
                 </div>
-                <div className="rounded-xl border border-white/[0.05] bg-[#101015] p-4">
-                  <p className="text-[11px] text-zinc-500">Upcoming / Unassigned</p>
-                  <p className="text-sm text-zinc-300 mt-1">{dueSoonCount} due in next 7 days</p>
-                  <p className="text-sm text-zinc-300">{unassignedCount} unassigned tasks</p>
+                <div className="rounded-xl border border-border bg-surface-sunken p-4">
+                  <p className="text-[11px] text-muted">Upcoming / Unassigned</p>
+                  <p className="text-sm text-muted2 mt-1">{dueSoonCount} due in next 7 days</p>
+                  <p className="text-sm text-muted2">{unassignedCount} unassigned tasks</p>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-6">
+            <div className="rounded-2xl border border-border bg-surface p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Clock3 className="w-4 h-4 text-zinc-400" />
-                <h2 className="text-[14px] font-semibold text-zinc-200">
-                  Recent Completed Sprints
-                </h2>
+                <Clock3 className="w-4 h-4 text-muted2" />
+                <h2 className="text-[14px] font-semibold text-fg">Recent Completed Sprints</h2>
               </div>
               {recentCompletedSprints.length === 0 ? (
-                <p className="text-[12px] text-zinc-500">No completed sprints yet.</p>
+                <p className="text-[12px] text-muted">No completed sprints yet.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {recentCompletedSprints.map((sprint) => (
                     <div
                       key={sprint.id}
-                      className="rounded-xl border border-white/[0.05] bg-[#101015] px-4 py-3"
+                      className="rounded-xl border border-border bg-surface-sunken px-4 py-3"
                     >
-                      <p className="text-[13px] text-zinc-200 font-medium truncate">
-                        {sprint.name}
-                      </p>
-                      <p className="text-[11px] text-zinc-500 mt-1">
+                      <p className="text-[13px] text-fg font-medium truncate">{sprint.name}</p>
+                      <p className="text-[11px] text-muted mt-1">
                         {new Date(sprint.startDate).toLocaleDateString()} -{" "}
                         {new Date(sprint.endDate).toLocaleDateString()}
                       </p>
@@ -574,9 +553,9 @@ export default function ReportsPage() {
             </div>
 
             {totalTickets === 0 && (
-              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-8 text-center">
-                <h3 className="text-zinc-300 font-medium mb-1">No task data yet</h3>
-                <p className="text-[12px] text-zinc-500">
+              <div className="rounded-2xl border border-border bg-surface p-8 text-center">
+                <h3 className="text-muted2 font-medium mb-1">No task data yet</h3>
+                <p className="text-[12px] text-muted">
                   Create tasks in project boards to start generating workspace reports.
                 </p>
               </div>

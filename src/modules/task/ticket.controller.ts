@@ -3,6 +3,12 @@ import { getCurrentUser } from "@/lib/auth";
 import { taskService, ALLOWED_TICKET_IMAGE_MIME_TYPES } from "@/modules/task/task.service";
 import { parsePaginationParams, paginateArray } from "@/lib/pagination";
 
+function parseLabels(value: unknown): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return undefined;
+  return value.map((x) => String(x).trim()).filter(Boolean);
+}
+
 function ticketErrorStatus(message: string) {
   if (
     message.includes("Forbidden") ||
@@ -79,6 +85,9 @@ export class TicketController {
         priority: body.priority,
         status: body.status,
         sprintId: body.sprintId,
+        epicId: body.epicId,
+        parentTaskId: body.parentTaskId,
+        labels: parseLabels(body.labels),
         assigneeId: body.assigneeId,
         dueDate: body.dueDate,
         storyPoints: body.storyPoints,
@@ -139,6 +148,10 @@ export class TicketController {
         priority: body.priority,
         status: body.status,
         sprintId: body.sprintId,
+        epicId: body.epicId,
+        parentTaskId: body.parentTaskId,
+        orderIndex: body.orderIndex,
+        labels: parseLabels(body.labels),
         assigneeId: body.assigneeId,
         reporterId: body.reporterId,
         dueDate: body.dueDate,
@@ -169,6 +182,31 @@ export class TicketController {
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to delete ticket";
       console.error("Delete ticket error:", error);
+      return NextResponse.json({ error: message }, { status: ticketErrorStatus(message) });
+    }
+  }
+
+  async activity(req: NextRequest, context: { params: Promise<{ id: string; ticketId: string }> }) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      const { id: projectId, ticketId } = await context.params;
+      const pagination = parsePaginationParams(req.nextUrl.searchParams, {
+        defaultPageSize: 20,
+        maxPageSize: 100,
+      });
+      const activity = await taskService.getTicketActivity(
+        user.id,
+        projectId,
+        ticketId,
+        pagination
+      );
+      return NextResponse.json(activity);
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to load ticket activity";
+      console.error("Get ticket activity error:", error);
       return NextResponse.json({ error: message }, { status: ticketErrorStatus(message) });
     }
   }

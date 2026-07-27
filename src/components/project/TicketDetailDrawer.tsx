@@ -19,17 +19,25 @@ import {
   X,
 } from "lucide-react";
 import {
+  createTicketAttachment,
   createTimeEntry,
+  createSubtask,
+  deleteAttachment,
   deleteTicket,
   deleteTimeEntry,
   fetchTicket,
+  fetchTicketActivity,
+  fetchTicketAttachments,
   updateTicket,
   ticketImageUrl,
+  type ActivityLogEntry,
+  type Epic,
   type ProjectMember,
   type ProjectTicket,
   type ProjectTicketDetail,
   type TicketType,
 } from "@/lib/projects-api";
+import AttachmentsPanel from "@/components/project/detail/AttachmentsPanel";
 import { initialsFromName } from "@/lib/initials";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { DEFAULT_STATUS_FORM_OPTIONS } from "@/lib/board-columns";
@@ -37,7 +45,7 @@ import { TICKET_PRIORITY_LABELS, TICKET_PRIORITIES } from "@/lib/ticket-priority
 import { validateTicketImageFile } from "@/lib/ticket-image-upload";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
-const TYPES: TicketType[] = ["task", "bug", "feature", "improvement"];
+const TYPES: TicketType[] = ["story", "task", "bug", "improvement", "feature"];
 
 const STATUS_LABEL: Record<string, string> = {
   todo: "To do",
@@ -118,7 +126,7 @@ function renderInlineRichText(text: string, keyPrefix: string) {
             key={`${keyPrefix}-img-${index++}`}
             src={src}
             alt={alt || "Inline"}
-            className="my-2 max-h-44 rounded-md border border-white/[0.08]"
+            className="my-2 max-h-44 rounded-md border border-border"
           />
         );
       } else {
@@ -134,7 +142,7 @@ function renderInlineRichText(text: string, keyPrefix: string) {
             href={href}
             target="_blank"
             rel="noreferrer"
-            className="text-blue-300 underline underline-offset-2 hover:text-blue-200"
+            className="text-accent underline underline-offset-2 hover:text-accent-strong"
           >
             {label}
           </a>
@@ -144,13 +152,13 @@ function renderInlineRichText(text: string, keyPrefix: string) {
       }
     } else if (match[5] !== undefined) {
       nodes.push(
-        <strong key={`${keyPrefix}-strong-${index++}`} className="font-semibold text-zinc-100">
+        <strong key={`${keyPrefix}-strong-${index++}`} className="font-semibold text-fg">
           {match[5]}
         </strong>
       );
     } else if (match[6] !== undefined) {
       nodes.push(
-        <em key={`${keyPrefix}-em-${index++}`} className="italic text-zinc-200">
+        <em key={`${keyPrefix}-em-${index++}`} className="italic text-fg">
           {match[6]}
         </em>
       );
@@ -195,7 +203,7 @@ function renderCommentContent(
     for (const name of memberNames) {
       if (name && afterAt.toLowerCase().startsWith(name.toLowerCase())) {
         result.push(
-          <span key={`${keyPrefix}-${keyIndex++}`} className="text-blue-400 font-medium">
+          <span key={`${keyPrefix}-${keyIndex++}`} className="text-accent font-medium">
             @{name}{" "}
           </span>
         );
@@ -211,9 +219,7 @@ function renderCommentContent(
     }
   }
 
-  return (
-    <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-zinc-200">{result}</div>
-  );
+  return <div className="whitespace-pre-wrap text-[14px] leading-relaxed text-fg">{result}</div>;
 }
 
 function renderRichTextDescription(text: string) {
@@ -224,7 +230,7 @@ function renderRichTextDescription(text: string) {
       const checked = checkboxMatch[1].toLowerCase() === "x";
       const content = checkboxMatch[2];
       return (
-        <label key={`cb-${idx}`} className="mb-1 flex items-start gap-2 text-[14px] text-zinc-300">
+        <label key={`cb-${idx}`} className="mb-1 flex items-start gap-2 text-[14px] text-muted2">
           <input type="checkbox" checked={checked} readOnly className="mt-0.5" />
           <span className="min-w-0">{renderInlineRichText(content, `cb-${idx}`)}</span>
         </label>
@@ -234,7 +240,7 @@ function renderRichTextDescription(text: string) {
     return (
       <p
         key={`p-${idx}`}
-        className="mb-1 whitespace-pre-wrap text-[14px] leading-relaxed text-zinc-300"
+        className="mb-1 whitespace-pre-wrap text-[14px] leading-relaxed text-muted2"
       >
         {renderInlineRichText(line, `p-${idx}`)}
       </p>
@@ -247,26 +253,26 @@ function TypeGlyph({ type }: { type: TicketType }) {
   switch (type) {
     case "bug":
       return (
-        <span className={`${box} bg-red-500/15`}>
-          <Bug className="h-3.5 w-3.5 text-red-400" aria-hidden />
+        <span className={`${box} bg-danger-soft`}>
+          <Bug className="h-3.5 w-3.5 text-danger" aria-hidden />
         </span>
       );
     case "feature":
       return (
-        <span className={`${box} bg-purple-500/15`}>
-          <Sparkles className="h-3.5 w-3.5 text-purple-400" aria-hidden />
+        <span className={`${box} bg-accent2/15`}>
+          <Sparkles className="h-3.5 w-3.5 text-accent2" aria-hidden />
         </span>
       );
     case "improvement":
       return (
-        <span className={`${box} bg-emerald-500/15`}>
-          <TrendingUp className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
+        <span className={`${box} bg-success-soft`}>
+          <TrendingUp className="h-3.5 w-3.5 text-success" aria-hidden />
         </span>
       );
     default:
       return (
-        <span className={`${box} bg-blue-500/15`}>
-          <CircleDot className="h-3.5 w-3.5 text-blue-400" aria-hidden />
+        <span className={`${box} bg-accent-soft`}>
+          <CircleDot className="h-3.5 w-3.5 text-accent" aria-hidden />
         </span>
       );
   }
@@ -274,8 +280,8 @@ function TypeGlyph({ type }: { type: TicketType }) {
 
 function SidebarField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="border-b border-white/[0.06] py-3 last:border-0">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+    <div className="border-b border-border py-3 last:border-0">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
       <div className="mt-2">{children}</div>
     </div>
   );
@@ -286,31 +292,31 @@ function TicketDetailSkeleton() {
     <div className="flex min-h-[280px] flex-1 flex-col lg:min-h-0 lg:flex-row">
       <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6 lg:max-w-none">
         <div className="flex items-center gap-2">
-          <div className="h-6 w-6 shrink-0 animate-pulse rounded bg-zinc-800/90" />
-          <div className="h-4 w-24 animate-pulse rounded bg-zinc-800/80" />
+          <div className="h-6 w-6 shrink-0 animate-pulse rounded bg-hover-strong" />
+          <div className="h-4 w-24 animate-pulse rounded bg-hover-strong" />
         </div>
-        <div className="mt-4 h-9 w-[88%] max-w-xl animate-pulse rounded-md bg-zinc-800/90" />
-        <div className="mt-3 h-9 w-[62%] max-w-lg animate-pulse rounded-md bg-zinc-800/70" />
-        <div className="mt-6 flex gap-1 border-b border-white/[0.06] pb-3">
-          <div className="h-8 w-8 animate-pulse rounded bg-zinc-800/70" />
-          <div className="h-8 w-8 animate-pulse rounded bg-zinc-800/70" />
-          <div className="h-8 w-8 animate-pulse rounded bg-zinc-800/70" />
+        <div className="mt-4 h-9 w-[88%] max-w-xl animate-pulse rounded-md bg-hover-strong" />
+        <div className="mt-3 h-9 w-[62%] max-w-lg animate-pulse rounded-md bg-hover-strong" />
+        <div className="mt-6 flex gap-1 border-b border-border pb-3">
+          <div className="h-8 w-8 animate-pulse rounded bg-hover-strong" />
+          <div className="h-8 w-8 animate-pulse rounded bg-hover-strong" />
+          <div className="h-8 w-8 animate-pulse rounded bg-hover-strong" />
         </div>
         <div className="mt-6 space-y-3">
-          <div className="h-4 w-28 animate-pulse rounded bg-zinc-800/70" />
-          <div className="h-40 w-full animate-pulse rounded-lg bg-zinc-800/60" />
+          <div className="h-4 w-28 animate-pulse rounded bg-hover-strong" />
+          <div className="h-40 w-full animate-pulse rounded-lg bg-hover-strong" />
         </div>
-        <div className="mt-8 border-t border-white/[0.06] pt-6">
-          <div className="mb-3 h-4 w-24 animate-pulse rounded bg-zinc-800/70" />
-          <div className="h-[72px] w-full animate-pulse rounded-lg border border-dashed border-white/[0.06] bg-zinc-900/40" />
+        <div className="mt-8 border-t border-border pt-6">
+          <div className="mb-3 h-4 w-24 animate-pulse rounded bg-hover-strong" />
+          <div className="h-[72px] w-full animate-pulse rounded-lg border border-dashed border-border bg-hover" />
         </div>
       </div>
-      <aside className="custom-scrollbar shrink-0 border-t border-white/[0.06] bg-[#080809] px-4 py-5 lg:w-[300px] lg:border-l lg:border-t-0 lg:py-6">
+      <aside className="custom-scrollbar shrink-0 border-t border-border bg-surface-sunken px-4 py-5 lg:w-[300px] lg:border-l lg:border-t-0 lg:py-6">
         <div className="space-y-1">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="border-b border-white/[0.06] py-3 last:border-0">
-              <div className="h-3 w-16 animate-pulse rounded bg-zinc-800/70" />
-              <div className="mt-2 h-10 w-full animate-pulse rounded-md bg-zinc-800/80" />
+            <div key={i} className="border-b border-border py-3 last:border-0">
+              <div className="h-3 w-16 animate-pulse rounded bg-hover-strong" />
+              <div className="mt-2 h-10 w-full animate-pulse rounded-md bg-hover-strong" />
             </div>
           ))}
         </div>
@@ -339,7 +345,7 @@ function extractItems<T>(payload: T[] | { items?: T[] }) {
   return Array.isArray(payload?.items) ? payload.items : [];
 }
 
-export interface TicketDetailModalProps {
+export interface TicketDetailDrawerProps {
   workspaceId?: string;
   projectId: string;
   ticketId: string | null;
@@ -349,13 +355,22 @@ export interface TicketDetailModalProps {
   sprintPickerOptions?: { id: string | null; name: string }[];
   statusOptions?: { value: string; label: string }[];
   linkableTickets?: ProjectTicket[];
+  /** Project epics, for the epic picker (top-level issues only, hidden for subtasks). */
+  epics?: Epic[];
+  /** The project's full flat ticket list — used to derive this ticket's subtasks
+   * (rows whose parentTaskId matches) and its parent (if this ticket is itself a
+   * subtask), without a dedicated subtasks/parent endpoint. */
+  allTickets?: ProjectTicket[];
+  /** Lets the host page "navigate" to a different ticket within the same drawer
+   * (e.g. clicking a parent/subtask link) instead of closing it. */
+  onNavigateToTicket?: (_ticketId: string) => void;
   isOpen: boolean;
   onClose: () => void;
   onUpdated: (_ticket: ProjectTicket) => void;
   onDeleted: (_ticketId: string) => void;
 }
 
-export default function TicketDetailModal({
+export default function TicketDetailDrawer({
   workspaceId,
   projectId,
   ticketId,
@@ -365,11 +380,14 @@ export default function TicketDetailModal({
   sprintPickerOptions,
   statusOptions,
   linkableTickets = [],
+  epics = [],
+  allTickets = [],
+  onNavigateToTicket,
   isOpen,
   onClose,
   onUpdated,
   onDeleted,
-}: TicketDetailModalProps) {
+}: TicketDetailDrawerProps) {
   const [detail, setDetail] = useState<ProjectTicketDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -383,6 +401,13 @@ export default function TicketDetailModal({
   const [storyPoints, setStoryPoints] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [ticketSprintId, setTicketSprintId] = useState("");
+  const [epicId, setEpicId] = useState("");
+  const [labelsInput, setLabelsInput] = useState("");
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
+  const [creatingSubtask, setCreatingSubtask] = useState(false);
+  const [subtaskError, setSubtaskError] = useState<string | null>(null);
+  const [activity, setActivity] = useState<ActivityLogEntry[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [clearImage, setClearImage] = useState(false);
   const [dependsOnIds, setDependsOnIds] = useState<string[]>([]);
@@ -690,6 +715,8 @@ export default function TicketDetailModal({
     );
     setDueDate(dueDateToInput(d.dueDate));
     setTicketSprintId(d.sprintId ?? "");
+    setEpicId(d.epicId ?? "");
+    setLabelsInput((d.labels ?? []).join(", "));
     setImageFile(null);
     setClearImage(false);
     setDependsOnIds(d.dependsOn?.map((x) => x.id) ?? []);
@@ -765,6 +792,68 @@ export default function TicketDetailModal({
       .sort((a, b) => a.ticketNumber - b.ticketNumber);
   }, [linkableTickets, ticketId]);
 
+  const subtasks = useMemo(
+    () => (detail ? allTickets.filter((t) => t.parentTaskId === detail.id) : []),
+    [allTickets, detail]
+  );
+
+  const parentTicket = useMemo(
+    () =>
+      detail?.parentTaskId ? (allTickets.find((t) => t.id === detail.parentTaskId) ?? null) : null,
+    [allTickets, detail]
+  );
+
+  const handleAddSubtask = async () => {
+    if (!detail) return;
+    const trimmedTitle = newSubtaskTitle.trim();
+    if (!trimmedTitle) return;
+    setCreatingSubtask(true);
+    setSubtaskError(null);
+    try {
+      await createSubtask(projectId, detail.id, { title: trimmedTitle });
+      setNewSubtaskTitle("");
+      onUpdated(detail);
+    } catch (err) {
+      setSubtaskError(err instanceof Error ? err.message : "Failed to create subtask");
+    } finally {
+      setCreatingSubtask(false);
+    }
+  };
+
+  const toggleSubtaskDone = async (subtask: ProjectTicket) => {
+    try {
+      const updated = await updateTicket(projectId, subtask.id, {
+        status: subtask.status === "done" ? "todo" : "done",
+      });
+      onUpdated(updated);
+    } catch {
+      // Best-effort — the subtask list refreshes from the parent's onUpdated
+      // refetch either way; no separate error surface for this quick toggle.
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen || !ticketId || !projectId) {
+      setActivity([]);
+      return;
+    }
+    let cancelled = false;
+    setActivityLoading(true);
+    fetchTicketActivity(projectId, ticketId)
+      .then((rows) => {
+        if (!cancelled) setActivity(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setActivity([]);
+      })
+      .finally(() => {
+        if (!cancelled) setActivityLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, ticketId, projectId]);
+
   const blockedDependencyOptions = useMemo(
     () => linkPickerOptions.filter((ticket) => dependsOnIds.includes(ticket.id)),
     [linkPickerOptions, dependsOnIds]
@@ -799,6 +888,8 @@ export default function TicketDetailModal({
       sprintDirty ||
       imageFile !== null ||
       clearImage ||
+      (!detail.parentTaskId && (epicId || "") !== (detail.epicId ?? "")) ||
+      labelsInput.trim() !== (detail.labels ?? []).join(", ") ||
       JSON.stringify(sortedIds(dependsOnIds)) !==
         JSON.stringify(sortedIds(detail.dependsOn?.map((d) => d.id) ?? []))
     );
@@ -806,6 +897,8 @@ export default function TicketDetailModal({
     detail,
     title,
     description,
+    epicId,
+    labelsInput,
     type,
     priority,
     status,
@@ -1009,6 +1102,13 @@ export default function TicketDetailModal({
           ? { sprintId: ticketSprintId === "" ? null : ticketSprintId }
           : {}),
         ...(imageBase64 !== undefined ? { imageBase64, imageMimeType } : {}),
+        // A subtask's epic always follows its parent's — only top-level issues
+        // can have their epic changed directly.
+        ...(!detail.parentTaskId ? { epicId: epicId === "" ? null : epicId } : {}),
+        labels: labelsInput
+          .split(",")
+          .map((l) => l.trim())
+          .filter(Boolean),
         dependsOnTaskIds: dependsOnIds,
       });
       setDetail(updated);
@@ -1044,24 +1144,23 @@ export default function TicketDetailModal({
   const currentUser = members[0];
   const renderCommentComposer = (inline = false, replyTargetName?: string) => (
     <div
-      className={`rounded-xl border border-white/[0.08] bg-[#0f0f12] p-4 ${inline ? "mt-3" : "mb-4"} flex gap-3`}
+      className={`rounded-xl border border-border bg-surface-sunken p-4 ${inline ? "mt-3" : "mb-4"} flex gap-3`}
     >
       {!inline ? (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 ring-1 ring-white/10">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent/20 to-accent2/20 ring-1 ring-border-hover">
           {currentUser ? (
-            <span className="text-[11px] font-semibold text-zinc-200">
+            <span className="text-[11px] font-semibold text-fg">
               {initialsFromName(currentUser.name)}
             </span>
           ) : (
-            <span className="text-[11px] font-semibold text-zinc-400">You</span>
+            <span className="text-[11px] font-semibold text-muted2">You</span>
           )}
         </div>
       ) : null}
       <div className="flex-1">
         {inline && (
-          <div className="mb-2 flex items-center gap-2 rounded-md bg-zinc-900/50 px-3 py-1.5 text-[12px] text-zinc-400">
-            Replying to{" "}
-            <span className="font-medium text-zinc-200">{replyTargetName ?? "comment"}</span>
+          <div className="mb-2 flex items-center gap-2 rounded-md bg-hover px-3 py-1.5 text-[12px] text-muted2">
+            Replying to <span className="font-medium text-fg">{replyTargetName ?? "comment"}</span>
           </div>
         )}
         <div className="relative flex-1">
@@ -1071,7 +1170,7 @@ export default function TicketDetailModal({
             onChange={handleCommentChange}
             placeholder={inline ? "Write a reply…" : "Add a comment…"}
             rows={inline ? 3 : 2}
-            className="min-h-[52px] w-full resize-none border border-white/[0.08] bg-[#0f0f12] p-3 rounded-lg text-[14px] text-zinc-200 placeholder:text-zinc-500 focus:border-blue-500/35 focus:outline-none focus:ring-0"
+            className="min-h-[52px] w-full resize-none border border-border bg-surface-sunken p-3 rounded-lg text-[14px] text-fg placeholder:text-muted focus:border-accent/35 focus:outline-none focus:ring-0"
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
@@ -1080,18 +1179,18 @@ export default function TicketDetailModal({
             }}
           />
           {showMentionDropdown && mentionResults.length > 0 && (
-            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-lg border border-white/[0.1] bg-[#1a1a1f] shadow-xl">
+            <div className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-lg border border-border-hover bg-surface-hover shadow-xl">
               {mentionResults.map((member) => (
                 <button
                   key={member.userId}
                   type="button"
                   onClick={() => insertMention(member)}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-white/[0.06] transition-colors"
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-hover transition-colors"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-700 text-[11px] font-semibold text-zinc-300">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-3 text-[11px] font-semibold text-muted2">
                     {initialsFromName(member.name)}
                   </div>
-                  <span className="text-[13px] text-zinc-200">{member.name}</span>
+                  <span className="text-[13px] text-fg">{member.name}</span>
                 </button>
               ))}
             </div>
@@ -1102,7 +1201,7 @@ export default function TicketDetailModal({
             type="button"
             disabled={submittingComment || !newComment.trim()}
             onClick={handleAddComment}
-            className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/20 px-3 py-1.5 text-[12px] font-medium text-blue-300 hover:bg-blue-500/30 disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 rounded-md bg-accent/20 px-3 py-1.5 text-[12px] font-medium text-accent hover:bg-accent/30 disabled:opacity-40"
           >
             {submittingComment && <Loader2 className="h-3 w-3 animate-spin" />}
             {inline ? "Reply" : "Comment"}
@@ -1112,7 +1211,7 @@ export default function TicketDetailModal({
               type="button"
               disabled={submittingComment}
               onClick={() => setReplyingToId(null)}
-              className="inline-flex items-center rounded-md px-2 py-1.5 text-[12px] text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300"
+              className="inline-flex items-center rounded-md px-2 py-1.5 text-[12px] text-muted hover:bg-hover hover:text-muted2"
             >
               Cancel
             </button>
@@ -1125,29 +1224,29 @@ export default function TicketDetailModal({
   return (
     <>
       <div
-        className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-3 sm:p-5 backdrop-blur-sm"
+        className="fixed inset-0 z-[1000] flex justify-end bg-overlay-strong backdrop-blur-sm"
         onClick={() => !submitting && !deleting && onClose()}
       >
         <div
           ref={modalRef}
-          className="relative flex max-h-[94vh] w-[95%] sm:w-[92%] max-w-5xl flex-col overflow-hidden rounded-xl border border-white/[0.08] bg-[#0a0a0c] shadow-2xl transition-all duration-300"
+          className="relative flex h-full w-full flex-col overflow-hidden border-l border-border bg-surface-sunken shadow-2xl transition-transform duration-300 sm:w-[92%] lg:w-[900px] lg:max-w-[92vw]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="ticket-detail-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex shrink-0 items-center justify-end gap-1 border-b border-white/[0.06] px-3 py-2 sm:px-4">
+          <div className="flex shrink-0 items-center justify-end gap-1 border-b border-border px-3 py-2 sm:px-4">
             <details className="relative group">
-              <summary className="flex cursor-pointer list-none items-center justify-center rounded-md p-2 text-zinc-500 marker:hidden hover:bg-white/[0.06] hover:text-zinc-300 [&::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center justify-center rounded-md p-2 text-muted marker:hidden hover:bg-hover hover:text-muted2 [&::-webkit-details-marker]:hidden">
                 <MoreHorizontal className="h-5 w-5" aria-hidden />
                 <span className="sr-only">More actions</span>
               </summary>
-              <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-lg border border-white/[0.1] bg-[#121214] py-1 shadow-xl">
+              <div className="absolute right-0 top-full z-10 mt-1 min-w-[160px] rounded-lg border border-border-hover bg-surface py-1 shadow-xl">
                 <button
                   type="button"
                   disabled={!detail || deleting}
                   onClick={() => setDeleteConfirmOpen(true)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-red-300 hover:bg-red-500/10 disabled:opacity-40"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-danger hover:bg-danger-soft disabled:opacity-40"
                 >
                   {deleting ? (
                     <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
@@ -1161,7 +1260,7 @@ export default function TicketDetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-2 text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200"
+              className="rounded-md p-2 text-muted hover:bg-hover hover:text-fg"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -1172,8 +1271,8 @@ export default function TicketDetailModal({
             <TicketDetailSkeleton />
           ) : !detail && loadError ? (
             <div className="flex min-h-[280px] flex-1 flex-col items-center justify-center px-6 py-16 text-center">
-              <p className="text-sm text-red-200">{loadError}</p>
-              <p className="mt-2 max-w-sm text-[12px] text-zinc-500">
+              <p className="text-sm text-danger">{loadError}</p>
+              <p className="mt-2 max-w-sm text-[12px] text-muted">
                 Close this dialog and try again, or pick another ticket from the board.
               </p>
             </div>
@@ -1184,7 +1283,7 @@ export default function TicketDetailModal({
                 <>
                   <div className="flex items-center gap-2">
                     <TypeGlyph type={detail.type} />
-                    <span className="font-mono text-[13px] font-medium text-zinc-500">
+                    <span className="font-mono text-[13px] font-medium text-muted">
                       {detail.key}
                     </span>
                   </div>
@@ -1194,20 +1293,20 @@ export default function TicketDetailModal({
                       id="ticket-detail-title"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="mt-3 w-full border-0 border-b border-transparent bg-transparent pb-1 text-2xl font-semibold leading-snug tracking-tight text-zinc-100 outline-none ring-0 transition-colors placeholder:text-zinc-600 focus:border-blue-500/40 sm:text-[26px]"
+                      className="mt-3 w-full border-0 border-b border-transparent bg-transparent pb-1 text-2xl font-semibold leading-snug tracking-tight text-fg outline-none ring-0 transition-colors placeholder:text-muted focus:border-accent/40 sm:text-[26px]"
                       placeholder="Ticket title"
                     />
                   ) : (
                     <h1
                       id="ticket-detail-title"
-                      className="mt-3 text-2xl font-semibold leading-snug tracking-tight text-zinc-100 sm:text-[26px]"
+                      className="mt-3 text-2xl font-semibold leading-snug tracking-tight text-fg sm:text-[26px]"
                     >
                       {detail.title}
                     </h1>
                   )}
 
                   {/* Toolbar */}
-                  <div className="mt-4 flex flex-wrap items-center gap-1 border-b border-white/[0.06] pb-3">
+                  <div className="mt-4 flex flex-wrap items-center gap-1 border-b border-border pb-3">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -1240,7 +1339,7 @@ export default function TicketDetailModal({
                       type="button"
                       disabled={!canEdit}
                       onClick={() => wrapSelection("**", "**", "bold text")}
-                      className="inline-flex h-8 min-w-[34px] items-center justify-center rounded px-2 text-[12px] font-semibold text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      className="inline-flex h-8 min-w-[34px] items-center justify-center rounded px-2 text-[12px] font-semibold text-muted hover:bg-hover hover:text-muted2 disabled:opacity-40"
                       title="Bold"
                     >
                       B
@@ -1249,7 +1348,7 @@ export default function TicketDetailModal({
                       type="button"
                       disabled={!canEdit}
                       onClick={() => wrapSelection("*", "*", "italic text")}
-                      className="inline-flex h-8 min-w-[34px] items-center justify-center rounded px-2 text-[12px] italic text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      className="inline-flex h-8 min-w-[34px] items-center justify-center rounded px-2 text-[12px] italic text-muted hover:bg-hover hover:text-muted2 disabled:opacity-40"
                       title="Italic"
                     >
                       I
@@ -1258,7 +1357,7 @@ export default function TicketDetailModal({
                       type="button"
                       disabled={!canEdit}
                       onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-hover hover:text-muted2 disabled:opacity-40"
                       title="Add image"
                     >
                       <Paperclip className="h-4 w-4" />
@@ -1267,7 +1366,7 @@ export default function TicketDetailModal({
                       type="button"
                       disabled={!canEdit}
                       onClick={insertCheckboxLine}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-hover hover:text-muted2 disabled:opacity-40"
                       title="Checklist item"
                     >
                       <ListTodo className="h-4 w-4" />
@@ -1276,7 +1375,7 @@ export default function TicketDetailModal({
                       type="button"
                       disabled={!canEdit}
                       onClick={insertLink}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded text-muted hover:bg-hover hover:text-muted2 disabled:opacity-40"
                       title="Insert link"
                     >
                       <Link2 className="h-4 w-4" />
@@ -1285,7 +1384,7 @@ export default function TicketDetailModal({
                       type="button"
                       disabled={!canEdit}
                       onClick={() => inlineImageInputRef.current?.click()}
-                      className="inline-flex h-8 min-w-[44px] items-center justify-center rounded px-2 text-[11px] text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-300 disabled:opacity-40"
+                      className="inline-flex h-8 min-w-[44px] items-center justify-center rounded px-2 text-[11px] text-muted hover:bg-hover hover:text-muted2 disabled:opacity-40"
                       title="Insert inline image"
                     >
                       Img
@@ -1293,7 +1392,7 @@ export default function TicketDetailModal({
                   </div>
 
                   {(imgSrc || showPendingImage) && (
-                    <div className="mt-5 overflow-hidden rounded-lg border border-white/[0.08] bg-zinc-950/80">
+                    <div className="mt-5 overflow-hidden rounded-lg border border-border bg-surface-sunken/80">
                       {showPendingImage && imagePreviewUrl ? (
                         <img
                           src={imagePreviewUrl}
@@ -1308,9 +1407,9 @@ export default function TicketDetailModal({
                         />
                       ) : null}
                       {canEdit && (detail?.hasImage || imageFile) && (
-                        <div className="flex items-center justify-end gap-2 border-t border-white/[0.06] px-3 py-2">
+                        <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-2">
                           {detail?.hasImage && !imageFile && (
-                            <label className="flex cursor-pointer items-center gap-2 text-[12px] text-zinc-500">
+                            <label className="flex cursor-pointer items-center gap-2 text-[12px] text-muted">
                               <input
                                 type="checkbox"
                                 checked={clearImage}
@@ -1325,7 +1424,7 @@ export default function TicketDetailModal({
                           {imageFile && (
                             <button
                               type="button"
-                              className="text-[12px] text-zinc-400 hover:text-zinc-200"
+                              className="text-[12px] text-muted2 hover:text-fg"
                               onClick={() => setImageFile(null)}
                             >
                               Clear new image
@@ -1337,7 +1436,7 @@ export default function TicketDetailModal({
                   )}
 
                   <div className="mt-6">
-                    <h2 className="mb-2 text-[13px] font-semibold text-zinc-300">Description</h2>
+                    <h2 className="mb-2 text-[13px] font-semibold text-muted2">Description</h2>
                     {canEdit ? (
                       <>
                         <textarea
@@ -1346,33 +1445,33 @@ export default function TicketDetailModal({
                           onChange={(e) => setDescription(e.target.value)}
                           rows={12}
                           placeholder="Add a description…"
-                          className="min-h-[180px] w-full resize-y rounded-lg border border-white/[0.08] bg-[#0f0f12] px-4 py-3 text-[15px] leading-relaxed text-zinc-200 placeholder:text-zinc-600 focus:border-blue-500/35 focus:outline-none"
+                          className="min-h-[180px] w-full resize-y rounded-lg border border-border bg-surface-sunken px-4 py-3 text-[15px] leading-relaxed text-fg placeholder:text-muted focus:border-accent/35 focus:outline-none"
                         />
                         {descriptionToolError ? (
-                          <p className="mt-2 text-[12px] text-red-300">{descriptionToolError}</p>
+                          <p className="mt-2 text-[12px] text-danger">{descriptionToolError}</p>
                         ) : null}
                       </>
                     ) : (
-                      <div className="rounded-lg border border-white/[0.06] bg-[#0f0f12] px-4 py-3 text-[15px] leading-relaxed text-zinc-300">
+                      <div className="rounded-lg border border-border bg-surface-sunken px-4 py-3 text-[15px] leading-relaxed text-muted2">
                         {detail.description?.trim() ? (
                           <div>{renderRichTextDescription(detail.description)}</div>
                         ) : (
-                          <p className="text-zinc-600">No description provided.</p>
+                          <p className="text-muted">No description provided.</p>
                         )}
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-8 border-t border-white/[0.06] pb-6 pt-6">
+                  <div className="mt-8 border-t border-border pb-6 pt-6">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <h2 className="text-[13px] font-semibold text-zinc-300 mr-2">Comments</h2>
-                      <span className="bg-white/[0.06] text-zinc-400 text-[11px] px-2 py-0.5 rounded-full">
+                      <h2 className="text-[13px] font-semibold text-muted2 mr-2">Comments</h2>
+                      <span className="bg-hover-strong text-muted2 text-[11px] px-2 py-0.5 rounded-full">
                         {commentsLoading ? "Loading…" : `${comments.length}`}
                       </span>
                     </div>
 
                     {commentError && (
-                      <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+                      <div className="mb-4 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2 text-[12px] text-danger">
                         {commentError}
                       </div>
                     )}
@@ -1383,16 +1482,14 @@ export default function TicketDetailModal({
                     <div className="custom-scrollbar max-h-[400px] space-y-3 overflow-y-auto pr-1">
                       {commentsLoading ? (
                         <div className="flex items-start gap-3 py-3">
-                          <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-zinc-800" />
+                          <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-hover-strong" />
                           <div className="flex-1 space-y-2">
-                            <div className="h-4 w-24 animate-pulse rounded bg-zinc-800/70" />
-                            <div className="h-20 w-full animate-pulse rounded-lg bg-zinc-800/60" />
+                            <div className="h-4 w-24 animate-pulse rounded bg-hover-strong" />
+                            <div className="h-20 w-full animate-pulse rounded-lg bg-hover-strong" />
                           </div>
                         </div>
                       ) : comments.length === 0 ? (
-                        <p className="text-center text-[13px] text-zinc-500 py-8">
-                          No comments yet
-                        </p>
+                        <p className="text-center text-[13px] text-muted py-8">No comments yet</p>
                       ) : (
                         rootComments.map((comment) => {
                           const renderThread = (
@@ -1415,13 +1512,13 @@ export default function TicketDetailModal({
                                   id={`comment-${node.id}`}
                                   className={`rounded-lg px-1 py-1 transition ${
                                     highlightedCommentId === node.id
-                                      ? "bg-blue-500/10 ring-1 ring-blue-400/30"
+                                      ? "bg-accent/10 ring-1 ring-accent/30"
                                       : ""
                                   }`}
                                   style={{ marginLeft: `${depth * 18}px` }}
                                 >
                                   <div className="flex gap-3">
-                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 ring-1 ring-white/10">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-accent/20 to-accent2/20 ring-1 ring-border-hover">
                                       {node.userAvatarUrl ? (
                                         <img
                                           src={node.userAvatarUrl}
@@ -1429,17 +1526,15 @@ export default function TicketDetailModal({
                                           className="h-10 w-10 rounded-full object-cover"
                                         />
                                       ) : (
-                                        <span className="text-[11px] font-semibold text-zinc-200">
+                                        <span className="text-[11px] font-semibold text-fg">
                                           {initialsFromName(node.userName)}
                                         </span>
                                       )}
                                     </div>
                                     <div className="flex min-w-0 flex-1 flex-col">
                                       <div className="flex items-center gap-2">
-                                        <span className="font-medium text-zinc-100">
-                                          {node.userName}
-                                        </span>
-                                        <span className="text-[12px] text-zinc-500">
+                                        <span className="font-medium text-fg">{node.userName}</span>
+                                        <span className="text-[12px] text-muted">
                                           {formatRelativeTime(new Date(node.createdAt))}
                                         </span>
                                       </div>
@@ -1454,7 +1549,7 @@ export default function TicketDetailModal({
                                         <button
                                           type="button"
                                           onClick={() => startReplyToComment(node.id)}
-                                          className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-200"
+                                          className="inline-flex items-center gap-1 text-muted2 hover:text-fg"
                                         >
                                           <CornerDownRight className="h-3.5 w-3.5" />
                                           Reply
@@ -1463,7 +1558,7 @@ export default function TicketDetailModal({
                                           <button
                                             type="button"
                                             onClick={() => toggleCommentCollapse(node.id)}
-                                            className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-200"
+                                            className="inline-flex items-center gap-1 text-muted2 hover:text-fg"
                                           >
                                             {isCollapsed ? (
                                               <ChevronRight className="h-3.5 w-3.5" />
@@ -1479,7 +1574,7 @@ export default function TicketDetailModal({
                                           <button
                                             type="button"
                                             onClick={() => handleDeleteComment(node.id)}
-                                            className="inline-flex items-center gap-1 text-zinc-500 hover:text-red-300"
+                                            className="inline-flex items-center gap-1 text-muted hover:text-danger"
                                             title="Delete comment"
                                           >
                                             <Trash2 className="h-3.5 w-3.5" />
@@ -1494,7 +1589,7 @@ export default function TicketDetailModal({
                                   </div>
                                 </div>
                                 {hasChildren && !isCollapsed ? (
-                                  <div className="mt-1 border-l border-white/[0.08] pl-1">
+                                  <div className="mt-1 border-l border-border pl-1">
                                     {childComments.map((child) =>
                                       renderThread(child, depth + 1, nextPath)
                                     )}
@@ -1511,7 +1606,7 @@ export default function TicketDetailModal({
                   </div>
 
                   {formError && (
-                    <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[12px] text-red-300">
+                    <div className="mt-4 rounded-lg border border-danger/20 bg-danger-soft px-3 py-2 text-[12px] text-danger">
                       {formError}
                     </div>
                   )}
@@ -1519,7 +1614,7 @@ export default function TicketDetailModal({
               </div>
 
               {/* Sidebar */}
-              <aside className="custom-scrollbar min-h-0 shrink-0 overflow-y-auto border-t border-white/[0.06] bg-[#080809] px-4 py-5 lg:w-[300px] lg:border-l lg:border-t-0 lg:py-6">
+              <aside className="custom-scrollbar min-h-0 shrink-0 overflow-y-auto border-t border-border bg-surface-sunken px-4 py-5 lg:w-[300px] lg:border-l lg:border-t-0 lg:py-6">
                 {detail ? (
                   <>
                     <SidebarField label="Status">
@@ -1527,7 +1622,7 @@ export default function TicketDetailModal({
                         <select
                           value={status}
                           onChange={(e) => setStatus(e.target.value)}
-                          className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] font-medium text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                          className="w-full cursor-pointer rounded-md border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] font-medium text-fg focus:border-accent/40 focus:outline-none"
                         >
                           {statusSelectOptions.map((s) => (
                             <option key={s.value} value={s.value}>
@@ -1536,7 +1631,7 @@ export default function TicketDetailModal({
                           ))}
                         </select>
                       ) : (
-                        <p className="text-[14px] font-medium capitalize text-zinc-200">
+                        <p className="text-[14px] font-medium capitalize text-fg">
                           {resolveStatusLabel(detail.status)}
                         </p>
                       )}
@@ -1548,7 +1643,7 @@ export default function TicketDetailModal({
                           <select
                             value={ticketSprintId}
                             onChange={(e) => setTicketSprintId(e.target.value)}
-                            className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                            className="w-full cursor-pointer rounded-md border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                           >
                             {sprintPickerOptions.map((o) => (
                               <option key={o.id === null ? "backlog" : o.id} value={o.id ?? ""}>
@@ -1557,7 +1652,7 @@ export default function TicketDetailModal({
                             ))}
                           </select>
                         ) : (
-                          <p className="text-[14px] text-zinc-300">
+                          <p className="text-[14px] text-muted2">
                             {sprintPickerOptions.find((o) => o.id === detail.sprintId)?.name ??
                               (detail.sprintId ? "Sprint" : "Backlog")}
                           </p>
@@ -1565,10 +1660,48 @@ export default function TicketDetailModal({
                       </SidebarField>
                     )}
 
+                    {detail.parentTaskId && parentTicket ? (
+                      <SidebarField label="Parent">
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToTicket?.(parentTicket.id)}
+                          disabled={!onNavigateToTicket}
+                          className="flex items-center gap-1.5 text-left text-[13px] text-accent hover:underline disabled:no-underline disabled:text-muted2"
+                        >
+                          <CornerDownRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          <span className="font-mono">{parentTicket.key}</span>
+                          <span className="truncate text-muted2">{parentTicket.title}</span>
+                        </button>
+                      </SidebarField>
+                    ) : (
+                      epics.length > 0 && (
+                        <SidebarField label="Epic">
+                          {canEdit ? (
+                            <select
+                              value={epicId}
+                              onChange={(e) => setEpicId(e.target.value)}
+                              className="w-full cursor-pointer rounded-md border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
+                            >
+                              <option value="">No epic</option>
+                              {epics.map((ep) => (
+                                <option key={ep.id} value={ep.id}>
+                                  {ep.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <p className="text-[14px] text-muted2">
+                              {epics.find((ep) => ep.id === detail.epicId)?.name ?? "No epic"}
+                            </p>
+                          )}
+                        </SidebarField>
+                      )
+                    )}
+
                     <SidebarField label="Assignee">
                       {canEdit ? (
                         <div className="flex items-center gap-2">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-zinc-800 text-[11px] font-semibold text-zinc-300">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface-2 text-[11px] font-semibold text-muted2">
                             {initialsFromName(
                               assigneeId ? members.find((m) => m.userId === assigneeId)?.name : null
                             )}
@@ -1576,7 +1709,7 @@ export default function TicketDetailModal({
                           <select
                             value={assigneeId}
                             onChange={(e) => setAssigneeId(e.target.value)}
-                            className="min-w-0 flex-1 cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-2 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                            className="min-w-0 flex-1 cursor-pointer rounded-md border border-border-hover bg-surface-2/90 px-2 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                           >
                             <option value="">Unassigned</option>
                             {members.map((m) => (
@@ -1588,10 +1721,10 @@ export default function TicketDetailModal({
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-zinc-800 text-[11px] font-semibold text-zinc-300">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface-2 text-[11px] font-semibold text-muted2">
                             {initialsFromName(detail.assigneeName)}
                           </div>
-                          <span className="text-[14px] text-zinc-200">
+                          <span className="text-[14px] text-fg">
                             {detail.assigneeName ?? "Unassigned"}
                           </span>
                         </div>
@@ -1599,7 +1732,7 @@ export default function TicketDetailModal({
                     </SidebarField>
 
                     <SidebarField label="Reporter">
-                      <p className="text-[14px] text-zinc-300">{detail.reporterName}</p>
+                      <p className="text-[14px] text-muted2">{detail.reporterName}</p>
                     </SidebarField>
 
                     <SidebarField label="Priority">
@@ -1607,7 +1740,7 @@ export default function TicketDetailModal({
                         <select
                           value={priority}
                           onChange={(e) => setPriority(e.target.value)}
-                          className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] capitalize text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                          className="w-full cursor-pointer rounded-md border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] capitalize text-fg focus:border-accent/40 focus:outline-none"
                         >
                           {TICKET_PRIORITIES.map((p) => (
                             <option key={p} value={p}>
@@ -1616,7 +1749,7 @@ export default function TicketDetailModal({
                           ))}
                         </select>
                       ) : (
-                        <p className="text-[14px] capitalize text-zinc-300">{detail.priority}</p>
+                        <p className="text-[14px] capitalize text-muted2">{detail.priority}</p>
                       )}
                     </SidebarField>
 
@@ -1625,7 +1758,7 @@ export default function TicketDetailModal({
                         <select
                           value={type}
                           onChange={(e) => setType(e.target.value as TicketType)}
-                          className="w-full cursor-pointer rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] capitalize text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                          className="w-full cursor-pointer rounded-md border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] capitalize text-fg focus:border-accent/40 focus:outline-none"
                         >
                           {TYPES.map((t) => (
                             <option key={t} value={t}>
@@ -1634,16 +1767,16 @@ export default function TicketDetailModal({
                           ))}
                         </select>
                       ) : (
-                        <p className="text-[14px] capitalize text-zinc-300">{detail.type}</p>
+                        <p className="text-[14px] capitalize text-muted2">{detail.type}</p>
                       )}
                     </SidebarField>
 
                     <SidebarField label="Time log">
                       <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-zinc-500" aria-hidden />
-                        <p className="text-[13px] text-zinc-400">
+                        <Clock className="h-4 w-4 text-muted" aria-hidden />
+                        <p className="text-[13px] text-muted2">
                           Total{" "}
-                          <span className="font-medium text-emerald-300">
+                          <span className="font-medium text-success">
                             {formatHoursParts(detail.totalLoggedHours ?? 0)}
                           </span>
                         </p>
@@ -1660,7 +1793,7 @@ export default function TicketDetailModal({
                                 setLogHours(String(next));
                                 setTimeLogError(null);
                               }}
-                              className="rounded-md border border-white/[0.12] px-2 py-1 text-[12px] text-zinc-300 hover:bg-white/[0.05]"
+                              className="rounded-md border border-border-hover px-2 py-1 text-[12px] text-muted2 hover:bg-hover"
                             >
                               -
                             </button>
@@ -1679,7 +1812,7 @@ export default function TicketDetailModal({
                                 setLogHours(e.target.value);
                                 setTimeLogError(null);
                               }}
-                              className="h-2 w-full cursor-pointer accent-blue-400"
+                              className="h-2 w-full cursor-pointer accent-accent"
                             />
                             <button
                               type="button"
@@ -1690,7 +1823,7 @@ export default function TicketDetailModal({
                                 setLogHours(String(next));
                                 setTimeLogError(null);
                               }}
-                              className="rounded-md border border-white/[0.12] px-2 py-1 text-[12px] text-zinc-300 hover:bg-white/[0.05]"
+                              className="rounded-md border border-border-hover px-2 py-1 text-[12px] text-muted2 hover:bg-hover"
                             >
                               +
                             </button>
@@ -1706,13 +1839,13 @@ export default function TicketDetailModal({
                                 setTimeLogError(null);
                               }}
                               placeholder="Hours"
-                              className="min-w-0 flex-1 rounded-md border border-white/[0.1] bg-zinc-900/90 px-2.5 py-1.5 text-[12px] text-zinc-200 placeholder:text-zinc-600 focus:border-blue-500/40 focus:outline-none"
+                              className="min-w-0 flex-1 rounded-md border border-border-hover bg-surface-2/90 px-2.5 py-1.5 text-[12px] text-fg placeholder:text-muted focus:border-accent/40 focus:outline-none"
                             />
                             <button
                               type="button"
                               disabled={logSubmitting || !logHours.trim()}
                               onClick={() => void handleLogTime()}
-                              className="inline-flex items-center gap-1.5 rounded-md bg-blue-500/20 px-2.5 py-1.5 text-[12px] font-medium text-blue-300 hover:bg-blue-500/30 disabled:opacity-40"
+                              className="inline-flex items-center gap-1.5 rounded-md bg-accent/20 px-2.5 py-1.5 text-[12px] font-medium text-accent hover:bg-accent/30 disabled:opacity-40"
                             >
                               {logSubmitting && <Loader2 className="h-3 w-3 animate-spin" />}
                               Add
@@ -1723,38 +1856,34 @@ export default function TicketDetailModal({
                             value={logNote}
                             onChange={(e) => setLogNote(e.target.value)}
                             placeholder="Optional note"
-                            className="mt-2 w-full rounded-md border border-white/[0.08] bg-zinc-900/70 px-2.5 py-1.5 text-[12px] text-zinc-300 placeholder:text-zinc-600 focus:border-blue-500/35 focus:outline-none"
+                            className="mt-2 w-full rounded-md border border-border bg-surface-2/70 px-2.5 py-1.5 text-[12px] text-muted2 placeholder:text-muted focus:border-accent/35 focus:outline-none"
                           />
                           {timeLogError ? (
-                            <p className="mt-2 text-[11px] text-red-300">{timeLogError}</p>
+                            <p className="mt-2 text-[11px] text-danger">{timeLogError}</p>
                           ) : (
-                            <p className="mt-2 text-[11px] text-zinc-600">
+                            <p className="mt-2 text-[11px] text-muted">
                               Adjust from the bar or type exact hours.
                             </p>
                           )}
                         </>
                       ) : (
-                        <p className="text-[12px] text-zinc-500">
-                          You can view logged entries below.
-                        </p>
+                        <p className="text-[12px] text-muted">You can view logged entries below.</p>
                       )}
                       {(detail.timeEntries?.length ?? 0) > 0 ? (
                         <ul className="mt-2 space-y-1.5">
                           {(detail.timeEntries ?? []).slice(0, 3).map((entry) => (
                             <li
                               key={entry.id}
-                              className="flex items-center justify-between gap-2 rounded-md border border-white/[0.06] bg-zinc-900/40 px-2 py-1.5"
+                              className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-2/40 px-2 py-1.5"
                             >
                               <div className="min-w-0">
-                                <p className="truncate text-[12px] text-zinc-300">
-                                  {entry.userName}
-                                </p>
-                                <p className="text-[10px] text-zinc-600">
+                                <p className="truncate text-[12px] text-muted2">{entry.userName}</p>
+                                <p className="text-[10px] text-muted">
                                   {formatEntryTimestamp(entry.createdAt)}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1">
-                                <span className="text-[11px] font-medium text-emerald-300">
+                                <span className="text-[11px] font-medium text-success">
                                   {formatHoursParts(entry.hours)}
                                 </span>
                                 {entry.canDelete ? (
@@ -1763,7 +1892,7 @@ export default function TicketDetailModal({
                                     title="Remove log"
                                     disabled={deletingTimeEntryId === entry.id}
                                     onClick={() => setPendingDeleteEntryId(entry.id)}
-                                    className="rounded p-1 text-zinc-600 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
+                                    className="rounded p-1 text-muted hover:bg-danger-soft hover:text-danger disabled:opacity-40"
                                   >
                                     {deletingTimeEntryId === entry.id ? (
                                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -1777,7 +1906,7 @@ export default function TicketDetailModal({
                           ))}
                         </ul>
                       ) : (
-                        <p className="mt-2 text-[12px] text-zinc-600">No time logs yet.</p>
+                        <p className="mt-2 text-[12px] text-muted">No time logs yet.</p>
                       )}
                     </SidebarField>
 
@@ -1787,17 +1916,17 @@ export default function TicketDetailModal({
                           type="date"
                           value={dueDate}
                           onChange={(e) => setDueDate(e.target.value)}
-                          className="w-full rounded-md border border-white/[0.1] bg-zinc-900/90 px-3 py-2 text-[13px] text-zinc-200 focus:border-blue-500/40 focus:outline-none"
+                          className="w-full rounded-md border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                         />
                       ) : (
-                        <p className="text-[14px] text-zinc-400">
+                        <p className="text-[14px] text-muted2">
                           {detail.dueDate ? dueDateToInput(detail.dueDate) : "None"}
                         </p>
                       )}
                     </SidebarField>
 
                     <SidebarField label="Blocked by — do these first">
-                      <p className="mb-2 text-[12px] leading-snug text-zinc-500">
+                      <p className="mb-2 text-[12px] leading-snug text-muted">
                         This ticket should start after its prerequisites are completed.
                       </p>
                       {canEdit && blockedDependencyOptions.length > 0 ? (
@@ -1805,11 +1934,11 @@ export default function TicketDetailModal({
                           {blockedDependencyOptions.map((t) => (
                             <label
                               key={t.id}
-                              className={`flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:bg-white/[0.03] ${dependsOnIds.includes(t.id) ? "border-amber-500/25 bg-amber-500/5" : "border-white/[0.06]"}`}
+                              className={`flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-left transition-colors hover:bg-hover ${dependsOnIds.includes(t.id) ? "border-warning/25 bg-warning-soft" : "border-border"}`}
                             >
                               <input
                                 type="checkbox"
-                                className="mt-1 rounded border-zinc-600"
+                                className="mt-1 rounded border-border-strong"
                                 checked={dependsOnIds.includes(t.id)}
                                 onChange={() => {
                                   setDependsOnIds((prev) =>
@@ -1820,8 +1949,8 @@ export default function TicketDetailModal({
                                 }}
                               />
                               <span className="min-w-0">
-                                <span className="font-mono text-[11px] text-zinc-500">{t.key}</span>
-                                <span className="mt-0.5 block text-[13px] text-zinc-200 line-clamp-2">
+                                <span className="font-mono text-[11px] text-muted">{t.key}</span>
+                                <span className="mt-0.5 block text-[13px] text-fg line-clamp-2">
                                   {t.title}
                                 </span>
                               </span>
@@ -1835,19 +1964,17 @@ export default function TicketDetailModal({
                               {openDependencies.map((l) => (
                                 <li
                                   key={l.id}
-                                  className={`flex flex-col rounded-md border border-white/[0.06] px-2 py-1.5 ${l.status !== "done" ? "border-amber-500/15 bg-amber-500/5" : ""}`}
+                                  className={`flex flex-col rounded-md border border-border px-2 py-1.5 ${l.status !== "done" ? "border-warning/15 bg-warning-soft" : ""}`}
                                 >
-                                  <span className="font-mono text-[11px] text-zinc-500">
-                                    {l.key}
-                                  </span>
-                                  <span className="text-[13px] text-zinc-200 line-clamp-2">
+                                  <span className="font-mono text-[11px] text-muted">{l.key}</span>
+                                  <span className="text-[13px] text-fg line-clamp-2">
                                     {l.title}
                                   </span>
                                 </li>
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-[14px] text-zinc-500">None</p>
+                            <p className="text-[14px] text-muted">None</p>
                           )}
                         </>
                       )}
@@ -1859,33 +1986,137 @@ export default function TicketDetailModal({
                           {detail!.blocks!.map((l) => (
                             <li
                               key={l.id}
-                              className="flex flex-col rounded-md border border-white/[0.06] px-2 py-1.5"
+                              className="flex flex-col rounded-md border border-border px-2 py-1.5"
                             >
-                              <span className="font-mono text-[11px] text-zinc-500">{l.key}</span>
-                              <span className="text-[13px] text-zinc-300 line-clamp-2">
+                              <span className="font-mono text-[11px] text-muted">{l.key}</span>
+                              <span className="text-[13px] text-muted2 line-clamp-2">
                                 {l.title}
                               </span>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-[14px] text-zinc-500">
-                          Nothing is waiting on this ticket
-                        </p>
+                        <p className="text-[14px] text-muted">Nothing is waiting on this ticket</p>
                       )}
                     </SidebarField>
 
                     <SidebarField label="Labels">
-                      <button
-                        type="button"
-                        disabled
-                        className="text-left text-[14px] text-zinc-500"
-                      >
-                        None
-                      </button>
+                      {canEdit ? (
+                        <input
+                          value={labelsInput}
+                          onChange={(e) => setLabelsInput(e.target.value)}
+                          placeholder="frontend, urgent, design"
+                          className="w-full rounded-md border border-border-hover bg-surface-2/90 px-3 py-2 text-[13px] text-fg placeholder:text-muted focus:border-accent/40 focus:outline-none"
+                        />
+                      ) : (detail.labels ?? []).length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {detail.labels!.map((l) => (
+                            <span
+                              key={l}
+                              className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[11px] text-muted2"
+                            >
+                              {l}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[14px] text-muted">None</p>
+                      )}
                     </SidebarField>
 
-                    <p className="pt-2 text-[11px] leading-relaxed text-zinc-600">
+                    {!detail.parentTaskId && (
+                      <SidebarField
+                        label={`Subtasks${subtasks.length ? ` (${subtasks.filter((s) => s.status === "done").length}/${subtasks.length})` : ""}`}
+                      >
+                        <div className="space-y-1.5">
+                          {subtasks.map((s) => (
+                            <div
+                              key={s.id}
+                              className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={s.status === "done"}
+                                onChange={() => void toggleSubtaskDone(s)}
+                                className="rounded border-border-strong"
+                                aria-label={`Mark ${s.title} as done`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => onNavigateToTicket?.(s.id)}
+                                disabled={!onNavigateToTicket}
+                                className={`min-w-0 flex-1 truncate text-left text-[13px] hover:underline disabled:no-underline ${s.status === "done" ? "text-muted line-through" : "text-fg"}`}
+                              >
+                                {s.title}
+                              </button>
+                            </div>
+                          ))}
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <input
+                              value={newSubtaskTitle}
+                              onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  void handleAddSubtask();
+                                }
+                              }}
+                              placeholder="Add subtask..."
+                              className="min-w-0 flex-1 rounded-md border border-border-hover bg-surface-2/90 px-2.5 py-1.5 text-[13px] text-fg placeholder:text-muted focus:border-accent/40 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              disabled={!newSubtaskTitle.trim() || creatingSubtask}
+                              onClick={() => void handleAddSubtask()}
+                              className="rounded-md bg-hover px-2.5 py-1.5 text-[12px] font-medium text-muted2 hover:bg-hover-strong disabled:opacity-40"
+                            >
+                              {creatingSubtask ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                "Add"
+                              )}
+                            </button>
+                          </div>
+                          {subtaskError && (
+                            <p className="text-[12px] text-danger">{subtaskError}</p>
+                          )}
+                        </div>
+                      </SidebarField>
+                    )}
+
+                    <SidebarField label="Attachments">
+                      <AttachmentsPanel
+                        refreshKey={detail.id}
+                        fetchAttachments={() => fetchTicketAttachments(projectId, detail.id)}
+                        createAttachment={(url, label) =>
+                          createTicketAttachment(projectId, detail.id, { fileUrl: url, label })
+                        }
+                        deleteAttachment={(id) => deleteAttachment(projectId, id)}
+                        canDelete={() => true}
+                      />
+                    </SidebarField>
+
+                    <SidebarField label="Activity">
+                      {activityLoading ? (
+                        <p className="text-[13px] text-muted">Loading…</p>
+                      ) : activity.length === 0 ? (
+                        <p className="text-[13px] text-muted">No activity yet</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {activity.slice(0, 8).map((a) => (
+                            <li key={a.id} className="text-[12px] leading-snug text-muted2">
+                              <span className="font-medium text-fg">{a.userName ?? "Someone"}</span>{" "}
+                              {a.action.replace(/_/g, " ")}{" "}
+                              <span className="text-muted">
+                                {formatRelativeTime(new Date(a.createdAt))}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </SidebarField>
+
+                    <p className="pt-2 text-[11px] leading-relaxed text-muted">
                       Created {new Date(detail.createdAt).toLocaleString()}
                       <br />
                       Updated {new Date(detail.updatedAt).toLocaleString()}
@@ -1897,12 +2128,12 @@ export default function TicketDetailModal({
           ) : null}
 
           {canEdit && dirty && (
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-white/[0.08] bg-[#0d0d10] px-4 py-3 sm:px-6">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-surface-sunken px-4 py-3 sm:px-6">
               <button
                 type="button"
                 onClick={handleDiscard}
                 disabled={submitting}
-                className="rounded-lg px-4 py-2 text-[13px] font-medium text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200 disabled:opacity-40"
+                className="rounded-lg px-4 py-2 text-[13px] font-medium text-muted2 hover:bg-hover hover:text-fg disabled:opacity-40"
               >
                 Discard
               </button>
@@ -1910,7 +2141,7 @@ export default function TicketDetailModal({
                 type="button"
                 disabled={submitting}
                 onClick={() => void handleSave()}
-                className="inline-flex items-center gap-2 rounded-lg bg-zinc-100 px-5 py-2 text-[13px] font-semibold text-zinc-950 hover:bg-white disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-lg bg-fg px-5 py-2 text-[13px] font-semibold text-bg hover:bg-fg-strong disabled:opacity-40"
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 Save changes

@@ -2,7 +2,9 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, Hexagon, ArrowRight } from "lucide-react";
+import { Upload, Hexagon, ArrowRight, Check, X, Loader2 } from "lucide-react";
+
+type SlugStatus = "idle" | "checking" | "available" | "taken";
 
 export default function CreateWorkspacePage() {
   const router = useRouter();
@@ -14,6 +16,7 @@ export default function CreateWorkspacePage() {
   const [error, setError] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [slugStatus, setSlugStatus] = useState<SlugStatus>("idle");
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,9 +36,45 @@ export default function CreateWorkspacePage() {
     .replace(/[\s_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
+  // Debounced live availability check so a taken URL is caught before submitting,
+  // rather than only after the backend rejects the create request.
+  useEffect(() => {
+    if (!slug) {
+      setSlugStatus("idle");
+      return;
+    }
+
+    setSlugStatus("checking");
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/workspaces/slug-available?slug=${encodeURIComponent(slug)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          setSlugStatus("idle");
+          return;
+        }
+        const data = (await res.json()) as { available: boolean };
+        setSlugStatus(data.available ? "available" : "taken");
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") setSlugStatus("idle");
+      }
+    }, 400);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [slug]);
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!organizationName.trim() || !workspaceName.trim()) return;
+    if (slugStatus === "taken") {
+      setError("This workspace URL is already taken. Please choose another.");
+      return;
+    }
 
     setIsLoading(true);
     setError("");
@@ -86,29 +125,29 @@ export default function CreateWorkspacePage() {
   return (
     <div className="w-full max-w-3xl flex flex-col items-center animate-fade-up">
       <div className="mb-8">
-        <div className="inline-flex items-center gap-2 mb-2 px-3 py-1 rounded-full bg-[#18181f] border border-[#333339] text-xs font-semibold tracking-wide text-[#9090a8] uppercase mx-auto">
+        <div className="inline-flex items-center gap-2 mb-2 px-3 py-1 rounded-full bg-surface-2 border border-border-strong text-xs font-semibold tracking-wide text-muted2 uppercase mx-auto">
           Step 1 of 3
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row bg-[#111118] rounded-3xl shadow-2xl border border-[#333339] overflow-hidden w-full">
+      <div className="flex flex-col md:flex-row bg-surface rounded-3xl shadow-2xl border border-border-strong overflow-hidden w-full">
         {/* Main Form Area */}
         <div className="flex-1 p-8 md:p-12">
           {/* Header */}
           <div className="mb-8">
-            <div className="h-12 w-12 bg-[#18181f] rounded-xl flex items-center justify-center mb-6 border border-[var(--color-accent)]/20 shadow-[0_0_15px_rgba(79,124,255,0.15)] overflow-hidden">
+            <div className="h-12 w-12 bg-surface-2 rounded-xl flex items-center justify-center mb-6 border border-[var(--color-accent)]/20 shadow-[0_0_15px_var(--color-accent-soft)] overflow-hidden">
               <img src="/logo-icon.png" alt="SprintFlow" className="h-7 w-7 object-contain" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-[#f0f0f5] mb-2 font-syne">
+            <h1 className="text-3xl font-bold tracking-tight text-fg mb-2 font-syne">
               Set Up Your Brand
             </h1>
-            <p className="text-[#9090a8] text-sm leading-relaxed">
+            <p className="text-muted2 text-sm leading-relaxed">
               Define your organization and choose your first workspace to start sprinting.
             </p>
           </div>
 
           {error && (
-            <div className="mb-6 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium animate-shake">
+            <div className="mb-6 p-3 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs font-medium animate-shake">
               {error}
             </div>
           )}
@@ -129,24 +168,24 @@ export default function CreateWorkspacePage() {
               <button
                 type="button"
                 onClick={() => logoInputRef.current?.click()}
-                className="h-16 w-16 bg-[#18181f] border border-[#333339] border-dashed rounded-xl flex items-center justify-center text-[#6b6b80] cursor-pointer hover:bg-[#1f1f27] hover:border-[#4f7cff] transition-colors group overflow-hidden shrink-0"
+                className="h-16 w-16 bg-surface-2 border border-border-strong border-dashed rounded-xl flex items-center justify-center text-muted cursor-pointer hover:bg-surface-hover hover:border-accent transition-colors group overflow-hidden shrink-0"
               >
                 {logoPreview ? (
                   <img src={logoPreview} alt="" className="h-full w-full object-cover" />
                 ) : workspaceName ? (
-                  <span className="text-xl font-bold text-[#f0f0f5] group-hover:hidden uppercase">
+                  <span className="text-xl font-bold text-fg group-hover:hidden uppercase">
                     {workspaceName.charAt(0)}
                   </span>
                 ) : (
-                  <span className="text-xl font-bold text-[#6b6b80] group-hover:hidden">?</span>
+                  <span className="text-xl font-bold text-muted group-hover:hidden">?</span>
                 )}
                 {!logoPreview && (
-                  <Upload className="h-5 w-5 hidden group-hover:block text-[#9090a8]" />
+                  <Upload className="h-5 w-5 hidden group-hover:block text-muted2" />
                 )}
               </button>
               <div className="text-sm">
-                <p className="font-medium text-[#f0f0f5]">Workspace Logo</p>
-                <p className="text-[#6b6b80] text-xs mt-0.5">
+                <p className="font-medium text-fg">Workspace Logo</p>
+                <p className="text-muted text-xs mt-0.5">
                   Optional. JPG, PNG, WebP, or GIF up to 2MB.
                 </p>
                 {logoFile && (
@@ -156,7 +195,7 @@ export default function CreateWorkspacePage() {
                       setLogoFile(null);
                       if (logoInputRef.current) logoInputRef.current.value = "";
                     }}
-                    className="text-[11px] text-[#4f7cff] hover:underline mt-1"
+                    className="text-[11px] text-accent hover:underline mt-1"
                   >
                     Clear image
                   </button>
@@ -166,17 +205,14 @@ export default function CreateWorkspacePage() {
 
             {/* Organization Name Input */}
             <div>
-              <label
-                htmlFor="organizationName"
-                className="block text-sm font-medium text-[#f0f0f5] mb-2"
-              >
+              <label htmlFor="organizationName" className="block text-sm font-medium text-fg mb-2">
                 Organization Name
               </label>
               <div
-                className={`flex items-center rounded-xl border transition-all duration-200 bg-[#18181f] ${
+                className={`flex items-center rounded-xl border transition-all duration-200 bg-surface-2 ${
                   isOrgFocused
-                    ? "border-[#4f7cff] ring-1 ring-[#4f7cff]"
-                    : "border-[#333339] hover:border-[#4f7cff]/50"
+                    ? "border-accent ring-1 ring-accent"
+                    : "border-border-strong hover:border-accent/50"
                 }`}
               >
                 <input
@@ -188,24 +224,21 @@ export default function CreateWorkspacePage() {
                   onFocus={() => setIsOrgFocused(true)}
                   onBlur={() => setIsOrgFocused(false)}
                   placeholder="e.g. Stark Industries"
-                  className="w-full bg-transparent px-4 py-3 text-[#f0f0f5] placeholder-[#6b6b80] outline-none text-base font-medium rounded-xl"
+                  className="w-full bg-transparent px-4 py-3 text-fg placeholder:text-muted outline-none text-base font-medium rounded-xl"
                 />
               </div>
             </div>
 
             {/* Workspace Name Input */}
             <div>
-              <label
-                htmlFor="workspaceName"
-                className="block text-sm font-medium text-[#f0f0f5] mb-2"
-              >
+              <label htmlFor="workspaceName" className="block text-sm font-medium text-fg mb-2">
                 First Workspace Name
               </label>
               <div
-                className={`flex items-center rounded-xl border transition-all duration-200 bg-[#18181f] ${
+                className={`flex items-center rounded-xl border transition-all duration-200 bg-surface-2 ${
                   isWsFocused
-                    ? "border-[#4f7cff] ring-1 ring-[#4f7cff]"
-                    : "border-[#333339] hover:border-[#4f7cff]/50"
+                    ? "border-accent ring-1 ring-accent"
+                    : "border-border-strong hover:border-accent/50"
                 }`}
               >
                 <input
@@ -217,21 +250,47 @@ export default function CreateWorkspacePage() {
                   onFocus={() => setIsWsFocused(true)}
                   onBlur={() => setIsWsFocused(false)}
                   placeholder="e.g. Engineering"
-                  className="w-full bg-transparent px-4 py-3 text-[#f0f0f5] placeholder-[#6b6b80] outline-none text-base font-medium rounded-xl"
+                  className="w-full bg-transparent px-4 py-3 text-fg placeholder:text-muted outline-none text-base font-medium rounded-xl"
                 />
               </div>
 
               {/* URL Preview */}
-              <div className="mt-3 flex items-start gap-2 bg-[#18181f] rounded-lg p-3 border border-[#333339]">
-                <div className="text-[#6b6b80] mt-0.5">
+              <div
+                className={`mt-3 flex items-start gap-2 bg-surface-2 rounded-lg p-3 border transition-colors ${
+                  slugStatus === "taken"
+                    ? "border-danger/40"
+                    : slugStatus === "available"
+                      ? "border-success/40"
+                      : "border-border-strong"
+                }`}
+              >
+                <div className="text-muted mt-0.5">
                   <Hexagon className="h-4 w-4" />
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-[#9090a8]">First workspace URL:</p>
-                  <p className="text-sm text-[#f0f0f5] font-mono mt-0.5 break-all">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-muted2">First workspace URL:</p>
+                  <p className="text-sm text-fg font-mono mt-0.5 break-all">
                     {currentDomain}/
-                    <span className="text-[#4f7cff] font-semibold">{slug || "workspace-name"}</span>
+                    <span className="text-accent font-semibold">{slug || "workspace-name"}</span>
                   </p>
+                  {slug && slugStatus === "checking" && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted2">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Checking availability…
+                    </p>
+                  )}
+                  {slug && slugStatus === "available" && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-success">
+                      <Check className="h-3 w-3" />
+                      This URL is available.
+                    </p>
+                  )}
+                  {slug && slugStatus === "taken" && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-danger">
+                      <X className="h-3 w-3" />
+                      This URL is already taken. Please choose another.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -240,11 +299,21 @@ export default function CreateWorkspacePage() {
             <div className="pt-4 flex items-center justify-end gap-4">
               <button
                 type="submit"
-                disabled={!workspaceName.trim() || !organizationName.trim() || isLoading}
+                disabled={
+                  !workspaceName.trim() ||
+                  !organizationName.trim() ||
+                  isLoading ||
+                  slugStatus === "taken" ||
+                  slugStatus === "checking"
+                }
                 className={`px-6 py-2.5 rounded-full text-sm font-semibold flex items-center gap-2 transition-all duration-200 ${
-                  workspaceName.trim() && organizationName.trim() && !isLoading
-                    ? "bg-[#4f7cff] hover:opacity-90 text-white shadow-[0_2px_10px_rgb(79,124,255,0.3)] hover:shadow-[0_4px_15px_rgb(79,124,255,0.4)] transform hover:-translate-y-0.5"
-                    : "bg-[#18181f] text-[#6b6b80] cursor-not-allowed"
+                  workspaceName.trim() &&
+                  organizationName.trim() &&
+                  !isLoading &&
+                  slugStatus !== "taken" &&
+                  slugStatus !== "checking"
+                    ? "bg-accent hover:opacity-90 text-white shadow-[0_2px_10px_var(--color-accent-soft)] hover:shadow-[0_4px_15px_var(--color-accent-soft)] transform hover:-translate-y-0.5"
+                    : "bg-surface-2 text-muted cursor-not-allowed"
                 }`}
               >
                 {isLoading ? (
@@ -263,39 +332,39 @@ export default function CreateWorkspacePage() {
         </div>
 
         {/* Optional Sidebar Area (Informational) */}
-        <div className="hidden md:flex flex-col bg-[#111118] border-l border-[#333339] w-64 p-8 justify-center">
+        <div className="hidden md:flex flex-col bg-surface border-l border-border-strong w-64 p-8 justify-center">
           <div className="space-y-6">
             <div>
-              <h3 className="text-sm font-bold text-[#f0f0f5] mb-2 flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#4f7cff]/20 text-[#4f7cff] text-[10px]">
+              <h3 className="text-sm font-bold text-fg mb-2 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent/20 text-accent text-[10px]">
                   1
                 </span>
                 Create Workspaces
               </h3>
-              <p className="text-xs text-[#9090a8] leading-relaxed">
+              <p className="text-xs text-muted2 leading-relaxed">
                 Workspaces contain all your projects, boards, and team members in one isolated
                 environment.
               </p>
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#f0f0f5] mb-2 flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#18181f] text-[#6b6b80] text-[10px]">
+              <h3 className="text-sm font-bold text-fg mb-2 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-2 text-muted text-[10px]">
                   2
                 </span>
                 Invite Members
               </h3>
-              <p className="text-xs text-[#9090a8] leading-relaxed">
+              <p className="text-xs text-muted2 leading-relaxed">
                 You can invite your team now or do it later from your workspace settings securely.
               </p>
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#f0f0f5] mb-2 flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#18181f] text-[#6b6b80] text-[10px]">
+              <h3 className="text-sm font-bold text-fg mb-2 flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-2 text-muted text-[10px]">
                   3
                 </span>
                 Start Sprinting
               </h3>
-              <p className="text-xs text-[#9090a8] leading-relaxed">
+              <p className="text-xs text-muted2 leading-relaxed">
                 Plan your first sprint, assign tasks, and ship faster together with no friction.
               </p>
             </div>

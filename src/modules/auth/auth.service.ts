@@ -3,6 +3,7 @@ import { signAccessToken } from "@/lib/jwt";
 import { hashToken } from "@/lib/token-hash";
 import { hashPassword, verifyPassword } from "@/lib/password-hash";
 import { validatePasswordStrength } from "@/lib/password-policy";
+import { removeAvatarFile, replaceAvatarFile } from "@/lib/avatar-storage";
 
 export class AuthService {
   private createRefreshToken() {
@@ -117,6 +118,96 @@ export class AuthService {
   /** AUD-026: `deleteUserSessions` existed but was never called from anywhere. */
   async logoutAllDevices(userId: string) {
     await authRepository.deleteUserSessions(userId);
+  }
+
+  toPublicUser(user: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl?: string | null;
+    authProvider?: string | null;
+  }) {
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatarUrl: user.avatarUrl ?? null,
+      authProvider: user.authProvider ?? "password",
+    };
+  }
+
+  async updateProfile(userId: string, data: { name?: string }) {
+    const user = await authRepository.findUserById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const updates: { name?: string } = {};
+    if (typeof data.name === "string") {
+      const name = data.name.trim();
+      if (!name) {
+        throw new Error("Name is required");
+      }
+      if (name.length > 255) {
+        throw new Error("Name must be 255 characters or fewer");
+      }
+      updates.name = name;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return user;
+    }
+
+    const updated = await authRepository.updateUser(userId, updates);
+    if (!updated) {
+      throw new Error("Failed to update profile");
+    }
+    return updated;
+  }
+
+  async uploadAvatar(userId: string, buffer: Buffer, mimeType: string) {
+    const user = await authRepository.findUserById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const MAX_BYTES = 2 * 1024 * 1024;
+    if (buffer.length > MAX_BYTES) {
+      throw new Error("Image must be 2MB or smaller");
+    }
+
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(mimeType)) {
+      throw new Error("Only JPG, PNG, WebP, or GIF images are allowed");
+    }
+
+    if (user.avatarUrl?.startsWith("/uploads/avatars/")) {
+      await removeAvatarFile(user.avatarUrl);
+    }
+
+    const publicPath = await replaceAvatarFile(userId, buffer, mimeType);
+    const updated = await authRepository.updateUser(userId, { avatarUrl: publicPath });
+    if (!updated) {
+      throw new Error("Failed to update avatar");
+    }
+    return updated;
+  }
+
+  async clearAvatar(userId: string) {
+    const user = await authRepository.findUserById(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (user.avatarUrl?.startsWith("/uploads/avatars/")) {
+      await removeAvatarFile(user.avatarUrl);
+    }
+
+    const updated = await authRepository.updateUser(userId, { avatarUrl: null });
+    if (!updated) {
+      throw new Error("Failed to remove avatar");
+    }
+    return updated;
   }
 }
 

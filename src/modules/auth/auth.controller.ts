@@ -243,6 +243,71 @@ export class AuthController {
     }
   }
 
+  async getMe(req: NextRequest) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ user: null }, { status: 401 });
+    }
+    return NextResponse.json({ user: authService.toPublicUser(user) });
+  }
+
+  async updateProfile(req: NextRequest) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const body = (await req.json()) as { name?: string };
+      const updated = await authService.updateProfile(user.id, { name: body.name });
+      return NextResponse.json({ user: authService.toPublicUser(updated) });
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to update profile";
+      console.error("Update profile error:", error);
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
+  async uploadAvatar(req: NextRequest) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const formData = await req.formData();
+      const file = formData.get("file");
+      if (!file || !(file instanceof File)) {
+        return NextResponse.json({ error: "Missing image file" }, { status: 400 });
+      }
+
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const mimeType = file.type || "application/octet-stream";
+      const updated = await authService.uploadAvatar(user.id, buffer, mimeType);
+      return NextResponse.json({ user: authService.toPublicUser(updated) });
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to upload avatar";
+      console.error("Upload avatar error:", error);
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
+  async deleteAvatar(req: NextRequest) {
+    const user = await getCurrentUser(req);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+      const updated = await authService.clearAvatar(user.id);
+      return NextResponse.json({ user: authService.toPublicUser(updated) });
+    } catch (error) {
+      const message = (error as Error)?.message ?? "Failed to remove avatar";
+      console.error("Delete avatar error:", error);
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+  }
+
   /** AUD-026 / AUD-030: the missing account-recovery/remediation path. */
   async changePassword(req: NextRequest) {
     const user = await getCurrentUser(req);

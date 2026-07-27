@@ -3,10 +3,12 @@
 import SprintSection, { type TicketMoveOption } from "@/components/project/SprintSection";
 import CreateSprintModal from "@/components/project/CreateSprintModal";
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
-import TicketDetailModal from "@/components/project/TicketDetailModal";
+import TicketDetailDrawer from "@/components/project/TicketDetailDrawer";
 import TicketFormModal from "@/components/project/TicketFormModal";
 import AlertDialog from "@/components/ui/AlertDialog";
-import { Calendar, Rocket, Layers } from "lucide-react";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import BulkActionBar from "@/components/project/BulkActionBar";
+import { Calendar, Rocket, Layers, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,16 +17,20 @@ import {
   fetchTickets,
   fetchSprints,
   fetchProject,
+  fetchEpics,
   updateTicket,
+  deleteTicket,
   startSprint,
   completeSprint,
   deleteSprint,
+  type Epic,
   type Project,
   type ProjectMember,
   type ProjectSprint,
   type ProjectTicket,
   type SprintGroup,
 } from "@/lib/projects-api";
+import EpicSection from "@/components/project/EpicSection";
 import { normalizeBoardColumns, statusOptionsFromColumns } from "@/lib/board-columns";
 import { BacklogSectionsSkeleton } from "@/components/ui/skeleton";
 import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
@@ -68,6 +74,9 @@ export default function ProjectBacklogPage() {
   const [tickets, setTickets] = useState<ProjectTicket[]>([]);
   const [sprints, setSprints] = useState<ProjectSprint[]>([]);
   const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [epics, setEpics] = useState<Epic[]>([]);
+  const [groupMode, setGroupMode] = useState<"sprint" | "epic">("sprint");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [project, setProject] = useState<Project | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createDefaultSprintId, setCreateDefaultSprintId] = useState<string | null>(null);
@@ -88,12 +97,14 @@ export default function ProjectBacklogPage() {
       fetchSprints(pid),
       fetchWorkspaceMembers(wid),
       fetchProject(pid),
+      fetchEpics(pid),
     ])
-      .then(([t, sp, m, p]) => {
+      .then(([t, sp, m, p, e]) => {
         setTickets(t);
         setSprints(sp);
         setMembers(m);
         setProject(p);
+        setEpics(e);
       })
       .catch(() => {
         setTickets([]);
@@ -120,7 +131,14 @@ export default function ProjectBacklogPage() {
     [project?.boardColumns]
   );
 
-  const backlogTickets = useMemo(() => tickets.filter((t) => t.sprintId === null), [tickets]);
+  // Subtasks are never independent backlog/sprint rows — they render nested
+  // inside their parent ticket's drawer instead.
+  const topLevelTickets = useMemo(() => tickets.filter((t) => !t.parentTaskId), [tickets]);
+
+  const backlogTickets = useMemo(
+    () => topLevelTickets.filter((t) => t.sprintId === null),
+    [topLevelTickets]
+  );
 
   const sprintGroups: SprintGroup[] = useMemo(
     () =>
@@ -131,9 +149,9 @@ export default function ProjectBacklogPage() {
         status: s.status,
         startDate: s.startDate,
         endDate: s.endDate,
-        tickets: tickets.filter((t) => t.sprintId === s.id),
+        tickets: topLevelTickets.filter((t) => t.sprintId === s.id),
       })),
-    [tickets, orderedSprints]
+    [topLevelTickets, orderedSprints]
   );
 
   const activePlanningSprints = useMemo(
@@ -239,6 +257,139 @@ export default function ProjectBacklogPage() {
     [pid, handleSaved]
   );
 
+  const handleMoveTicketEpic = useCallback(
+    async (ticketId: string, epicId: string | null) => {
+      let previousSnapshot: ProjectTicket | undefined;
+      setTickets((prev) => {
+        const t = prev.find((x) => x.id === ticketId);
+        if (!t || t.epicId === epicId) return prev;
+        previousSnapshot = t;
+        return prev.map((x) => (x.id === ticketId ? { ...x, epicId } : x));
+      });
+      if (!previousSnapshot) return;
+      try {
+        const updated = await updateTicket(pid, ticketId, { epicId });
+        handleSaved(updated);
+      } catch {
+        setTickets((prev) => prev.map((t) => (t.id === ticketId ? previousSnapshot! : t)));
+      }
+    },
+    [pid, handleSaved]
+  );
+
+  const epicGroups = useMemo(() => {
+    const byEpic = new Map<string, ProjectTicket[]>();
+    const noEpic: ProjectTicket[] = [];
+    for (const t of topLevelTickets) {
+      if (!t.epicId) {
+        noEpic.push(t);
+        continue;
+      }
+      const list = byEpic.get(t.epicId) ?? [];
+      list.push(t);
+      byEpic.set(t.epicId, list);
+    }
+    const groups = epics
+      .filter((e) => !e.archivedAt)
+      .map((e) => ({ epic: e, tickets: byEpic.get(e.id) ?? [] }));
+    return { groups, noEpic };
+  }, [topLevelTickets, epics]);
+
+  const epicMoveOptions = useMemo(
+    () => [
+      { epicId: null, label: "No epic" },
+      ...epics.filter((e) => !e.archivedAt).map((e) => ({ epicId: e.id, label: e.name })),
+    ],
+    [epics]
+  );
+
+  const toggleTicketSelect = useCallback((ticketId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(ticketId)) next.delete(ticketId);
+      else next.add(ticketId);
+      return next;
+    });
+  }, []);
+
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+
+  const executeBulkDelete = useCallback(async () => {
+    setBulkBusy(true);
+    try {
+      await Promise.all([...selectedIds].map((id) => deleteTicket(pid, id)));
+      setTickets((prev) => prev.filter((t) => !selectedIds.has(t.id)));
+      setSelectedIds(new Set());
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [pid, selectedIds]);
+
+  const patchTicketField = useCallback(
+    async (
+      ticketId: string,
+      patch: { status?: string; assigneeId?: string | null },
+      optimistic: (_ticket: ProjectTicket) => ProjectTicket
+    ) => {
+      let previousSnapshot: ProjectTicket | undefined;
+      setTickets((prev) => {
+        const t = prev.find((x) => x.id === ticketId);
+        if (!t) return prev;
+        previousSnapshot = t;
+        const next = optimistic(t);
+        if (
+          next.status === t.status &&
+          next.assigneeId === t.assigneeId &&
+          next.assigneeName === t.assigneeName
+        ) {
+          previousSnapshot = undefined;
+          return prev;
+        }
+        return prev.map((x) => (x.id === ticketId ? next : x));
+      });
+      if (!previousSnapshot) return;
+
+      setDetailPreview((p) => (p?.id === ticketId ? optimistic(p) : p));
+
+      try {
+        const updated = await updateTicket(pid, ticketId, patch);
+        handleSaved(updated);
+      } catch {
+        setTickets((prev) => prev.map((t) => (t.id === ticketId ? previousSnapshot! : t)));
+        setDetailPreview((p) => (p?.id === ticketId ? previousSnapshot! : p));
+      }
+    },
+    [pid, handleSaved]
+  );
+
+  const handleStatusChange = useCallback(
+    async (ticketId: string, status: string) => {
+      await patchTicketField(ticketId, { status }, (t) => ({ ...t, status }));
+    },
+    [patchTicketField]
+  );
+
+  const handleAssigneeChange = useCallback(
+    async (ticketId: string, assigneeId: string | null) => {
+      const member = assigneeId ? members.find((m) => m.userId === assigneeId) : null;
+      await patchTicketField(ticketId, { assigneeId }, (t) => ({
+        ...t,
+        assigneeId,
+        assigneeName: member?.name ?? null,
+      }));
+    },
+    [patchTicketField, members]
+  );
+
+  const ticketEditProps = {
+    members,
+    statusOptions: statusFormOptions,
+    canEditTickets: canManageSprintAndTickets,
+    onStatusChange: canManageSprintAndTickets ? handleStatusChange : undefined,
+    onAssigneeChange: canManageSprintAndTickets ? handleAssigneeChange : undefined,
+  };
+
   const handleStartSprint = useCallback(
     async (sprintId: string) => {
       try {
@@ -305,7 +456,7 @@ export default function ProjectBacklogPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#09090b]">
+    <div className="flex flex-col h-full bg-surface-sunken">
       <AlertDialog
         isOpen={actionAlert !== null}
         onClose={() => setActionAlert(null)}
@@ -346,7 +497,7 @@ export default function ProjectBacklogPage() {
       )}
 
       {detailTicketId && (
-        <TicketDetailModal
+        <TicketDetailDrawer
           projectId={pid}
           workspaceId={wid}
           ticketId={detailTicketId}
@@ -355,6 +506,12 @@ export default function ProjectBacklogPage() {
           sprintPickerOptions={sprintPickerOptions}
           statusOptions={statusFormOptions}
           linkableTickets={tickets}
+          epics={epics}
+          allTickets={tickets}
+          onNavigateToTicket={(id) => {
+            setDetailTicketId(id);
+            setDetailPreview(tickets.find((t) => t.id === id) ?? null);
+          }}
           focusCommentId={searchParams.get("commentId")}
           isOpen={Boolean(detailTicketId)}
           onClose={closeDetail}
@@ -366,16 +523,32 @@ export default function ProjectBacklogPage() {
       <div className="flex-1 overflow-y-auto px-10 py-8 space-y-6 custom-scrollbar">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-[15px] font-semibold text-zinc-200">Sprint roadmap</h2>
-            <p className="text-[12px] text-zinc-500 mt-0.5">
+            <h2 className="text-[15px] font-semibold text-fg">Sprint roadmap</h2>
+            <p className="text-[12px] text-muted mt-0.5">
               Plan sprints, move work from the backlog, start the sprint, then complete it when done
               — same flow as Jira.
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-surface p-0.5">
+              <button
+                type="button"
+                onClick={() => setGroupMode("sprint")}
+                className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${groupMode === "sprint" ? "bg-hover-strong text-fg" : "text-muted hover:text-muted2"}`}
+              >
+                Sprint
+              </button>
+              <button
+                type="button"
+                onClick={() => setGroupMode("epic")}
+                className={`rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors ${groupMode === "epic" ? "bg-hover-strong text-fg" : "text-muted hover:text-muted2"}`}
+              >
+                Epic
+              </button>
+            </div>
             <Link
               href={`/workspace/${wid}/projects/${pid}/sprints`}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.03] border border-white/[0.06] rounded-lg text-[12px] font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05] transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-hover border border-border rounded-lg text-[12px] font-medium text-muted2 hover:text-fg hover:bg-hover transition-all"
             >
               <Calendar className="w-3.5 h-3.5" />
               Timeline
@@ -384,7 +557,7 @@ export default function ProjectBacklogPage() {
               type="button"
               onClick={() => setSprintModalOpen(true)}
               disabled={!canManageSprintAndTickets}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-500/10 border border-blue-500/15 rounded-lg text-[12px] font-medium text-blue-400 hover:bg-blue-500/15 transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-accent/10 border border-accent/15 rounded-lg text-[12px] font-medium text-accent hover:bg-accent/15 transition-all"
             >
               <Rocket className="w-3.5 h-3.5" />
               New sprint
@@ -394,10 +567,51 @@ export default function ProjectBacklogPage() {
 
         {!backlogReady ? (
           <BacklogSectionsSkeleton />
+        ) : groupMode === "epic" ? (
+          <div className="space-y-3">
+            <EpicSection
+              isNoEpic
+              tickets={epicGroups.noEpic}
+              onCreateTask={canManageSprintAndTickets ? () => openCreate(null) : undefined}
+              onTicketSelect={openDetail}
+              ticketMoveOptions={canManageSprintAndTickets ? epicMoveOptions : []}
+              onMoveTicket={canManageSprintAndTickets ? handleMoveTicketEpic : undefined}
+              enableTicketDrag={canManageSprintAndTickets}
+              {...ticketEditProps}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleTicketSelect}
+              onTicketDrop={
+                canManageSprintAndTickets
+                  ? (ticketId) => void handleMoveTicketEpic(ticketId, null)
+                  : undefined
+              }
+            />
+            {epicGroups.groups.map(({ epic, tickets: epicTickets }) => (
+              <EpicSection
+                key={epic.id}
+                epic={epic}
+                tickets={epicTickets}
+                epicHref={`/workspace/${wid}/projects/${pid}/epics/${epic.id}`}
+                onCreateTask={canManageSprintAndTickets ? () => openCreate(null) : undefined}
+                onTicketSelect={openDetail}
+                ticketMoveOptions={canManageSprintAndTickets ? epicMoveOptions : []}
+                onMoveTicket={canManageSprintAndTickets ? handleMoveTicketEpic : undefined}
+                enableTicketDrag={canManageSprintAndTickets}
+                {...ticketEditProps}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleTicketSelect}
+                onTicketDrop={
+                  canManageSprintAndTickets
+                    ? (ticketId) => void handleMoveTicketEpic(ticketId, epic.id)
+                    : undefined
+                }
+              />
+            ))}
+          </div>
         ) : (
           <>
             {planningAndActive.length === 0 ? (
-              <div className="rounded-lg border border-white/[0.05] bg-[#111115]/30 px-4 py-6 text-center text-[13px] text-zinc-500">
+              <div className="rounded-lg border border-border bg-surface/30 px-4 py-6 text-center text-[13px] text-muted">
                 No planned or active sprints yet. Create a sprint, then drag tickets from the
                 backlog into it (or use Move), then press Start when the team commits.
               </div>
@@ -419,6 +633,9 @@ export default function ProjectBacklogPage() {
                     }
                     onMoveTicket={canManageSprintAndTickets ? handleMoveTicket : undefined}
                     enableTicketDrag={canManageSprintAndTickets}
+                    {...ticketEditProps}
+                    selectedIds={selectedIds}
+                    onToggleSelect={toggleTicketSelect}
                     onTicketDrop={
                       canManageSprintAndTickets
                         ? (ticketId) => {
@@ -436,15 +653,15 @@ export default function ProjectBacklogPage() {
             <div className="pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-[15px] font-semibold text-zinc-200">Backlog</h2>
-                  <p className="text-[12px] text-zinc-500 mt-0.5">
+                  <h2 className="text-[15px] font-semibold text-fg">Backlog</h2>
+                  <p className="text-[12px] text-muted mt-0.5">
                     {backlogTickets.length} unscheduled{" "}
                     {backlogTickets.length === 1 ? "ticket" : "tickets"}
                   </p>
                 </div>
                 <button
                   type="button"
-                  className="text-[11px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
+                  className="text-[11px] font-medium text-muted hover:text-muted2 transition-colors"
                   disabled
                 >
                   Archived
@@ -459,6 +676,9 @@ export default function ProjectBacklogPage() {
                 ticketMoveOptions={canManageSprintAndTickets ? moveOptionsForBacklogTicket() : []}
                 onMoveTicket={canManageSprintAndTickets ? handleMoveTicket : undefined}
                 enableTicketDrag={canManageSprintAndTickets}
+                {...ticketEditProps}
+                selectedIds={selectedIds}
+                onToggleSelect={toggleTicketSelect}
                 onTicketDrop={
                   canManageSprintAndTickets
                     ? (ticketId) => {
@@ -474,9 +694,9 @@ export default function ProjectBacklogPage() {
             {completedGroups.length > 0 && (
               <div className="pt-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="h-px flex-1 bg-white/[0.03]" />
-                  <span className="text-[11px] font-medium text-zinc-500">Completed sprints</span>
-                  <div className="h-px flex-1 bg-white/[0.03]" />
+                  <div className="h-px flex-1 bg-hover" />
+                  <span className="text-[11px] font-medium text-muted">Completed sprints</span>
+                  <div className="h-px flex-1 bg-hover" />
                 </div>
                 <div className="space-y-3 opacity-90">
                   {completedGroups.map((group) => (
@@ -498,12 +718,41 @@ export default function ProjectBacklogPage() {
             )}
 
             <div className="flex flex-col items-center justify-center py-12 opacity-30">
-              <Layers className="w-6 h-6 text-zinc-600 mb-2" />
-              <p className="text-[11px] text-zinc-600 font-medium">End of backlog</p>
+              <Layers className="w-6 h-6 text-muted mb-2" />
+              <p className="text-[11px] text-muted font-medium">End of backlog</p>
             </div>
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={bulkDeleteConfirm}
+        onClose={() => setBulkDeleteConfirm(false)}
+        title={`Delete ${selectedIds.size} ticket${selectedIds.size === 1 ? "" : "s"}?`}
+        description="This cannot be undone. Comments and attachments are removed with each ticket."
+        confirmLabel="Delete permanently"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={() => {
+          setBulkDeleteConfirm(false);
+          void executeBulkDelete();
+        }}
+      />
+
+      <BulkActionBar
+        count={selectedIds.size}
+        onClear={() => setSelectedIds(new Set())}
+        busy={bulkBusy}
+        actions={[
+          {
+            label: "Delete",
+            icon: <Trash2 className="h-3.5 w-3.5" />,
+            variant: "danger",
+            onClick: () => setBulkDeleteConfirm(true),
+            disabled: !canDelete,
+          },
+        ]}
+      />
     </div>
   );
 }

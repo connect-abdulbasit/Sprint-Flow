@@ -98,8 +98,8 @@ function WorkspaceMark({
   if (ws.logoUrl) {
     const cls =
       variant === "trigger"
-        ? "w-4 h-4 rounded-md object-cover shrink-0 ring-1 ring-white/[0.12]"
-        : "w-7 h-7 rounded-lg object-cover shrink-0 ring-1 ring-white/[0.08]";
+        ? "w-4 h-4 rounded-md object-cover shrink-0 ring-1 ring-border-hover"
+        : "w-7 h-7 rounded-lg object-cover shrink-0 ring-1 ring-border";
     return <img src={ws.logoUrl} alt="" className={cls} />;
   }
   const dot =
@@ -295,14 +295,14 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
   if (isLoading) {
     return (
       <div
-        className={`px-4 py-4 border-b border-[#333339] ${isCollapsed ? "flex justify-center" : ""}`}
+        className={`px-4 py-4 border-b border-border-strong ${isCollapsed ? "flex justify-center" : ""}`}
       >
         <div className="flex items-center gap-3 animate-pulse">
-          <div className="w-9 h-9 rounded-xl bg-white/[0.05]" />
+          <div className="w-9 h-9 rounded-xl bg-hover" />
           {!isCollapsed && (
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-24 bg-white/[0.05] rounded" />
-              <div className="h-2 w-16 bg-white/[0.05] rounded" />
+              <div className="h-3 w-24 bg-hover rounded" />
+              <div className="h-2 w-16 bg-hover rounded" />
             </div>
           )}
         </div>
@@ -312,23 +312,23 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
 
   if (realOrganizations.length === 0) {
     return (
-      <div className="px-4 py-4 border-b border-[#333339]">
+      <div className="px-4 py-4 border-b border-border-strong">
         <button
           onClick={() => router.push("/onboarding/workspace")}
-          className={`group flex items-center gap-3 w-full rounded-xl transition-all duration-200 hover:bg-[var(--color-accent)]/10 p-2.5 border border-dashed border-[#333339] hover:border-[var(--color-accent)]/50 ${
+          className={`group flex items-center gap-3 w-full rounded-xl transition-all duration-200 hover:bg-[var(--color-accent)]/10 p-2.5 border border-dashed border-border-strong hover:border-[var(--color-accent)]/50 ${
             isCollapsed ? "justify-center p-2" : ""
           }`}
           title="Setup Organization"
         >
-          <div className="w-9 h-9 rounded-xl bg-[#18181f] flex items-center justify-center text-[var(--color-accent)] shrink-0 transition-transform duration-200 group-hover:scale-110">
+          <div className="w-9 h-9 rounded-xl bg-surface-2 flex items-center justify-center text-[var(--color-accent)] shrink-0 transition-transform duration-200 group-hover:scale-110">
             <Plus className="w-5 h-5" />
           </div>
           {!isCollapsed && (
             <div className="text-left overflow-hidden">
-              <div className="text-[13px] font-bold text-[#f0f0f5] truncate leading-tight">
+              <div className="text-[13px] font-bold text-fg truncate leading-tight">
                 Setup Organization
               </div>
-              <div className="text-[10px] text-[#6b6b80] mt-0.5">Click to begin</div>
+              <div className="text-[10px] text-muted mt-0.5">Click to begin</div>
             </div>
           )}
         </button>
@@ -351,7 +351,8 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
   const handleWorkspaceSelect = (wsId: string) => {
     writeWorkspaceIdForOrg(currentOrgId, wsId);
     setNavWorkspaceId(wsId);
-    router.push(`/workspace/${wsId}/dashboard`);
+    const onProfile = /\/profile\/?$/.test(pathname);
+    router.push(onProfile ? `/workspace/${wsId}/profile` : `/workspace/${wsId}/dashboard`);
     setIsOpen(false);
   };
 
@@ -364,13 +365,13 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
   const trigger = (
     <button
       onClick={() => setIsOpen(!isOpen)}
-      className={`group flex items-center gap-3 w-full rounded-xl transition-all duration-200 hover:bg-white/[0.05] active:scale-[0.98] ${
+      className={`group flex items-center gap-3 w-full rounded-xl transition-all duration-200 hover:bg-hover active:scale-[0.98] ${
         isCollapsed ? "justify-center p-2" : "p-2.5"
-      } ${isOpen ? "bg-white/[0.05]" : ""}`}
+      } ${isOpen ? "bg-hover" : ""}`}
       title={isCollapsed ? `${selectedOrg.name}` : undefined}
     >
       <div
-        className={`w-9 h-9 rounded-xl bg-gradient-to-br ${selectedOrg.gradient} flex items-center justify-center text-[11px] font-black text-white shrink-0 shadow-[0_2px_12px_rgba(79,124,255,0.25)] transition-transform duration-200 group-hover:scale-105`}
+        className={`w-9 h-9 rounded-xl bg-gradient-to-br ${selectedOrg.gradient} flex items-center justify-center text-[11px] font-black text-white shrink-0 shadow-glow transition-transform duration-200 group-hover:scale-105`}
       >
         {selectedOrg.initials}
       </div>
@@ -378,7 +379,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
       {!isCollapsed && (
         <div className="flex-1 overflow-hidden text-left">
           <div className="flex items-center gap-1.5">
-            <span className="text-[13px] font-bold truncate text-[#f0f0f5] leading-tight">
+            <span className="text-[13px] font-bold truncate text-fg leading-tight">
               {selectedOrg.name}
             </span>
           </div>
@@ -386,15 +387,15 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
             {currentWorkspace && (
               <>
                 <WorkspaceMark ws={currentWorkspace} variant="trigger" />
-                <span className="text-[11px] text-[#8888a0] truncate">{currentWorkspace.name}</span>
-                <span className="text-[11px] text-[#6b6b80]">•</span>
-                <span className="text-[11px] text-[#6b6b80] truncate">
+                <span className="text-[11px] text-muted2 truncate">{currentWorkspace.name}</span>
+                <span className="text-[11px] text-muted">•</span>
+                <span className="text-[11px] text-muted truncate">
                   {getWorkspaceRoleLabel(currentWorkspace.role)}
                 </span>
               </>
             )}
             {!currentWorkspace && (
-              <span className="text-[11px] text-[#6b6b80] truncate">Select workspace</span>
+              <span className="text-[11px] text-muted truncate">Select workspace</span>
             )}
           </div>
         </div>
@@ -402,7 +403,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
 
       {!isCollapsed && (
         <ChevronDown
-          className={`w-3.5 h-3.5 text-[#6b6b80] shrink-0 transition-transform duration-300 ${
+          className={`w-3.5 h-3.5 text-muted shrink-0 transition-transform duration-300 ${
             isOpen ? "rotate-180" : ""
           }`}
         />
@@ -412,7 +413,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
 
   const dropdown = isOpen && (
     <div
-      className={`absolute z-[100] mt-1.5 rounded-2xl border border-white/[0.08] bg-[#16161e]/95 backdrop-blur-2xl shadow-[0_20px_60px_-12px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)] overflow-hidden animate-in ${
+      className={`absolute z-[100] mt-1.5 rounded-2xl border border-border bg-surface/95 backdrop-blur-2xl shadow-dropdown overflow-hidden animate-in ${
         isCollapsed ? "left-full ml-2 top-0 w-[300px]" : "left-0 right-0 w-full min-w-[280px]"
       }`}
       style={{
@@ -421,8 +422,8 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
     >
       <div className="px-3 pt-3 pb-1.5">
         <div className="flex items-center gap-1.5 px-2 mb-2">
-          <Building2 className="w-3 h-3 text-[#6b6b80]" />
-          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#6b6b80]">
+          <Building2 className="w-3 h-3 text-muted" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
             Organizations
           </span>
         </div>
@@ -435,8 +436,8 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                 onClick={() => handleOrgSelect(org.id)}
                 className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-all duration-150 ${
                   isSelected
-                    ? "bg-white/[0.07] text-[#f0f0f5]"
-                    : "text-[#9090a8] hover:bg-white/[0.04] hover:text-[#d0d0db]"
+                    ? "bg-hover-strong text-fg"
+                    : "text-muted2 hover:bg-hover hover:text-fg"
                 }`}
               >
                 <div
@@ -458,13 +459,13 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         </div>
       </div>
 
-      <div className="mx-3 border-t border-white/[0.06]" />
+      <div className="mx-3 border-t border-border" />
 
       <div className="px-3 pt-2.5 pb-1.5">
         <div className="flex items-center justify-between px-2 mb-2">
           <div className="flex items-center gap-1.5">
-            <FolderKanban className="w-3 h-3 text-[#6b6b80]" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[#6b6b80]">
+            <FolderKanban className="w-3 h-3 text-muted" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted">
               Workspaces
             </span>
           </div>
@@ -477,7 +478,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
               setCreateWorkspaceOpen(true);
             }}
             disabled={!selectedOrgId}
-            className="w-5 h-5 flex items-center justify-center rounded-md text-[#6b6b80] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-all duration-150 disabled:pointer-events-none disabled:opacity-40"
+            className="w-5 h-5 flex items-center justify-center rounded-md text-muted hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-all duration-150 disabled:pointer-events-none disabled:opacity-40"
             title="New workspace"
           >
             <Plus className="w-3 h-3" />
@@ -491,9 +492,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                 key={ws.id}
                 onClick={() => handleWorkspaceSelect(ws.id)}
                 className={`w-full flex items-center gap-3 px-2.5 py-2 rounded-xl text-left transition-all duration-150 ${
-                  isActive
-                    ? "bg-white/[0.07] text-[#f0f0f5]"
-                    : "text-[#9090a8] hover:bg-white/[0.04] hover:text-[#d0d0db]"
+                  isActive ? "bg-hover-strong text-fg" : "text-muted2 hover:bg-hover hover:text-fg"
                 }`}
               >
                 <WorkspaceMark ws={ws} variant="list" />
@@ -501,11 +500,11 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
                   <span className="text-[12.5px] font-medium truncate block leading-tight">
                     {ws.name}
                   </span>
-                  <span className="text-[10px] text-[#6b6b80] truncate">
+                  <span className="text-[10px] text-muted truncate">
                     {getWorkspaceRoleLabel(ws.role)}
                   </span>
                 </div>
-                <span className="text-[10px] text-[#6b6b80] tabular-nums shrink-0">
+                <span className="text-[10px] text-muted tabular-nums shrink-0">
                   {ws.memberCount} {ws.memberCount === 1 ? "member" : "members"}
                 </span>
                 {isActive && <Check className="w-3.5 h-3.5 text-[var(--color-accent)] shrink-0" />}
@@ -515,21 +514,21 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
         </div>
       </div>
 
-      <div className="mx-3 border-t border-white/[0.06]" />
+      <div className="mx-3 border-t border-border" />
       <div className="px-3 py-2 flex items-center gap-1">
         <Link
           href="/organizations"
           onClick={() => setIsOpen(false)}
-          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-[#6b6b80] hover:text-[#d0d0db] hover:bg-white/[0.04] transition-all duration-150"
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-muted hover:text-fg hover:bg-hover transition-all duration-150"
         >
           <ExternalLink className="w-3 h-3" />
           Manage orgs
         </Link>
-        <div className="w-px h-3.5 bg-white/[0.06]" />
+        <div className="w-px h-3.5 bg-border" />
         <Link
           href={`/organization/${selectedOrgId}`}
           onClick={() => setIsOpen(false)}
-          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-[#6b6b80] hover:text-[#d0d0db] hover:bg-white/[0.04] transition-all duration-150"
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium text-muted hover:text-fg hover:bg-hover transition-all duration-150"
         >
           <Settings className="w-3 h-3" />
           Org settings
@@ -539,7 +538,7 @@ export default function OrgWorkspaceSwitcher({ isCollapsed }: { isCollapsed: boo
   );
 
   return (
-    <div ref={dropdownRef} className="relative px-4 py-4 border-b border-[#333339]">
+    <div ref={dropdownRef} className="relative px-4 py-4 border-b border-border-strong">
       {trigger}
       {dropdown}
 

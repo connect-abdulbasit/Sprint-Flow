@@ -20,6 +20,7 @@ import {
 import InviteModal from "@/components/InviteModal";
 import RoleGate from "@/components/RoleGate";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import UserAvatar from "@/components/ui/user-avatar";
 import { Skeleton, TeamDataSkeleton } from "@/components/ui/skeleton";
 import { useWorkspaceRole } from "@/hooks/useWorkspaceRole";
 import type { WorkspaceRole } from "@/lib/auth/rbac";
@@ -40,20 +41,11 @@ type WorkspaceMember = {
 };
 
 const roleConfig: Record<string, { icon: typeof Shield; color: string; label: string }> = {
-  admin: { icon: Shield, color: "#a259ff", label: "Admin" },
-  project_manager: { icon: Briefcase, color: "#ff9f43", label: "Project Manager" },
-  member: { icon: UserCircle, color: "#4f7cff", label: "Member" },
-  owner: { icon: Crown, color: "#ff9f43", label: "Owner" },
+  admin: { icon: Shield, color: "var(--color-accent2)", label: "Admin" },
+  project_manager: { icon: Briefcase, color: "var(--color-warning)", label: "Project Manager" },
+  member: { icon: UserCircle, color: "var(--color-accent)", label: "Member" },
+  owner: { icon: Crown, color: "var(--color-warning)", label: "Owner" },
 };
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -63,7 +55,14 @@ function formatDate(iso: string) {
 }
 
 function avatarColor(name: string) {
-  const colors = ["#4f7cff", "#a259ff", "#00d4aa", "#ff9f43", "#ff4f7c", "#00b4d8"];
+  const colors = [
+    "var(--color-accent)",
+    "var(--color-accent2)",
+    "var(--color-success)",
+    "var(--color-warning)",
+    "var(--color-danger)",
+    "var(--color-info)",
+  ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -214,7 +213,10 @@ export default function TeamPage() {
             <div className="flex items-center gap-3 mb-1">
               <div
                 className="w-2 h-2 rounded-full"
-                style={{ background: "#4f7cff", boxShadow: "0 0 8px #4f7cff" }}
+                style={{
+                  background: "var(--color-accent)",
+                  boxShadow: "0 0 8px var(--color-accent)",
+                }}
               />
               <span className="text-xs font-medium text-[var(--color-muted)]">
                 {loading ? (
@@ -225,7 +227,7 @@ export default function TeamPage() {
               </span>
             </div>
             <h1
-              className="text-2xl font-extrabold tracking-[-0.02em] text-[#f0f0f5]"
+              className="text-2xl font-extrabold tracking-[-0.02em] text-fg"
               style={{ fontFamily: "var(--font-syne)" }}
             >
               Team
@@ -238,13 +240,13 @@ export default function TeamPage() {
           <RoleGate workspaceId={workspaceId} allowedRoles={["admin", "project_manager"]}>
             <button
               onClick={() => setInviteOpen(true)}
-              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 hover:-translate-y-0.5 shrink-0"
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl transition-all duration-200 hover:-translate-y-0.5 shrink-0"
               style={{
-                background: "linear-gradient(135deg, #4f7cff, #6b93ff)",
-                color: "#fff",
-                border: "1px solid rgba(79, 124, 255, 0.3)",
+                background:
+                  "linear-gradient(135deg, var(--color-accent), var(--color-accent-strong))",
+                border: "1px solid color-mix(in srgb, var(--color-accent) 30%, transparent)",
                 boxShadow:
-                  "0 4px 16px rgba(79, 124, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+                  "0 4px 16px color-mix(in srgb, var(--color-accent) 25%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
               }}
             >
               <UserPlus className="w-4 h-4" />
@@ -268,35 +270,35 @@ export default function TeamPage() {
                   label: "Total Members",
                   value: members.length.toString(),
                   icon: Users,
-                  color: "#4f7cff",
+                  color: "var(--color-accent)",
                 },
                 {
                   label: "Admins",
                   value: adminCount.toString(),
                   icon: Shield,
-                  color: "#a259ff",
+                  color: "var(--color-accent2)",
                 },
                 {
                   label: "Project Managers",
                   value: projectManagerCount.toString(),
                   icon: Briefcase,
-                  color: "#ff9f43",
+                  color: "var(--color-warning)",
                 },
                 {
                   label: "Members",
                   value: memberCount.toString(),
                   icon: UserCircle,
-                  color: "#00d4aa",
+                  color: "var(--color-success)",
                 },
               ].map((stat) => (
                 <div
                   key={stat.label}
-                  className="group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-500 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5"
+                  className="group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-border hover:border-border-hover transition-all duration-500 hover:shadow-card-hover hover:-translate-y-0.5"
                 >
                   <div
                     className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
                     style={{
-                      background: `radial-gradient(circle at 30% 30%, ${stat.color}08, transparent 70%)`,
+                      background: `radial-gradient(circle at 30% 30%, color-mix(in srgb, ${stat.color} 3%, transparent), transparent 70%)`,
                     }}
                   />
                   <div className="relative flex items-start justify-between mb-3">
@@ -309,9 +311,7 @@ export default function TeamPage() {
                       <stat.icon className="w-[18px] h-[18px]" style={{ color: stat.color }} />
                     </div>
                   </div>
-                  <p className="text-3xl font-bold text-[#f0f0f5] leading-none mb-1">
-                    {stat.value}
-                  </p>
+                  <p className="text-3xl font-bold text-fg leading-none mb-1">{stat.value}</p>
                   <p className="text-xs text-[var(--color-muted)]">{stat.label}</p>
                 </div>
               ))}
@@ -325,13 +325,13 @@ export default function TeamPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search members by name or email…"
-                  className="w-full pl-11 pr-4 py-3 bg-[var(--color-surface)] border border-white/[0.06] rounded-xl text-sm text-[#f0f0f5] placeholder-[var(--color-muted)] focus:outline-none focus:border-[#4f7cff]/40 focus:ring-1 focus:ring-[#4f7cff]/15 transition-all duration-200"
+                  className="w-full pl-11 pr-4 py-3 bg-[var(--color-surface)] border border-border rounded-xl text-sm text-fg placeholder-[var(--color-muted)] focus:outline-none focus:border-accent/40 focus:ring-1 focus:ring-accent/15 transition-all duration-200"
                 />
               </div>
             </div>
 
-            <div className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden">
-              <div className="flex items-center gap-4 px-6 py-3 border-b border-white/[0.05] text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-[0.1em]">
+            <div className="rounded-2xl bg-[var(--color-surface)] border border-border overflow-hidden">
+              <div className="flex items-center gap-4 px-6 py-3 border-b border-border text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-[0.1em]">
                 <div className="w-10" />
                 <div className="flex-1">Member</div>
                 <div className="w-36 hidden sm:block">Role</div>
@@ -341,10 +341,10 @@ export default function TeamPage() {
 
               {error && (
                 <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                  <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
-                    <Users className="w-5 h-5 text-red-400" />
+                  <div className="w-12 h-12 rounded-2xl bg-danger/10 border border-danger/20 flex items-center justify-center mb-4">
+                    <Users className="w-5 h-5 text-danger" />
                   </div>
-                  <p className="text-sm text-red-300 mb-1">{error}</p>
+                  <p className="text-sm text-danger mb-1">{error}</p>
                   <p className="text-xs text-[var(--color-muted)]">
                     Please try refreshing the page.
                   </p>
@@ -357,15 +357,15 @@ export default function TeamPage() {
                     className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5"
                     style={{
                       background:
-                        "linear-gradient(135deg, rgba(79, 124, 255, 0.1), rgba(162, 89, 255, 0.08))",
-                      border: "1px solid rgba(79, 124, 255, 0.15)",
+                        "linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 10%, transparent), color-mix(in srgb, var(--color-accent2) 8%, transparent))",
+                      border: "1px solid color-mix(in srgb, var(--color-accent) 15%, transparent)",
                     }}
                   >
-                    <Users className="w-6 h-6 text-[#4f7cff]" />
+                    <Users className="w-6 h-6 text-accent" />
                   </div>
                   {hasSearch ? (
                     <>
-                      <p className="text-sm text-[#f0f0f5] font-medium mb-1">No matches found</p>
+                      <p className="text-sm text-fg font-medium mb-1">No matches found</p>
                       <p className="text-xs text-[var(--color-muted)] max-w-[240px]">
                         No team members match &quot;{search.trim()}&quot;. Try a different search
                         term.
@@ -373,7 +373,7 @@ export default function TeamPage() {
                     </>
                   ) : (
                     <>
-                      <p className="text-sm text-[#f0f0f5] font-medium mb-1">No team members yet</p>
+                      <p className="text-sm text-fg font-medium mb-1">No team members yet</p>
                       <p className="text-xs text-[var(--color-muted)] max-w-[240px] mb-5">
                         Invite your first team member to start collaborating in this workspace.
                       </p>
@@ -383,7 +383,7 @@ export default function TeamPage() {
                       >
                         <button
                           onClick={() => setInviteOpen(true)}
-                          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[#4f7cff] bg-[#4f7cff]/[0.08] border border-[#4f7cff]/20 rounded-xl hover:bg-[#4f7cff]/[0.12] transition-all duration-200"
+                          className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-accent bg-accent/[0.08] border border-accent/20 rounded-xl hover:bg-accent/[0.12] transition-all duration-200"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           Invite People
@@ -403,22 +403,26 @@ export default function TeamPage() {
                   return (
                     <div
                       key={member.userId}
-                      className="group relative flex items-center gap-4 px-6 py-4 border-b border-white/[0.03] last:border-b-0 hover:bg-white/[0.02] transition-all duration-300"
+                      className="group relative flex items-center gap-4 px-6 py-4 border-b border-border last:border-b-0 hover:bg-hover transition-all duration-300"
                     >
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold shrink-0 border border-white/[0.06]"
-                        style={{
-                          background: `color-mix(in srgb, ${color} 18%, transparent)`,
-                          color,
-                        }}
-                      >
-                        {getInitials(member.name)}
-                      </div>
+                      <UserAvatar
+                        name={member.name}
+                        email={member.email}
+                        avatarUrl={member.avatarUrl}
+                        size="md"
+                        className="font-bold border border-border"
+                        style={
+                          member.avatarUrl
+                            ? undefined
+                            : {
+                                background: `color-mix(in srgb, ${color} 18%, transparent)`,
+                                color,
+                              }
+                        }
+                      />
 
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-[#f0f0f5] truncate">
-                          {member.name}
-                        </div>
+                        <div className="text-sm font-medium text-fg truncate">{member.name}</div>
                         <div className="text-[11px] text-[var(--color-muted)] truncate flex items-center gap-1.5 mt-0.5">
                           <Mail className="w-3 h-3 shrink-0" />
                           {member.email}
@@ -456,7 +460,7 @@ export default function TeamPage() {
                             aria-haspopup="menu"
                             aria-expanded={openMenuUserId === member.userId}
                             aria-label={`Actions for ${member.name}`}
-                            className="p-1.5 text-[var(--color-muted)] hover:text-[#f0f0f5] hover:bg-white/[0.05] rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 disabled:opacity-40"
+                            className="p-1.5 text-[var(--color-muted)] hover:text-fg hover:bg-hover rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 disabled:opacity-40"
                           >
                             <MoreHorizontal className="w-4 h-4" />
                           </button>
@@ -471,7 +475,7 @@ export default function TeamPage() {
                           />
                           <div
                             role="menu"
-                            className="absolute right-6 top-14 z-20 w-56 rounded-xl border border-white/[0.08] bg-[#15151b] py-1.5 shadow-2xl"
+                            className="absolute right-6 top-14 z-20 w-56 rounded-xl border border-border bg-surface-2 py-1.5 shadow-2xl"
                           >
                             {myRole === "admin" && !isSelf && (
                               <>
@@ -484,20 +488,20 @@ export default function TeamPage() {
                                       key={r.value}
                                       role="menuitem"
                                       onClick={() => handleRoleChange(member, r.value)}
-                                      className="w-full text-left px-3 py-2 text-[13px] text-[#f0f0f5] hover:bg-white/[0.06] transition-colors"
+                                      className="w-full text-left px-3 py-2 text-[13px] text-fg hover:bg-hover-strong transition-colors"
                                     >
                                       Make {r.label}
                                     </button>
                                   )
                                 )}
-                                <div className="my-1 h-px bg-white/[0.06]" />
+                                <div className="my-1 h-px bg-border" />
                                 <button
                                   role="menuitem"
                                   onClick={() => {
                                     setOpenMenuUserId(null);
                                     setMemberPendingRemoval(member);
                                   }}
-                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-[13px] text-red-300 hover:bg-red-500/[0.08] transition-colors"
+                                  className="w-full flex items-center gap-2 text-left px-3 py-2 text-[13px] text-danger hover:bg-danger/[0.08] transition-colors"
                                 >
                                   <UserMinus className="w-3.5 h-3.5" />
                                   Remove from workspace
@@ -511,7 +515,7 @@ export default function TeamPage() {
                                   setOpenMenuUserId(null);
                                   setMemberPendingRemoval(member);
                                 }}
-                                className="w-full flex items-center gap-2 text-left px-3 py-2 text-[13px] text-red-300 hover:bg-red-500/[0.08] transition-colors"
+                                className="w-full flex items-center gap-2 text-left px-3 py-2 text-[13px] text-danger hover:bg-danger/[0.08] transition-colors"
                               >
                                 <LogOut className="w-3.5 h-3.5" />
                                 Leave workspace
@@ -528,14 +532,14 @@ export default function TeamPage() {
             {!error && members.length > 0 && (
               <RoleGate workspaceId={workspaceId} allowedRoles={["admin", "project_manager"]}>
                 <div
-                  className="border border-dashed border-white/[0.06] rounded-2xl flex items-center justify-center py-10 group hover:border-[#4f7cff]/20 hover:bg-[#4f7cff]/[0.02] transition-all duration-300 cursor-pointer"
+                  className="border border-dashed border-border rounded-2xl flex items-center justify-center py-10 group hover:border-accent/20 hover:bg-accent/[0.02] transition-all duration-300 cursor-pointer"
                   onClick={() => setInviteOpen(true)}
                 >
                   <div className="flex flex-col items-center text-center">
-                    <div className="w-11 h-11 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center text-[var(--color-muted)] group-hover:text-[#4f7cff] group-hover:scale-110 group-hover:border-[#4f7cff]/20 transition-all duration-300 mb-3">
+                    <div className="w-11 h-11 rounded-xl bg-hover border border-border flex items-center justify-center text-[var(--color-muted)] group-hover:text-accent group-hover:scale-110 group-hover:border-accent/20 transition-all duration-300 mb-3">
                       <UserPlus className="w-5 h-5" />
                     </div>
-                    <span className="text-[13px] font-medium text-[var(--color-muted)] group-hover:text-[#f0f0f5] transition-colors">
+                    <span className="text-[13px] font-medium text-[var(--color-muted)] group-hover:text-fg transition-colors">
                       Invite more team members
                     </span>
                     <p className="text-[11px] text-[var(--color-muted)] mt-1">
@@ -573,12 +577,12 @@ export default function TeamPage() {
       {actionError && (
         <div
           role="alert"
-          className="fixed bottom-6 right-6 z-[1200] max-w-sm rounded-xl border border-red-500/25 bg-[#1a1215] px-4 py-3 text-[13px] text-red-300 shadow-2xl"
+          className="fixed bottom-6 right-6 z-[1200] max-w-sm rounded-xl border border-danger/25 bg-danger-soft px-4 py-3 text-[13px] text-danger shadow-2xl"
         >
           {actionError}
           <button
             onClick={() => setActionError(null)}
-            className="ml-3 text-red-400/70 hover:text-red-300"
+            className="ml-3 text-danger/70 hover:text-danger"
           >
             Dismiss
           </button>

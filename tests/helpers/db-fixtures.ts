@@ -12,6 +12,7 @@ import {
 import { projectsTable } from "@/modules/project/project.schema";
 import { tasksTable } from "@/modules/task/task.schema";
 import { sprintsTable } from "@/modules/sprint/sprint.schema";
+import { epicsTable } from "@/modules/epic/epic.schema";
 import { eq } from "drizzle-orm";
 
 let counter = 0;
@@ -155,6 +156,25 @@ export async function createTestSprint(
     })
     .returning();
   return sprint;
+}
+
+export async function createTestEpic(
+  projectId: string,
+  overrides: Partial<typeof epicsTable.$inferInsert> = {}
+) {
+  const [epic] = await db
+    .insert(epicsTable)
+    .values({
+      projectId,
+      name: overrides.name ?? unique("Epic"),
+      status: overrides.status ?? "backlog",
+      priority: overrides.priority ?? "medium",
+      ownerId: overrides.ownerId,
+      ownerName: overrides.ownerName,
+      orderIndex: overrides.orderIndex ?? 0,
+    })
+    .returning();
+  return epic;
 }
 
 /** Deletes a full org tree (invites/members/workspaces/org) plus the given user ids. */

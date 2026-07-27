@@ -160,17 +160,17 @@ export default function OrganizationPage() {
   if (error || !org) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-        <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-6">
-          <AlertCircle className="w-8 h-8 text-red-500" />
+        <div className="w-16 h-16 bg-danger/10 border border-danger/20 rounded-2xl flex items-center justify-center mb-6">
+          <AlertCircle className="w-8 h-8 text-danger" />
         </div>
-        <h2 className="text-xl font-bold text-[#f0f0f5] mb-2">Organization Not Found</h2>
+        <h2 className="text-xl font-bold text-fg mb-2">Organization Not Found</h2>
         <p className="text-sm text-[var(--color-muted)] max-w-xs mb-8">
           The requested organization could not be loaded. Please verify the URL or check your
           membership.
         </p>
         <Link
           href="/organizations"
-          className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-[var(--color-bg)] bg-[#f0f0f5] rounded-xl hover:bg-white transition-colors"
+          className="flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-bg bg-fg rounded-xl hover:bg-fg-strong transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to list
@@ -191,13 +191,13 @@ export default function OrganizationPage() {
 
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-lg font-bold text-[#f0f0f5] shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-surface-2 border border-border flex items-center justify-center text-lg font-bold text-fg shrink-0">
             {getInitials(org.name)}
           </div>
           <div className="flex items-start gap-3 min-w-0">
             <div className="min-w-0">
               <h1
-                className="text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-[#f0f0f5]"
+                className="text-2xl md:text-3xl font-extrabold tracking-[-0.02em] text-fg"
                 style={{ fontFamily: "var(--font-syne)" }}
               >
                 {org.name}
@@ -208,7 +208,7 @@ export default function OrganizationPage() {
             </div>
             <Link
               href={`/organization/${id}/settings`}
-              className="p-2.5 text-[var(--color-muted)] hover:text-[#f0f0f5] bg-[var(--color-surface)] border border-white/[0.06] rounded-xl transition-colors shrink-0"
+              className="p-2.5 text-[var(--color-muted)] hover:text-fg bg-[var(--color-surface)] border border-border rounded-xl transition-colors shrink-0"
             >
               <Settings className="w-[18px] h-[18px]" />
             </Link>
@@ -221,7 +221,7 @@ export default function OrganizationPage() {
         {stats.map((s) => (
           <div
             key={s.label}
-            className="flex items-center gap-3.5 px-5 py-4 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06]"
+            className="flex items-center gap-3.5 px-5 py-4 rounded-2xl bg-[var(--color-surface)] border border-border"
           >
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -230,7 +230,7 @@ export default function OrganizationPage() {
               <s.icon className="w-[18px] h-[18px]" style={{ color: s.color }} />
             </div>
             <div>
-              <p className="text-2xl font-bold text-[#f0f0f5] leading-none">{s.value}</p>
+              <p className="text-2xl font-bold text-fg leading-none">{s.value}</p>
               <p className="text-xs text-[var(--color-muted)] mt-1">{s.label}</p>
             </div>
           </div>
@@ -266,9 +266,9 @@ export default function OrganizationPage() {
                   onClick={() => persistWorkspaceNav(ws.id)}
                   className="group block"
                 >
-                  <div className="relative h-full flex flex-col p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-300 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5">
+                  <div className="relative h-full flex flex-col p-5 rounded-2xl bg-[var(--color-surface)] border border-border hover:border-border-hover transition-all duration-300 hover:shadow-card-hover hover:-translate-y-0.5">
                     <div className="w-8 h-1 rounded-full mb-4" style={{ background: accent }} />
-                    <h3 className="text-base font-bold text-[#f0f0f5] mb-1 group-hover:text-white transition-colors">
+                    <h3 className="text-base font-bold text-fg mb-1 group-hover:text-fg-strong transition-colors">
                       {ws.name}
                     </h3>
                     <p className="text-xs text-[var(--color-muted)] mb-5 line-clamp-2">
@@ -276,7 +276,7 @@ export default function OrganizationPage() {
                         "Open this workspace to manage projects and tasks."}
                     </p>
 
-                    <div className="mt-auto pt-4 border-t border-white/[0.05] flex items-center justify-between text-xs text-[var(--color-muted)]">
+                    <div className="mt-auto pt-4 border-t border-border flex items-center justify-between text-xs text-[var(--color-muted)]">
                       <span className="truncate">/{ws.slug}</span>
                       <ChevronRight className="w-4 h-4 text-[var(--color-muted)] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 shrink-0" />
                     </div>
@@ -308,7 +308,7 @@ export default function OrganizationPage() {
             View all
           </button>
         </div>
-        <div className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] divide-y divide-white/[0.05] overflow-hidden">
+        <div className="rounded-2xl bg-[var(--color-surface)] border border-border divide-y divide-border overflow-hidden">
           {orgMembers.length === 0 ? (
             <p className="text-sm text-[var(--color-muted)] py-6 px-5">
               No members yet. Invite users from a workspace.
@@ -317,13 +317,13 @@ export default function OrganizationPage() {
             orgMembers.map((m) => (
               <div
                 key={m.userId}
-                className="group flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors"
+                className="group flex items-center gap-4 px-5 py-3.5 hover:bg-hover transition-colors"
               >
-                <div className="w-9 h-9 rounded-full bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-xs font-bold text-[var(--color-muted2)] shrink-0">
+                <div className="w-9 h-9 rounded-full bg-surface-2 border border-border flex items-center justify-center text-xs font-bold text-[var(--color-muted2)] shrink-0">
                   {getInitials(m.name || m.email)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-[#f0f0f5] truncate block">
+                  <span className="text-sm font-medium text-fg truncate block">
                     {m.name || m.email}
                   </span>
                   <span className="text-xs text-[var(--color-muted)]">{roleLabel[m.role]}</span>

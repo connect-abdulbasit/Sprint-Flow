@@ -16,8 +16,22 @@ import {
 } from "lucide-react";
 import { DashboardPageSkeleton } from "@/components/ui/skeleton";
 
-const MEMBER_COLORS = ["#4f7cff", "#a259ff", "#00d4aa", "#ff9f43", "#ff4f7c", "#00b4d8"];
-const ACTIVITY_COLORS = ["#4f7cff", "#a259ff", "#00d4aa", "#ff9f43", "#ff4f7c", "#00b4d8"];
+const MEMBER_COLORS = [
+  "var(--color-accent)",
+  "var(--color-accent2)",
+  "var(--color-success)",
+  "var(--color-warning)",
+  "var(--color-danger)",
+  "var(--color-info)",
+];
+const ACTIVITY_COLORS = [
+  "var(--color-accent)",
+  "var(--color-accent2)",
+  "var(--color-success)",
+  "var(--color-warning)",
+  "var(--color-danger)",
+  "var(--color-info)",
+];
 
 function getInitials(name: string | null | undefined) {
   if (!name) return "??";
@@ -59,14 +73,14 @@ function getActivityMiddleText(entityType: string, action: string): string {
 function StatusDot({ status }: { status: string }) {
   const s = status.toLowerCase();
   const colors: Record<string, string> = {
-    done: "#00d4aa",
-    in_progress: "#4f7cff",
-    "in-progress": "#4f7cff",
-    review: "#a259ff",
-    blocked: "#ff4f7c",
-    todo: "#6b6b80",
+    done: "var(--color-success)",
+    in_progress: "var(--color-accent)",
+    "in-progress": "var(--color-accent)",
+    review: "var(--color-accent2)",
+    blocked: "var(--color-danger)",
+    todo: "var(--color-muted)",
   };
-  const color = colors[s] ?? "#6b6b80";
+  const color = colors[s] ?? "var(--color-muted)";
   return (
     <div
       className="w-2 h-2 rounded-full shrink-0"
@@ -80,10 +94,10 @@ function StatusDot({ status }: { status: string }) {
 
 function PriorityBadge({ priority }: { priority: string }) {
   const config: Record<string, { bg: string; text: string; label: string }> = {
-    critical: { bg: "rgba(255,79,124,0.12)", text: "#ff4f7c", label: "Critical" },
-    high: { bg: "rgba(255,159,67,0.12)", text: "#ff9f43", label: "High" },
-    medium: { bg: "rgba(79,124,255,0.12)", text: "#4f7cff", label: "Medium" },
-    low: { bg: "rgba(107,107,128,0.12)", text: "#9090a8", label: "Low" },
+    critical: { bg: "var(--color-danger-soft)", text: "var(--color-danger)", label: "Critical" },
+    high: { bg: "var(--color-warning-soft)", text: "var(--color-warning)", label: "High" },
+    medium: { bg: "var(--color-info-soft)", text: "var(--color-info)", label: "Medium" },
+    low: { bg: "var(--color-hover-strong)", text: "var(--color-muted2)", label: "Low" },
   };
   const c = config[priority.toLowerCase()] ?? config.low;
   return (
@@ -133,12 +147,12 @@ function BurndownChart({
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-full" preserveAspectRatio="none">
       <defs>
         <linearGradient id="burndown-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#4f7cff" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="#4f7cff" stopOpacity="0" />
+          <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="burndown-stroke" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#4f7cff" />
-          <stop offset="100%" stopColor="#a259ff" />
+          <stop offset="0%" stopColor="var(--color-accent)" />
+          <stop offset="100%" stopColor="var(--color-accent2)" />
         </linearGradient>
       </defs>
       {[0.25, 0.5, 0.75].map((frac) => (
@@ -148,7 +162,7 @@ function BurndownChart({
           y1={toY(maxVal * frac)}
           x2={w - padX}
           y2={toY(maxVal * frac)}
-          stroke="rgba(255,255,255,0.04)"
+          stroke="var(--color-border)"
           strokeWidth="1"
         />
       ))}
@@ -157,7 +171,7 @@ function BurndownChart({
         <path
           d={idealPath}
           fill="none"
-          stroke="rgba(255,255,255,0.1)"
+          stroke="var(--color-border-hover)"
           strokeWidth="1.5"
           strokeDasharray="6 4"
         />
@@ -177,8 +191,8 @@ function BurndownChart({
           cx={toX(actual.length - 1)}
           cy={toY(actual[actual.length - 1])}
           r="4"
-          fill="#4f7cff"
-          stroke="#0a0a0f"
+          fill="var(--color-accent)"
+          stroke="var(--color-surface)"
           strokeWidth="2"
         >
           <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite" />
@@ -193,7 +207,7 @@ function ProgressRing({
   max,
   size = 120,
   strokeWidth = 8,
-  color = "#4f7cff",
+  color = "var(--color-accent)",
 }: {
   value: number;
   max: number;
@@ -219,7 +233,7 @@ function ProgressRing({
         cy={size / 2}
         r={radius}
         fill="none"
-        stroke="rgba(255,255,255,0.05)"
+        stroke="var(--color-border)"
         strokeWidth={strokeWidth}
       />
       <circle
@@ -234,7 +248,7 @@ function ProgressRing({
         strokeDashoffset={offset}
         style={{
           transition: "stroke-dashoffset 1.2s cubic-bezier(0.16, 1, 0.3, 1)",
-          filter: `drop-shadow(0 0 6px ${color}50)`,
+          filter: `drop-shadow(0 0 6px color-mix(in srgb, ${color} 31%, transparent))`,
         }}
       />
     </svg>
@@ -400,28 +414,28 @@ export default function DashboardPage() {
       label: "Tasks Completed",
       value: String(stats.completed),
       icon: CheckSquare,
-      color: "#00d4aa",
+      color: "var(--color-success)",
       subtitle: sprint ? "this sprint" : "total done",
     },
     {
       label: "In Progress",
       value: String(stats.inProgress),
       icon: Clock,
-      color: "#4f7cff",
+      color: "var(--color-accent)",
       subtitle: "active right now",
     },
     {
       label: "Story Points",
       value: String(stats.storyPointsCompleted),
       icon: Zap,
-      color: "#a259ff",
+      color: "var(--color-accent2)",
       subtitle: "velocity this sprint",
     },
     {
       label: "Blocked",
       value: String(stats.blocked),
       icon: AlertCircle,
-      color: "#ff4f7c",
+      color: "var(--color-danger)",
       subtitle: "needs attention",
     },
   ];
@@ -445,7 +459,7 @@ export default function DashboardPage() {
       {loadError && (
         <div
           role="alert"
-          className="flex items-center justify-between gap-3 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3 text-[13px] text-red-300"
+          className="flex items-center justify-between gap-3 rounded-xl border border-danger/25 bg-danger-soft px-4 py-3 text-[13px] text-danger"
         >
           <span className="flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -454,7 +468,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setReloadToken((n) => n + 1)}
-            className="shrink-0 rounded-lg border border-red-500/25 px-3 py-1.5 font-semibold text-red-200 hover:bg-red-500/10"
+            className="shrink-0 rounded-lg border border-danger/30 px-3 py-1.5 font-semibold text-danger hover:bg-danger/10"
           >
             Retry
           </button>
@@ -463,9 +477,9 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-end gap-4 transition-all duration-700 opacity-100 translate-y-0">
         {sprint && (
           <div className="flex items-center gap-3 sm:ml-auto">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-border text-sm">
               <Timer className="w-4 h-4 text-[var(--color-accent)]" />
-              <span className="font-semibold text-[#f0f0f5]">
+              <span className="font-semibold text-fg">
                 {hasMultipleSprints ? `${activeSprints.length} Active Sprints` : sprint.name}
               </span>
               <span className="text-[var(--color-muted)] text-xs">
@@ -478,9 +492,12 @@ export default function DashboardPage() {
                 style={{
                   background:
                     (earliestSprintEndDays ?? sprint.daysLeft) <= 3
-                      ? "rgba(255,79,124,0.12)"
-                      : "rgba(79,124,255,0.12)",
-                  color: (earliestSprintEndDays ?? sprint.daysLeft) <= 3 ? "#ff4f7c" : "#4f7cff",
+                      ? "var(--color-danger-soft)"
+                      : "var(--color-accent-soft)",
+                  color:
+                    (earliestSprintEndDays ?? sprint.daysLeft) <= 3
+                      ? "var(--color-danger)"
+                      : "var(--color-accent)",
                 }}
               >
                 {hasMultipleSprints
@@ -491,7 +508,7 @@ export default function DashboardPage() {
           </div>
         )}
         {!sprint && (
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-white/[0.06] text-sm sm:ml-auto">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-surface)] border border-border text-sm sm:ml-auto">
             <Timer className="w-4 h-4 text-[var(--color-muted)]" />
             <span className="text-[var(--color-muted)] text-xs">No active sprint</span>
           </div>
@@ -502,7 +519,7 @@ export default function DashboardPage() {
         {statCards.map((card, i) => (
           <div
             key={card.label}
-            className="group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] hover:border-white/[0.12] transition-all duration-500 hover:shadow-[0_8px_40px_-12px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 opacity-100 translate-y-0"
+            className="group relative p-5 rounded-2xl bg-[var(--color-surface)] border border-border hover:border-border-hover transition-all duration-500 hover:shadow-card-hover hover:-translate-y-0.5 opacity-100 translate-y-0"
             style={{ transitionDelay: `${150 + i * 80}ms` }}
           >
             <div
@@ -519,7 +536,7 @@ export default function DashboardPage() {
                 <card.icon className="w-[18px] h-[18px]" style={{ color: card.color }} />
               </div>
             </div>
-            <p className="text-3xl font-bold text-[#f0f0f5] leading-none mb-1">{card.value}</p>
+            <p className="text-3xl font-bold text-fg leading-none mb-1">{card.value}</p>
             <p className="text-xs text-[var(--color-muted)]">{card.label}</p>
             <p className="text-[10px] text-[var(--color-muted)] mt-0.5 opacity-60">
               {card.subtitle}
@@ -530,7 +547,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div
-          className="relative p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
+          className="relative p-6 rounded-2xl bg-[var(--color-surface)] border border-border overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
           style={{ transitionDelay: "500ms" }}
         >
           <div
@@ -545,7 +562,7 @@ export default function DashboardPage() {
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
                 Sprint Progress
               </h2>
-              <span className="text-[10px] font-medium text-[var(--color-muted)] bg-white/[0.04] px-2 py-1 rounded-md">
+              <span className="text-[10px] font-medium text-[var(--color-muted)] bg-hover px-2 py-1 rounded-md">
                 {hasMultipleSprints
                   ? `${activeSprints.length} sprints`
                   : (sprint?.name ?? "No sprint")}
@@ -561,23 +578,33 @@ export default function DashboardPage() {
                   color={ws.color}
                 />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-3xl font-bold text-[#f0f0f5]">{sprintProgress}%</span>
+                  <span className="text-3xl font-bold text-fg">{sprintProgress}%</span>
                   <span className="text-[10px] text-[var(--color-muted)]">complete</span>
                 </div>
               </div>
             </div>
             <div className="space-y-2.5">
               {[
-                { label: "Completed", value: stats.completed, color: "#00d4aa", icon: CheckSquare },
-                { label: "In Progress", value: stats.inProgress, color: "#4f7cff", icon: Activity },
-                { label: "To Do", value: stats.todo, color: "#6b6b80", icon: Circle },
+                {
+                  label: "Completed",
+                  value: stats.completed,
+                  color: "var(--color-success)",
+                  icon: CheckSquare,
+                },
+                {
+                  label: "In Progress",
+                  value: stats.inProgress,
+                  color: "var(--color-accent)",
+                  icon: Activity,
+                },
+                { label: "To Do", value: stats.todo, color: "var(--color-muted)", icon: Circle },
               ].map((item) => (
                 <div key={item.label} className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-2 h-2 rounded-full" style={{ background: item.color }} />
                     <span className="text-xs text-[var(--color-muted2)]">{item.label}</span>
                   </div>
-                  <span className="text-sm font-bold text-[#f0f0f5]">{item.value}</span>
+                  <span className="text-sm font-bold text-fg">{item.value}</span>
                 </div>
               ))}
             </div>
@@ -585,7 +612,7 @@ export default function DashboardPage() {
         </div>
 
         <div
-          className="lg:col-span-2 p-6 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] transition-all duration-700 opacity-100 translate-y-0"
+          className="lg:col-span-2 p-6 rounded-2xl bg-[var(--color-surface)] border border-border transition-all duration-700 opacity-100 translate-y-0"
           style={{ transitionDelay: "600ms" }}
         >
           <div className="flex items-center justify-between mb-2">
@@ -594,15 +621,15 @@ export default function DashboardPage() {
             </h2>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5">
-                <div className="w-3 h-0.5 rounded-full bg-gradient-to-r from-[#4f7cff] to-[#a259ff]" />
+                <div className="w-3 h-0.5 rounded-full bg-gradient-to-r from-accent to-accent2" />
                 <span className="text-[10px] text-[var(--color-muted)]">Actual</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div
-                  className="w-3 h-0.5 rounded-full bg-white/10"
+                  className="w-3 h-0.5 rounded-full bg-border-hover"
                   style={{
                     backgroundImage:
-                      "repeating-linear-gradient(90deg, rgba(255,255,255,0.15) 0, rgba(255,255,255,0.15) 3px, transparent 3px, transparent 6px)",
+                      "repeating-linear-gradient(90deg, var(--color-border-hover) 0, var(--color-border-hover) 3px, transparent 3px, transparent 6px)",
                   }}
                 />
                 <span className="text-[10px] text-[var(--color-muted)]">Ideal</span>
@@ -632,10 +659,10 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div
-          className="lg:col-span-2 rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
+          className="lg:col-span-2 rounded-2xl bg-[var(--color-surface)] border border-border overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
           style={{ transitionDelay: "700ms" }}
         >
-          <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.05]">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
               Recent Tasks
             </h2>
@@ -644,14 +671,14 @@ export default function DashboardPage() {
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="divide-y divide-white/[0.04]">
+          <div className="divide-y divide-border">
             {recentTasks.length === 0 ? (
               <p className="px-6 py-4 text-xs text-[var(--color-muted)]">No tasks yet</p>
             ) : (
               recentTasks.map((task) => (
                 <div
                   key={task.id}
-                  className="group flex items-center gap-4 px-6 py-3.5 hover:bg-white/[0.02] transition-colors cursor-pointer"
+                  className="group flex items-center gap-4 px-6 py-3.5 hover:bg-hover transition-colors cursor-pointer"
                 >
                   <StatusDot status={task.status} />
                   <div className="flex-1 min-w-0">
@@ -661,13 +688,13 @@ export default function DashboardPage() {
                       </span>
                       <PriorityBadge priority={task.priority} />
                     </div>
-                    <p className="text-sm text-[#f0f0f5] truncate group-hover:text-white transition-colors">
+                    <p className="text-sm text-fg truncate group-hover:text-fg-strong transition-colors">
                       {task.title}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     {task.assigneeName && (
-                      <div className="w-7 h-7 rounded-full bg-[var(--color-surface2)] border border-white/[0.06] flex items-center justify-center text-[9px] font-bold text-[var(--color-muted2)]">
+                      <div className="w-7 h-7 rounded-full bg-surface-2 border border-border flex items-center justify-center text-[9px] font-bold text-[var(--color-muted2)]">
                         {getInitials(task.assigneeName)}
                       </div>
                     )}
@@ -683,10 +710,10 @@ export default function DashboardPage() {
 
         <div className="flex flex-col gap-4">
           <div
-            className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
+            className="rounded-2xl bg-[var(--color-surface)] border border-border overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
             style={{ transitionDelay: "800ms" }}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
                 Activity
               </h2>
@@ -713,15 +740,15 @@ export default function DashboardPage() {
                           {initials}
                         </div>
                         {i < Math.min(activities.length, 5) - 1 && (
-                          <div className="w-px flex-1 bg-white/[0.05] mt-1" />
+                          <div className="w-px flex-1 bg-hover mt-1" />
                         )}
                       </div>
                       <div className="pb-3">
                         <p className="text-xs text-[var(--color-muted2)] leading-relaxed">
-                          <span className="font-semibold text-[#f0f0f5]">{firstName}</span>{" "}
+                          <span className="font-semibold text-fg">{firstName}</span>{" "}
                           {getActivityMiddleText(item.entityType, item.action)}{" "}
                           {item.entityType !== "member" && (
-                            <span className="font-medium text-[#f0f0f5]">{item.entityName}</span>
+                            <span className="font-medium text-fg">{item.entityName}</span>
                           )}
                         </p>
                         <span className="text-[10px] text-[var(--color-muted)]">
@@ -736,10 +763,10 @@ export default function DashboardPage() {
           </div>
 
           <div
-            className="rounded-2xl bg-[var(--color-surface)] border border-white/[0.06] overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
+            className="rounded-2xl bg-[var(--color-surface)] border border-border overflow-hidden transition-all duration-700 opacity-100 translate-y-0"
             style={{ transitionDelay: "900ms" }}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-[var(--color-muted)]">
                 Team Workload
               </h2>
@@ -770,7 +797,7 @@ export default function DashboardPage() {
                           >
                             {getInitials(member.assigneeName)}
                           </div>
-                          <span className="text-xs text-[#f0f0f5] font-medium">
+                          <span className="text-xs text-fg font-medium">
                             {member.assigneeName.split(" ")[0]}
                           </span>
                         </div>
@@ -778,12 +805,12 @@ export default function DashboardPage() {
                           {member.completedTasks}/{member.totalTasks}
                         </span>
                       </div>
-                      <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
+                      <div className="h-1.5 rounded-full bg-hover overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-1000 ease-out"
                           style={{
                             width: `${pct}%`,
-                            background: `linear-gradient(90deg, ${color}, ${color}cc)`,
+                            background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 80%, transparent))`,
                             transitionDelay: "1000ms",
                           }}
                         />

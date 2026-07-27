@@ -321,16 +321,16 @@ export default function NotificationsPage() {
   }, [unreadCount, markingAllRead]);
 
   return (
-    <div className="flex h-full flex-col bg-[#09090b]">
-      <div className="sticky top-0 z-10 border-b border-white/[0.04] bg-[#0c0c0f]/50 px-10 py-8 backdrop-blur-xl">
+    <div className="flex h-full flex-col bg-surface-sunken">
+      <div className="sticky top-0 z-10 border-b border-border bg-surface-sunken/50 px-10 py-8 backdrop-blur-xl">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-500/25 bg-blue-500/10 text-blue-400">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-accent/25 bg-accent/10 text-accent">
               <BellRing className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">Notifications</h1>
-              <p className="mt-1 text-[13px] text-zinc-500">
+              <h1 className="text-2xl font-semibold tracking-tight text-fg">Notifications</h1>
+              <p className="mt-1 text-[13px] text-muted">
                 Mentions, task updates, sprint changes, and invites across your workspace.
               </p>
             </div>
@@ -342,8 +342,8 @@ export default function NotificationsPage() {
               onClick={() => setFilterMode("all")}
               className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition ${
                 filterMode === "all"
-                  ? "bg-white/[0.08] text-zinc-100"
-                  : "bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"
+                  ? "bg-hover-strong text-fg"
+                  : "bg-hover text-muted hover:bg-hover hover:text-muted2"
               }`}
             >
               All ({paginationMeta.total})
@@ -353,8 +353,8 @@ export default function NotificationsPage() {
               onClick={() => setFilterMode("unread")}
               className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition ${
                 filterMode === "unread"
-                  ? "bg-blue-500/15 text-blue-300"
-                  : "bg-white/[0.02] text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300"
+                  ? "bg-accent/15 text-accent"
+                  : "bg-hover text-muted hover:bg-hover hover:text-muted2"
               }`}
             >
               Unread ({unreadCount})
@@ -363,7 +363,7 @@ export default function NotificationsPage() {
               type="button"
               onClick={() => void loadNotifications(currentPage, "refresh")}
               disabled={loading || refreshing}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3.5 py-2 text-[13px] font-medium text-zinc-300 transition hover:bg-white/[0.04] hover:text-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-hover px-3.5 py-2 text-[13px] font-medium text-muted2 transition hover:bg-hover hover:text-fg disabled:cursor-not-allowed disabled:opacity-60"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
               Refresh
@@ -372,7 +372,7 @@ export default function NotificationsPage() {
               type="button"
               onClick={() => void markAllAsRead()}
               disabled={loading || unreadCount === 0 || markingAllRead}
-              className="inline-flex items-center gap-2 rounded-lg border border-blue-500/25 bg-blue-500/10 px-3.5 py-2 text-[13px] font-medium text-blue-200 transition hover:bg-blue-500/15 hover:text-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-lg border border-accent/25 bg-accent/10 px-3.5 py-2 text-[13px] font-medium text-accent transition hover:bg-accent/15 hover:text-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CheckCheck className={`h-3.5 w-3.5 ${markingAllRead ? "animate-pulse" : ""}`} />
               {markingAllRead ? "Marking..." : "Mark all as read"}
@@ -385,55 +385,53 @@ export default function NotificationsPage() {
         <div className="grid gap-6 xl:grid-cols-[1.75fr_1fr]">
           <section className="space-y-4">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-4">
-                <p className="text-[11px] uppercase tracking-[0.13em] text-zinc-500">Unread</p>
+              <div className="rounded-2xl border border-border bg-surface p-4">
+                <p className="text-[11px] uppercase tracking-[0.13em] text-muted">Unread</p>
                 {loading ? (
                   <Skeleton className="mt-3 h-8 w-14 rounded-md" />
                 ) : (
-                  <p className="mt-3 text-3xl font-semibold text-zinc-100">{unreadCount}</p>
+                  <p className="mt-3 text-3xl font-semibold text-fg">{unreadCount}</p>
                 )}
               </div>
-              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-4">
-                <p className="text-[11px] uppercase tracking-[0.13em] text-zinc-500">Read</p>
+              <div className="rounded-2xl border border-border bg-surface p-4">
+                <p className="text-[11px] uppercase tracking-[0.13em] text-muted">Read</p>
                 {loading ? (
                   <Skeleton className="mt-3 h-8 w-14 rounded-md" />
                 ) : (
-                  <p className="mt-3 text-3xl font-semibold text-zinc-100">{readCount}</p>
+                  <p className="mt-3 text-3xl font-semibold text-fg">{readCount}</p>
                 )}
               </div>
-              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-4">
-                <p className="text-[11px] uppercase tracking-[0.13em] text-zinc-500">Total</p>
+              <div className="rounded-2xl border border-border bg-surface p-4">
+                <p className="text-[11px] uppercase tracking-[0.13em] text-muted">Total</p>
                 {loading ? (
                   <Skeleton className="mt-3 h-8 w-14 rounded-md" />
                 ) : (
-                  <p className="mt-3 text-3xl font-semibold text-zinc-100">
-                    {paginationMeta.total}
-                  </p>
+                  <p className="mt-3 text-3xl font-semibold text-fg">{paginationMeta.total}</p>
                 )}
               </div>
-              <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-4">
-                <p className="text-[11px] uppercase tracking-[0.13em] text-zinc-500">Categories</p>
+              <div className="rounded-2xl border border-border bg-surface p-4">
+                <p className="text-[11px] uppercase tracking-[0.13em] text-muted">Categories</p>
                 {loading ? (
                   <Skeleton className="mt-3 h-8 w-14 rounded-md" />
                 ) : (
-                  <p className="mt-3 text-3xl font-semibold text-zinc-100">{summary.length}</p>
+                  <p className="mt-3 text-3xl font-semibold text-fg">{summary.length}</p>
                 )}
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)]">
-              <div className="flex items-center justify-between border-b border-white/[0.05] px-5 py-4">
+            <div className="rounded-2xl border border-border bg-surface">
+              <div className="flex items-center justify-between border-b border-border px-5 py-4">
                 <div>
-                  <p className="text-sm font-semibold text-zinc-100">
+                  <p className="text-sm font-semibold text-fg">
                     {filterMode === "unread" ? "Unread notifications" : "Latest notifications"}
                   </p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-muted">
                     {filterMode === "unread"
                       ? "Items that still need your attention."
                       : "Ordered by newest updates first."}
                   </p>
                 </div>
-                <span className="rounded-md bg-white/[0.04] px-2 py-1 text-[11px] text-zinc-400">
+                <span className="rounded-md bg-hover px-2 py-1 text-[11px] text-muted2">
                   {filteredNotifications.length} items
                 </span>
               </div>
@@ -442,15 +440,15 @@ export default function NotificationsPage() {
                 {loading ? (
                   <NotificationListSkeleton rows={6} />
                 ) : error ? (
-                  <div className="rounded-xl border border-rose-500/20 bg-rose-500/8 p-5 text-sm text-rose-300">
+                  <div className="rounded-xl border border-danger/20 bg-danger/8 p-5 text-sm text-danger">
                     {error}
                   </div>
                 ) : filteredNotifications.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] p-10 text-center">
-                    <p className="text-sm font-medium text-zinc-300">
+                  <div className="rounded-xl border border-dashed border-border-hover bg-hover p-10 text-center">
+                    <p className="text-sm font-medium text-muted2">
                       {filterMode === "unread" ? "No unread notifications" : "No notifications yet"}
                     </p>
-                    <p className="mt-1 text-xs text-zinc-500">
+                    <p className="mt-1 text-xs text-muted">
                       {filterMode === "unread"
                         ? "You are all caught up."
                         : "New mentions and updates will appear here."}
@@ -466,35 +464,35 @@ export default function NotificationsPage() {
                           key={notification.id}
                           className={`rounded-xl border px-4 py-4 transition ${
                             notification.isRead
-                              ? "border-white/[0.06] bg-white/[0.01] hover:bg-white/[0.03]"
-                              : "border-blue-500/30 bg-blue-500/[0.06] hover:bg-blue-500/[0.09]"
+                              ? "border-border bg-hover hover:bg-hover"
+                              : "border-accent/30 bg-accent/[0.06] hover:bg-accent/[0.09]"
                           }`}
                         >
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex items-start gap-3">
-                              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-blue-300">
+                              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-hover text-accent">
                                 <Icon className="h-4.5 w-4.5" />
                               </span>
                               <div>
-                                <p className="text-sm font-semibold text-zinc-100">
+                                <p className="text-sm font-semibold text-fg">
                                   {notification.title}
                                 </p>
-                                <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
+                                <div className="mt-1 flex items-center gap-2 text-[11px] text-muted">
                                   <span>{getTypeLabel(notification.type)}</span>
-                                  <span className="h-1 w-1 rounded-full bg-zinc-600" />
+                                  <span className="h-1 w-1 rounded-full bg-muted" />
                                   <span>{formatDate(notification.createdAt)}</span>
                                 </div>
                               </div>
                             </div>
                             {!notification.isRead && (
-                              <span className="inline-flex rounded-full bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-blue-300">
+                              <span className="inline-flex rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-accent">
                                 New
                               </span>
                             )}
                           </div>
 
                           <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="max-w-2xl text-sm leading-6 text-zinc-300">
+                            <p className="max-w-2xl text-sm leading-6 text-muted2">
                               {notification.message}
                             </p>
                             <div className="flex items-center gap-3">
@@ -503,7 +501,7 @@ export default function NotificationsPage() {
                                   type="button"
                                   onClick={() => void markNotificationAsRead(notification.id)}
                                   disabled={Boolean(pendingReadIds[notification.id])}
-                                  className="text-xs font-semibold text-blue-300 transition hover:text-blue-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="text-xs font-semibold text-accent transition hover:text-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                   {pendingReadIds[notification.id] ? "Marking..." : "Mark as read"}
                                 </button>
@@ -511,14 +509,14 @@ export default function NotificationsPage() {
                               {detailHref ? (
                                 <Link
                                   href={detailHref}
-                                  className="text-sm font-semibold text-[var(--color-accent)] transition hover:text-white"
+                                  className="text-sm font-semibold text-[var(--color-accent)] transition hover:text-accent-strong"
                                 >
                                   Open details
                                 </Link>
                               ) : (
-                                <span className="text-sm text-zinc-500">No link</span>
+                                <span className="text-sm text-muted">No link</span>
                               )}
-                              <span className="rounded-md bg-white/[0.04] px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-zinc-400">
+                              <span className="rounded-md bg-hover px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-muted2">
                                 {notification.targetType || "general"}
                               </span>
                             </div>
@@ -530,8 +528,8 @@ export default function NotificationsPage() {
                 )}
               </div>
               {!loading && paginationMeta.total > 0 && (
-                <div className="flex items-center justify-between border-t border-white/[0.05] px-5 py-3">
-                  <p className="text-xs text-zinc-500">
+                <div className="flex items-center justify-between border-t border-border px-5 py-3">
+                  <p className="text-xs text-muted">
                     Page {paginationMeta.page} of {paginationMeta.totalPages}
                   </p>
                   <div className="flex items-center gap-2">
@@ -539,7 +537,7 @@ export default function NotificationsPage() {
                       type="button"
                       onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                       disabled={!paginationMeta.hasPreviousPage}
-                      className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs text-zinc-300 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-border bg-hover px-3 py-1.5 text-xs text-muted2 transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Previous
                     </button>
@@ -549,7 +547,7 @@ export default function NotificationsPage() {
                         setCurrentPage((prev) => (paginationMeta.hasNextPage ? prev + 1 : prev))
                       }
                       disabled={!paginationMeta.hasNextPage}
-                      className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5 text-xs text-zinc-300 transition hover:bg-white/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-lg border border-border bg-hover px-3 py-1.5 text-xs text-muted2 transition hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Next
                     </button>
@@ -560,12 +558,12 @@ export default function NotificationsPage() {
           </section>
 
           <aside className="space-y-4">
-            <div className="rounded-2xl border border-white/[0.06] bg-[var(--color-surface)] p-5">
-              <div className="flex items-center gap-3 text-zinc-100">
+            <div className="rounded-2xl border border-border bg-surface p-5">
+              <div className="flex items-center gap-3 text-fg">
                 <CheckCircle2 className="h-5 w-5 text-[var(--color-accent)]" />
                 <div>
                   <p className="font-semibold">Notification overview</p>
-                  <p className="text-xs text-zinc-500">Counts by notification type.</p>
+                  <p className="text-xs text-muted">Counts by notification type.</p>
                 </div>
               </div>
               <div className="mt-4 space-y-2.5">
@@ -576,7 +574,7 @@ export default function NotificationsPage() {
                     <Skeleton className="h-14 rounded-lg" />
                   </>
                 ) : summary.length === 0 ? (
-                  <p className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-4 text-xs text-zinc-500">
+                  <p className="rounded-lg border border-border bg-hover px-3 py-4 text-xs text-muted">
                     No categories available yet.
                   </p>
                 ) : (
@@ -585,15 +583,15 @@ export default function NotificationsPage() {
                     return (
                       <div
                         key={key}
-                        className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-3"
+                        className="flex items-center justify-between rounded-lg border border-border bg-hover px-3 py-3"
                       >
                         <div className="flex items-center gap-2.5">
-                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.05] text-[var(--color-accent)]">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-hover text-[var(--color-accent)]">
                             <Icon className="h-4 w-4" />
                           </span>
-                          <span className="text-sm text-zinc-300">{getTypeLabel(key)}</span>
+                          <span className="text-sm text-muted2">{getTypeLabel(key)}</span>
                         </div>
-                        <span className="text-sm font-semibold text-zinc-100">{count}</span>
+                        <span className="text-sm font-semibold text-fg">{count}</span>
                       </div>
                     );
                   })
