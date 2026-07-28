@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { epicService } from "@/modules/epic/epic.service";
+import { buildValidEpicCreateInput } from "@/modules/epic/epic.validation";
 import {
   createTestUser,
   createTestOrg,
@@ -37,7 +38,7 @@ describe("epicService role-based authorization", () => {
   it("a plain member cannot create an epic", async () => {
     const { member, project } = await setup();
     await expect(
-      epicService.createEpic(member.id, project.id, { name: "Member's epic" })
+      epicService.createEpic(member.id, project.id, buildValidEpicCreateInput(member.id))
     ).rejects.toThrow(/Forbidden/);
   });
 
@@ -50,7 +51,11 @@ describe("epicService role-based authorization", () => {
   it("a project_manager can create, edit, archive, duplicate, and move epics", async () => {
     const { pm, project } = await setup();
 
-    const created = await epicService.createEpic(pm.id, project.id, { name: "PM's epic" });
+    const created = await epicService.createEpic(
+      pm.id,
+      project.id,
+      buildValidEpicCreateInput(pm.id, { name: "PM's epic" })
+    );
     const updated = await epicService.updateEpic(pm.id, project.id, created.id, {
       status: "in_progress",
     });
@@ -62,7 +67,11 @@ describe("epicService role-based authorization", () => {
     const duplicated = await epicService.duplicateEpic(pm.id, project.id, created.id);
     expect(duplicated.name).toContain("copy");
 
-    const secondEpic = await epicService.createEpic(pm.id, project.id, { name: "Second" });
+    const secondEpic = await epicService.createEpic(
+      pm.id,
+      project.id,
+      buildValidEpicCreateInput(pm.id, { name: "Second" })
+    );
     const moved = await epicService.moveEpic(pm.id, project.id, secondEpic.id, 0);
     expect(moved[0].id).toBe(secondEpic.id);
   });
@@ -82,7 +91,7 @@ describe("epicService role-based authorization", () => {
 
     await expect(epicService.listEpics(outsider.id, project.id)).rejects.toThrow(/access denied/);
     await expect(
-      epicService.createEpic(outsider.id, project.id, { name: "Intruder epic" })
+      epicService.createEpic(outsider.id, project.id, buildValidEpicCreateInput(outsider.id))
     ).rejects.toThrow(/access denied/);
   });
 });

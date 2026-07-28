@@ -5,14 +5,8 @@ import { taskRepository } from "@/modules/task/task.repository";
 import { activityService } from "@/modules/activity/activity.service";
 import { notificationService } from "@/modules/notification/notification.service";
 import { hasRole, type WorkspaceRole } from "@/lib/auth/rbac";
-import { normalizeTicketPriority } from "@/lib/ticket-priority";
-import {
-  EPIC_STATUSES,
-  isValidEpicStatus,
-  isValidEpicColor,
-  isValidEpicIcon,
-  type EpicStatus,
-} from "@/modules/epic/epic.types";
+import { type EpicStatus } from "@/modules/epic/epic.types";
+import { validateEpicCreateInput, validateEpicUpdateInput } from "@/modules/epic/epic.validation";
 import type { PaginationInput } from "@/lib/pagination";
 
 type TaskLeaf = { status: string };
@@ -69,7 +63,7 @@ export class EpicService {
    * keyed by epicId — the single source `computeEpicProgress` needs, and reused by
    * the client for the same grouping (see src/lib/issue-hierarchy.ts). */
   private async loadIssuesByEpic(projectId: string) {
-    const tasks = await taskRepository.findByProject(projectId);
+    const tasks = await taskRepository.findProgressInputsByProject(projectId);
     const subtasksByParent = new Map<string, TaskLeaf[]>();
     for (const t of tasks) {
       if (!t.parentTaskId) continue;
@@ -88,15 +82,21 @@ export class EpicService {
     return issuesByEpic;
   }
 
-  async listEpics(userId: string, projectId: string, opts?: { includeArchived?: boolean }) {
+  async listEpics(
+    userId: string,
+    projectId: string,
+    opts?: { includeArchived?: boolean; skipProgress?: boolean }
+  ) {
     const project = await projectRepository.getProjectIfMember(userId, projectId);
     if (!project) {
       throw new Error("Project not found or access denied");
     }
-    const [rows, issuesByEpic] = await Promise.all([
-      epicRepository.findByProject(projectId, opts),
-      this.loadIssuesByEpic(projectId),
-    ]);
+    const rows = await epicRepository.findByProject(projectId, opts);
+    if (opts?.skipProgress) {
+      const emptyProgress = { issueCount: 0, completedIssueCount: 0, progressPercent: 0 };
+      return rows.map((row) => serializeEpic(row, emptyProgress));
+    }
+    const issuesByEpic = await this.loadIssuesByEpic(projectId);
     return rows.map((row) =>
       serializeEpic(row, computeEpicProgress(issuesByEpic.get(row.id) ?? []))
     );
@@ -129,22 +129,7 @@ export class EpicService {
     return { ownerId, ownerName: user.name };
   }
 
-  async createEpic(
-    userId: string,
-    projectId: string,
-    body: {
-      name: string;
-      description?: string | null;
-      status?: string;
-      priority?: string;
-      ownerId?: string | null;
-      color?: string | null;
-      icon?: string | null;
-      labels?: string[] | null;
-      startDate?: string | null;
-      dueDate?: string | null;
-    }
-  ) {
+  async createEpic(userId: string, projectId: string, body: Record<string, unknown>) {
     const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
     if (!membership) {
       throw new Error("Project not found or access denied");
@@ -154,35 +139,22 @@ export class EpicService {
     }
     const { project } = membership;
 
-    const name = body.name.trim();
-    if (!name) throw new Error("name cannot be empty");
-
-    if (body.status !== undefined && !isValidEpicStatus(body.status)) {
-      throw new Error(`status must be one of: ${EPIC_STATUSES.join(", ")}`);
-    }
-    if (body.color !== undefined && body.color !== null && !isValidEpicColor(body.color)) {
-      throw new Error("Invalid epic color");
-    }
-    if (body.icon !== undefined && body.icon !== null && !isValidEpicIcon(body.icon)) {
-      throw new Error("Invalid epic icon");
-    }
-    const priority =
-      body.priority !== undefined ? normalizeTicketPriority(body.priority) : "medium";
-    const owner = await this.resolveOwner(projectId, body.ownerId ?? null);
+    const input = validateEpicCreateInput(body);
+    const owner = await this.resolveOwner(projectId, input.ownerId);
 
     const created = await epicRepository.insertWithNextOrderIndex({
       projectId,
-      name,
-      description: body.description ?? null,
-      status: body.status ?? "backlog",
-      priority,
+      name: input.name,
+      description: input.description,
+      status: input.status,
+      priority: input.priority,
       ownerId: owner.ownerId,
       ownerName: owner.ownerName,
-      color: body.color ?? null,
-      icon: body.icon ?? null,
-      labels: body.labels ?? null,
-      startDate: body.startDate ?? null,
-      dueDate: body.dueDate ?? null,
+      color: input.color,
+      icon: input.icon,
+      labels: input.labels,
+      startDate: input.startDate,
+      dueDate: input.dueDate,
     });
 
     await activityService.logActivity({
@@ -201,18 +173,7 @@ export class EpicService {
     userId: string,
     projectId: string,
     epicId: string,
-    body: Partial<{
-      name: string;
-      description: string | null;
-      status: string;
-      priority: string;
-      ownerId: string | null;
-      color: string | null;
-      icon: string | null;
-      labels: string[] | null;
-      startDate: string | null;
-      dueDate: string | null;
-    }>
+    body: Partial<Record<string, unknown>>
   ) {
     const membership = await projectRepository.getProjectIfMemberWithRole(userId, projectId);
     if (!membership) {
@@ -227,39 +188,29 @@ export class EpicService {
       throw new Error("Epic not found");
     }
 
+    const validated = validateEpicUpdateInput(body);
     const patch: Parameters<typeof epicRepository.update>[1] = {};
 
-    if (body.name !== undefined) {
-      const n = body.name.trim();
-      if (!n) throw new Error("name cannot be empty");
-      patch.name = n;
-    }
-    if (body.description !== undefined) patch.description = body.description;
-    if (body.status !== undefined) {
-      if (!isValidEpicStatus(body.status)) {
-        throw new Error(`status must be one of: ${EPIC_STATUSES.join(", ")}`);
-      }
-      patch.status = body.status;
-    }
-    if (body.priority !== undefined) patch.priority = normalizeTicketPriority(body.priority);
-    if (body.color !== undefined) {
-      if (body.color !== null && !isValidEpicColor(body.color)) {
-        throw new Error("Invalid epic color");
-      }
-      patch.color = body.color;
-    }
-    if (body.icon !== undefined) {
-      if (body.icon !== null && !isValidEpicIcon(body.icon)) {
-        throw new Error("Invalid epic icon");
-      }
-      patch.icon = body.icon;
-    }
-    if (body.labels !== undefined) patch.labels = body.labels;
-    if (body.startDate !== undefined) patch.startDate = body.startDate;
-    if (body.dueDate !== undefined) patch.dueDate = body.dueDate;
+    if (validated.name !== undefined) patch.name = validated.name;
+    if (validated.description !== undefined) patch.description = validated.description;
+    if (validated.status !== undefined) patch.status = validated.status;
+    if (validated.priority !== undefined) patch.priority = validated.priority;
+    if (validated.color !== undefined) patch.color = validated.color;
+    if (validated.icon !== undefined) patch.icon = validated.icon;
+    if (validated.labels !== undefined) patch.labels = validated.labels;
+    if (validated.startDate !== undefined) patch.startDate = validated.startDate;
+    if (validated.dueDate !== undefined) patch.dueDate = validated.dueDate;
 
-    if (body.ownerId !== undefined) {
-      const owner = await this.resolveOwner(projectId, body.ownerId);
+    if (validated.startDate !== undefined || validated.dueDate !== undefined) {
+      const startDate = validated.startDate ?? existing.startDate;
+      const dueDate = validated.dueDate ?? existing.dueDate;
+      if (startDate && dueDate && dueDate < startDate) {
+        throw new Error("due date cannot be before start date");
+      }
+    }
+
+    if (validated.ownerId !== undefined) {
+      const owner = await this.resolveOwner(projectId, validated.ownerId);
       patch.ownerId = owner.ownerId;
       patch.ownerName = owner.ownerName;
     }
@@ -272,7 +223,7 @@ export class EpicService {
     const updated = await epicRepository.update(epicId, patch);
     if (!updated) throw new Error("Epic not found");
 
-    if (body.status !== undefined && body.status !== existing.status) {
+    if (validated.status !== undefined && validated.status !== existing.status) {
       await activityService.logActivity({
         workspaceId: project.workspaceId,
         userId,
@@ -282,7 +233,7 @@ export class EpicService {
         entityName: updated.name,
       });
     }
-    if (body.priority !== undefined && patch.priority !== existing.priority) {
+    if (validated.priority !== undefined && patch.priority !== existing.priority) {
       await activityService.logActivity({
         workspaceId: project.workspaceId,
         userId,
@@ -292,7 +243,7 @@ export class EpicService {
         entityName: updated.name,
       });
     }
-    if (body.ownerId !== undefined && updated.ownerId !== existing.ownerId) {
+    if (validated.ownerId !== undefined && updated.ownerId !== existing.ownerId) {
       await activityService.logActivity({
         workspaceId: project.workspaceId,
         userId,
@@ -319,8 +270,8 @@ export class EpicService {
       }
     }
     if (
-      (body.name !== undefined && body.name !== existing.name) ||
-      body.description !== undefined
+      (validated.name !== undefined && validated.name !== existing.name) ||
+      validated.description !== undefined
     ) {
       await activityService.logActivity({
         workspaceId: project.workspaceId,

@@ -9,6 +9,7 @@ import {
   GripVertical,
   Circle,
   ChevronRight,
+  ChevronDown,
   Loader2,
   Eye,
   CheckCircle2,
@@ -44,6 +45,7 @@ import {
 import { BoardColumnsSkeleton } from "@/components/ui/skeleton";
 import UserAvatar from "@/components/ui/user-avatar";
 import BoardToolbar, { type GroupBy } from "@/components/project/BoardToolbar";
+import { EPIC_COLOR_DOT_CLASS, type EpicColor } from "@/lib/epic-style";
 import type { LucideIcon } from "lucide-react";
 
 function buildSprintPickerOptions(sprints: ProjectSprint[], currentSprintId: string | null) {
@@ -226,6 +228,7 @@ export default function ProjectBoardPage() {
   const [epicFilter, setEpicFilter] = useState<string[]>([]);
   const [groupBy, setGroupBy] = useState<GroupBy>("none");
 
+  const epicById = useMemo(() => new Map(epics.map((e) => [e.id, e])), [epics]);
   const epicNameById = useMemo(() => new Map(epics.map((e) => [e.id, e.name])), [epics]);
 
   const memberAvatarById = useMemo(
@@ -283,7 +286,7 @@ export default function ProjectBoardPage() {
       fetchWorkspaceMembers(wid),
       fetchSprints(pid),
       fetchProject(pid),
-      fetchEpics(pid),
+      fetchEpics(pid, { skipProgress: true }),
     ])
       .then(([t, m, sp, p, e]) => {
         setTickets(t);
@@ -669,78 +672,98 @@ export default function ProjectBoardPage() {
     columnId: string,
     isOver: boolean,
     enableReorder: boolean
-  ) => (
-    <div key={ticket.id}>
-      {enableReorder && isOver && dropTargetIndex === index && (
-        <div className="h-0.5 bg-accent rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_var(--color-accent-soft)]" />
-      )}
-      <div
-        draggable
-        onDragStart={(e) => handleDragStart(e, ticket.id)}
-        onDragEnd={handleDragEnd}
-        onDragOver={enableReorder ? (e) => handleCardDragOver(e, index) : undefined}
-        onDrop={(e) => void handleDrop(e, columnId)}
-        onClick={() => openDetail(ticket)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            openDetail(ticket);
-          }
-        }}
-        tabIndex={0}
-        className={`group/card relative cursor-pointer rounded-lg border border-border bg-surface p-3.5 pr-10 shadow-sm transition-all select-none hover:border-border-hover hover:bg-surface-hover active:cursor-grabbing ${
-          draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
-        }`}
-      >
-        <div className="pointer-events-none absolute top-2.5 right-2.5 text-muted" aria-hidden>
-          <GripVertical className="h-3.5 w-3.5" />
-        </div>
+  ) => {
+    const epic = ticket.epicId ? (epicById.get(ticket.epicId) ?? null) : null;
+    const epicDotClass =
+      epic?.color && epic.color in EPIC_COLOR_DOT_CLASS
+        ? EPIC_COLOR_DOT_CLASS[epic.color as EpicColor]
+        : "bg-accent";
 
-        <div className="mb-2.5 flex flex-wrap items-center gap-2">
-          <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-medium capitalize ${typeColors[ticket.type] || typeColors.task}`}
-          >
-            {ticket.type}
-          </span>
-          <span
-            className={`rounded border px-1.5 py-0.5 text-[10px] font-medium capitalize ${priorityColors[ticket.priority] || priorityColors.medium}`}
-          >
-            {ticket.priority}
-          </span>
-          {ticket.blockedByOpenDependencies ? (
-            <span
-              className="inline-flex items-center gap-0.5 rounded border border-warning/20 bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium text-warning"
-              title="Blocked by prerequisites not done yet"
+    return (
+      <div key={ticket.id}>
+        {enableReorder && isOver && dropTargetIndex === index && (
+          <div className="h-0.5 bg-accent rounded-full mx-1 mb-1 animate-pulse shadow-[0_0_6px_var(--color-accent-soft)]" />
+        )}
+        <div
+          draggable
+          onDragStart={(e) => handleDragStart(e, ticket.id)}
+          onDragEnd={handleDragEnd}
+          onDragOver={enableReorder ? (e) => handleCardDragOver(e, index) : undefined}
+          onDrop={(e) => void handleDrop(e, columnId)}
+          onClick={() => openDetail(ticket)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openDetail(ticket);
+            }
+          }}
+          tabIndex={0}
+          className={`group/card relative cursor-pointer rounded-lg border border-border bg-surface p-3.5 pr-10 shadow-sm transition-all select-none hover:border-border-hover hover:bg-surface-hover active:cursor-grabbing ${
+            draggedTicketId === ticket.id ? "opacity-40 scale-[0.98]" : ""
+          }`}
+        >
+          <div className="pointer-events-none absolute top-2.5 right-2.5 text-muted" aria-hidden>
+            <GripVertical className="h-3.5 w-3.5" />
+          </div>
+
+          <h4 className="mb-2 text-[13px] font-medium leading-snug text-muted2 group-hover/card:text-fg">
+            {ticket.title}
+          </h4>
+
+          {epic ? (
+            <div
+              className="mb-2.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-surface-sunken/80 py-0.5 pl-1 pr-1.5"
+              title={`Epic: ${epic.name}`}
             >
-              <Link2 className="h-3 w-3" aria-hidden />
-              Waiting
-            </span>
-          ) : null}
-        </div>
-
-        <div className="mb-1 font-mono text-[11px] text-muted">{ticket.key}</div>
-
-        <h4 className="mb-4 text-[13px] font-medium leading-snug text-muted2 group-hover/card:text-fg">
-          {ticket.title}
-        </h4>
-
-        <div className="flex items-center justify-between">
-          <UserAvatar
-            name={ticket.assigneeName}
-            avatarUrl={ticket.assigneeId ? (memberAvatarById.get(ticket.assigneeId) ?? null) : null}
-            size="xs"
-            className="border border-border bg-surface-2 font-semibold text-muted2"
-            title={ticket.assigneeName ?? "Unassigned"}
-          />
-          {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
-            <div className="rounded bg-surface-2/80 px-1.5 py-0.5 text-[10px] font-medium text-muted">
-              {ticket.storyPoints} pts
+              <span className={`h-3 w-3 shrink-0 rounded-sm ${epicDotClass}`} aria-hidden />
+              <span className="truncate text-[11px] font-medium text-fg">{epic.name}</span>
+              <ChevronDown className="h-3 w-3 shrink-0 text-muted" aria-hidden />
             </div>
-          )}
+          ) : null}
+
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-medium capitalize ${typeColors[ticket.type] || typeColors.task}`}
+            >
+              {ticket.type}
+            </span>
+            <span
+              className={`rounded border px-1.5 py-0.5 text-[10px] font-medium capitalize ${priorityColors[ticket.priority] || priorityColors.medium}`}
+            >
+              {ticket.priority}
+            </span>
+            {ticket.blockedByOpenDependencies ? (
+              <span
+                className="inline-flex items-center gap-0.5 rounded border border-warning/20 bg-warning-soft px-1.5 py-0.5 text-[10px] font-medium text-warning"
+                title="Blocked by prerequisites not done yet"
+              >
+                <Link2 className="h-3 w-3" aria-hidden />
+                Waiting
+              </span>
+            ) : null}
+            <span className="font-mono text-[11px] text-muted">{ticket.key}</span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <UserAvatar
+              name={ticket.assigneeName}
+              avatarUrl={
+                ticket.assigneeId ? (memberAvatarById.get(ticket.assigneeId) ?? null) : null
+              }
+              size="xs"
+              className="border border-border bg-surface-2 font-semibold text-muted2"
+              title={ticket.assigneeName ?? "Unassigned"}
+            />
+            {ticket.storyPoints !== null && ticket.storyPoints !== undefined && (
+              <div className="rounded bg-surface-2/80 px-1.5 py-0.5 text-[10px] font-medium text-muted">
+                {ticket.storyPoints} pts
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderColumnCards = (
     column: BoardColumnConfig,

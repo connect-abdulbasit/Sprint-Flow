@@ -59,18 +59,19 @@ export default function AllIssuesPage() {
   const load = useCallback(() => {
     if (!pid || !wid) return;
     setReady(false);
-    Promise.all([fetchTickets(pid), fetchEpics(pid), fetchWorkspaceMembers(wid), fetchProject(pid)])
-      .then(([t, e, m, p]) => {
-        setTickets(t);
-        setEpics(e);
-        setMembers(m);
-        setProject(p);
-      })
-      .catch(() => {
-        setTickets([]);
-        setEpics([]);
-      })
+    fetchTickets(pid)
+      .then(setTickets)
+      .catch(() => setTickets([]))
       .finally(() => setReady(true));
+    fetchEpics(pid, { skipProgress: true })
+      .then(setEpics)
+      .catch(() => setEpics([]));
+    fetchWorkspaceMembers(wid)
+      .then(setMembers)
+      .catch(() => setMembers([]));
+    fetchProject(pid)
+      .then(setProject)
+      .catch(() => setProject(null));
   }, [pid, wid]);
 
   useEffect(() => {

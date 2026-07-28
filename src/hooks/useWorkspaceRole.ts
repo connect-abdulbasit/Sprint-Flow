@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { WorkspaceRole } from "@/lib/auth/rbac";
 import { hasRole as checkHasRole, hasPermission as checkHasPermission } from "@/lib/auth/rbac";
 import type { Permission } from "@/lib/auth/rbac";
+import { dedupeFetch } from "@/lib/dedupe-fetch";
 
 type UseWorkspaceRoleReturn = {
   role: WorkspaceRole | null;
@@ -26,13 +27,12 @@ export function useWorkspaceRole(workspaceId: string | undefined): UseWorkspaceR
 
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/role`);
-      if (res.ok) {
-        const data = await res.json();
-        setRole(data.role as WorkspaceRole);
-      } else {
-        setRole(null);
-      }
+      const data = await dedupeFetch(`role:${workspaceId}`, async () => {
+        const res = await fetch(`/api/workspaces/${workspaceId}/role`);
+        if (res.ok) return res.json() as Promise<{ role: WorkspaceRole }>;
+        return { role: null as WorkspaceRole | null };
+      });
+      setRole(data.role);
     } catch {
       setRole(null);
     } finally {

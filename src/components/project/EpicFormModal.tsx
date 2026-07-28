@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Loader2, Trash2, X } from "lucide-react";
 import {
   createEpic,
@@ -23,6 +23,7 @@ import {
   type EpicIcon,
 } from "@/lib/epic-style";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
+import { validateEpicFormInput } from "@/modules/epic/epic.validation";
 
 export interface EpicFormModalProps {
   projectId: string;
@@ -102,32 +103,40 @@ export default function EpicFormModal({
 
   if (!isOpen) return null;
 
+  const requiredMark = <span className="text-danger">*</span>;
+
+  const FieldLabel = ({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) => (
+    <label htmlFor={htmlFor} className="mb-1 block text-[11px] font-medium text-muted">
+      {children} {requiredMark}
+    </label>
+  );
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError("Name is required.");
+    const labels = labelsInput
+      .split(",")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const validation = validateEpicFormInput({
+      name,
+      description,
+      status,
+      priority,
+      ownerId,
+      color,
+      icon,
+      labels,
+      startDate,
+      dueDate,
+    });
+    if (!validation.ok) {
+      setError(validation.error);
       return;
     }
     setError(null);
     setSubmitting(true);
     try {
-      const labels = labelsInput
-        .split(",")
-        .map((l) => l.trim())
-        .filter(Boolean);
-      const payload = {
-        name: trimmed,
-        description: description.trim() || null,
-        status,
-        priority,
-        ownerId: ownerId === "" ? null : ownerId,
-        color: color === "" ? null : color,
-        icon: icon === "" ? null : icon,
-        labels,
-        startDate: startDate === "" ? null : startDate,
-        dueDate: dueDate === "" ? null : dueDate,
-      };
+      const payload = validation.data;
       if (mode === "create") {
         const created = await createEpic(projectId, payload);
         onSaved(created);
@@ -173,7 +182,7 @@ export default function EpicFormModal({
           onClick={(e) => e.stopPropagation()}
         >
           <form onSubmit={(e) => void handleSubmit(e)} className="p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-1">
               <h2 id="epic-form-title" className="text-[15px] font-semibold text-fg">
                 {mode === "create" ? "New epic" : "Edit epic"}
               </h2>
@@ -185,6 +194,9 @@ export default function EpicFormModal({
                 <X className="w-4 h-4" />
               </button>
             </div>
+            <p className="mb-4 text-[11px] text-muted">
+              Fields marked with <span className="text-danger">*</span> are required
+            </p>
 
             {error && (
               <div className="mb-3 rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-[12px] text-danger">
@@ -194,10 +206,11 @@ export default function EpicFormModal({
 
             <div className="space-y-3">
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-muted">Name</label>
+                <FieldLabel>Name</FieldLabel>
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  required
                   className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[14px] text-fg focus:border-accent/40 focus:outline-none"
                   placeholder="e.g. User Authentication"
                   autoFocus
@@ -205,10 +218,11 @@ export default function EpicFormModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-muted">Description</label>
+                <FieldLabel>Description</FieldLabel>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  required
                   rows={3}
                   className="w-full resize-none rounded-lg border border-border bg-hover px-3 py-2 text-[14px] text-fg focus:border-accent/40 focus:outline-none"
                   placeholder="Goals, scope, context…"
@@ -217,10 +231,11 @@ export default function EpicFormModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted">Status</label>
+                  <FieldLabel>Status</FieldLabel>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as EpicStatus)}
+                    required
                     className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                   >
                     {EPIC_STATUSES.map((s) => (
@@ -231,10 +246,11 @@ export default function EpicFormModal({
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted">Priority</label>
+                  <FieldLabel>Priority</FieldLabel>
                   <select
                     value={priority}
                     onChange={(e) => setPriority(e.target.value)}
+                    required
                     className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                   >
                     {TICKET_PRIORITIES.map((p) => (
@@ -247,13 +263,16 @@ export default function EpicFormModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-muted">Owner</label>
+                <FieldLabel>Owner</FieldLabel>
                 <select
                   value={ownerId}
                   onChange={(e) => setOwnerId(e.target.value)}
+                  required
                   className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                 >
-                  <option value="">Unassigned</option>
+                  <option value="" disabled>
+                    Select owner…
+                  </option>
                   {members.map((m) => (
                     <option key={m.userId} value={m.userId}>
                       {m.name}
@@ -264,36 +283,38 @@ export default function EpicFormModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted">
-                    Start date
-                  </label>
+                  <FieldLabel>Start date</FieldLabel>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    required
                     className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-muted">Due date</label>
+                  <FieldLabel>Due date</FieldLabel>
                   <input
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
+                    required
+                    min={startDate || undefined}
                     className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[13px] text-fg focus:border-accent/40 focus:outline-none"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-muted">Color</label>
+                <FieldLabel>Color</FieldLabel>
                 <div className="flex flex-wrap gap-2">
                   {EPIC_COLORS.map((c) => (
                     <button
                       key={c}
                       type="button"
-                      onClick={() => setColor(color === c ? "" : c)}
+                      onClick={() => setColor(c)}
                       aria-label={c}
+                      aria-pressed={color === c}
                       className={`h-7 w-7 rounded-full ${EPIC_COLOR_DOT_CLASS[c]} ${color === c ? "ring-2 ring-offset-2 ring-offset-surface ring-fg" : "opacity-60 hover:opacity-100"}`}
                     />
                   ))}
@@ -301,7 +322,7 @@ export default function EpicFormModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-muted">Icon</label>
+                <FieldLabel>Icon</FieldLabel>
                 <div className="flex flex-wrap gap-2">
                   {EPIC_ICONS.map((i) => {
                     const IconComponent = EPIC_ICON_COMPONENT[i];
@@ -309,8 +330,9 @@ export default function EpicFormModal({
                       <button
                         key={i}
                         type="button"
-                        onClick={() => setIcon(icon === i ? "" : i)}
+                        onClick={() => setIcon(i)}
                         aria-label={i}
+                        aria-pressed={icon === i}
                         className={`flex h-8 w-8 items-center justify-center rounded-lg border ${icon === i ? "border-accent bg-accent-soft text-accent" : "border-border text-muted hover:bg-hover hover:text-muted2"}`}
                       >
                         <IconComponent className="h-4 w-4" />
@@ -321,10 +343,11 @@ export default function EpicFormModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-[11px] font-medium text-muted">Labels</label>
+                <FieldLabel>Labels</FieldLabel>
                 <input
                   value={labelsInput}
                   onChange={(e) => setLabelsInput(e.target.value)}
+                  required
                   placeholder="frontend, q3-goal"
                   className="w-full rounded-lg border border-border bg-hover px-3 py-2 text-[14px] text-fg placeholder:text-muted focus:border-accent/40 focus:outline-none"
                 />

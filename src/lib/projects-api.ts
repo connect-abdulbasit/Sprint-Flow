@@ -1,3 +1,5 @@
+import { dedupeFetch } from "@/lib/dedupe-fetch";
+
 export interface BoardColumnConfig {
   id: string;
   title: string;
@@ -83,9 +85,11 @@ export async function deleteProject(id: string): Promise<void> {
   await handleResponse<void>(res);
 }
 
-export async function fetchProject(id: string): Promise<Project> {
-  const res = await fetch(`/api/projects/${encodeURIComponent(id)}`);
-  return handleResponse<Project>(res);
+export function fetchProject(id: string): Promise<Project> {
+  return dedupeFetch(`project:${id}`, async () => {
+    const res = await fetch(`/api/projects/${encodeURIComponent(id)}`);
+    return handleResponse<Project>(res);
+  });
 }
 
 export interface MyTask {
@@ -237,10 +241,12 @@ export async function createSubtask(
   return createTicket(projectId, { ...payload, parentTaskId, type: "task" });
 }
 
-export async function fetchTickets(projectId: string): Promise<ProjectTicket[]> {
-  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/tickets`);
-  const data = await handleResponse<ProjectTicket[] | PaginatedResponse<ProjectTicket>>(res);
-  return extractItems(data);
+export function fetchTickets(projectId: string): Promise<ProjectTicket[]> {
+  return dedupeFetch(`tickets:${projectId}`, async () => {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/tickets`);
+    const data = await handleResponse<ProjectTicket[] | PaginatedResponse<ProjectTicket>>(res);
+    return extractItems(data);
+  });
 }
 
 export interface TicketTimeEntry {
@@ -345,10 +351,12 @@ export interface ProjectMember {
   avatarUrl?: string | null;
 }
 
-export async function fetchWorkspaceMembers(workspaceId: string): Promise<ProjectMember[]> {
-  const res = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/members`);
-  const data = await handleResponse<ProjectMember[] | PaginatedResponse<ProjectMember>>(res);
-  return extractItems(data);
+export function fetchWorkspaceMembers(workspaceId: string): Promise<ProjectMember[]> {
+  return dedupeFetch(`members:${workspaceId}`, async () => {
+    const res = await fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/members`);
+    const data = await handleResponse<ProjectMember[] | PaginatedResponse<ProjectMember>>(res);
+    return extractItems(data);
+  });
 }
 
 export async function deleteTicket(projectId: string, ticketId: string): Promise<void> {
@@ -448,27 +456,33 @@ export interface Epic {
 
 export interface CreateEpicPayload {
   name: string;
-  description?: string | null;
-  status?: EpicStatus;
-  priority?: string;
-  ownerId?: string | null;
-  color?: string | null;
-  icon?: string | null;
-  labels?: string[] | null;
-  startDate?: string | null;
-  dueDate?: string | null;
+  description: string;
+  status: EpicStatus;
+  priority: string;
+  ownerId: string;
+  color: string;
+  icon: string;
+  labels: string[];
+  startDate: string;
+  dueDate: string;
 }
 
 export type UpdateEpicPayload = Partial<CreateEpicPayload>;
 
-export async function fetchEpics(
+export function fetchEpics(
   projectId: string,
-  opts?: { includeArchived?: boolean }
+  opts?: { includeArchived?: boolean; skipProgress?: boolean }
 ): Promise<Epic[]> {
-  const qs = opts?.includeArchived ? "?includeArchived=1" : "";
-  const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/epics${qs}`);
-  const data = await handleResponse<Epic[] | PaginatedResponse<Epic>>(res);
-  return extractItems(data);
+  const params = new URLSearchParams();
+  if (opts?.includeArchived) params.set("includeArchived", "1");
+  if (opts?.skipProgress) params.set("skipProgress", "1");
+  const qs = params.toString();
+  const suffix = qs ? `?${qs}` : "";
+  return dedupeFetch(`epics:${projectId}:${suffix}`, async () => {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/epics${suffix}`);
+    const data = await handleResponse<Epic[] | PaginatedResponse<Epic>>(res);
+    return extractItems(data);
+  });
 }
 
 export async function fetchEpic(projectId: string, epicId: string): Promise<Epic> {

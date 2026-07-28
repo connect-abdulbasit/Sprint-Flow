@@ -31,7 +31,11 @@ export class EpicController {
     try {
       const { id: projectId } = await context.params;
       const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "1";
-      const epics = await epicService.listEpics(user.id, projectId, { includeArchived });
+      const skipProgress = req.nextUrl.searchParams.get("skipProgress") === "1";
+      const epics = await epicService.listEpics(user.id, projectId, {
+        includeArchived,
+        skipProgress,
+      });
       const pagination = parsePaginationParams(req.nextUrl.searchParams, {
         defaultPageSize: 50,
         maxPageSize: 200,
@@ -52,22 +56,7 @@ export class EpicController {
     try {
       const { id: projectId } = await context.params;
       const body = await req.json();
-      const name = String(body.name ?? "").trim();
-      if (!name) {
-        return NextResponse.json({ error: "name is required" }, { status: 400 });
-      }
-      const epic = await epicService.createEpic(user.id, projectId, {
-        name,
-        description: body.description,
-        status: body.status,
-        priority: body.priority,
-        ownerId: body.ownerId,
-        color: body.color,
-        icon: body.icon,
-        labels: Array.isArray(body.labels) ? body.labels : undefined,
-        startDate: body.startDate,
-        dueDate: body.dueDate,
-      });
+      const epic = await epicService.createEpic(user.id, projectId, body);
       return NextResponse.json(epic, { status: 201 });
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to create epic";
@@ -100,18 +89,7 @@ export class EpicController {
     try {
       const { id: projectId, epicId } = await context.params;
       const body = await req.json();
-      const epic = await epicService.updateEpic(user.id, projectId, epicId, {
-        name: body.name,
-        description: body.description,
-        status: body.status,
-        priority: body.priority,
-        ownerId: body.ownerId,
-        color: body.color,
-        icon: body.icon,
-        labels: Array.isArray(body.labels) ? body.labels : undefined,
-        startDate: body.startDate,
-        dueDate: body.dueDate,
-      });
+      const epic = await epicService.updateEpic(user.id, projectId, epicId, body);
       return NextResponse.json(epic);
     } catch (error) {
       const message = (error as Error)?.message ?? "Failed to update epic";

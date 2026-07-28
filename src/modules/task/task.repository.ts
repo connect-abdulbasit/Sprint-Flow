@@ -70,6 +70,20 @@ export class TaskRepository {
       .execute();
   }
 
+  /** Minimal columns for epic progress aggregation — avoids loading full ticket rows. */
+  async findProgressInputsByProject(projectId: string) {
+    return db
+      .select({
+        id: tasksTable.id,
+        epicId: tasksTable.epicId,
+        parentTaskId: tasksTable.parentTaskId,
+        status: tasksTable.status,
+      })
+      .from(tasksTable)
+      .where(eq(tasksTable.projectId, projectId))
+      .execute();
+  }
+
   /** All tasks assigned to a user across every project in a workspace. */
   async findByAssigneeInWorkspace(assigneeId: string, workspaceId: string) {
     return db

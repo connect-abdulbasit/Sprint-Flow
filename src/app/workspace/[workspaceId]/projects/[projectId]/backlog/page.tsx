@@ -97,7 +97,7 @@ export default function ProjectBacklogPage() {
       fetchSprints(pid),
       fetchWorkspaceMembers(wid),
       fetchProject(pid),
-      fetchEpics(pid),
+      fetchEpics(pid, { skipProgress: true }),
     ])
       .then(([t, sp, m, p, e]) => {
         setTickets(t);

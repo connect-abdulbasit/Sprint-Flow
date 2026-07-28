@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import ProjectPageHeader from "@/components/project/ProjectPageHeader";
 import EpicFormModal from "@/components/project/EpicFormModal";
-import BulkActionBar from "@/components/project/BulkActionBar";
+import BulkActionBar, { type BulkAction } from "@/components/project/BulkActionBar";
 import { ProgressBar, ProgressRing } from "@/components/project/detail/ProgressRing";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { EpicsGridSkeleton } from "@/components/ui/skeleton";
@@ -101,16 +101,13 @@ export default function EpicListPage() {
   const load = useCallback(() => {
     if (!pid || !wid) return;
     setReady(false);
-    Promise.all([fetchEpics(pid, { includeArchived: true }), fetchWorkspaceMembers(wid)])
-      .then(([e, m]) => {
-        setEpics(e);
-        setMembers(m);
-      })
-      .catch(() => {
-        setEpics([]);
-        setMembers([]);
-      })
+    fetchEpics(pid, { includeArchived: true })
+      .then(setEpics)
+      .catch(() => setEpics([]))
       .finally(() => setReady(true));
+    fetchWorkspaceMembers(wid)
+      .then(setMembers)
+      .catch(() => setMembers([]));
   }, [pid, wid]);
 
   useEffect(() => {
@@ -154,16 +151,60 @@ export default function EpicListPage() {
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  const runBulk = async (fn: (_id: string) => Promise<unknown>) => {
-    setBulkBusy(true);
-    try {
-      await Promise.all([...selectedIds].map((id) => fn(id)));
-      clearSelection();
-      load();
-    } finally {
-      setBulkBusy(false);
+  const runBulkOn = useCallback(
+    async (filter: (_epic: Epic) => boolean, fn: (_id: string) => Promise<unknown>) => {
+      const ids = epics.filter((e) => selectedIds.has(e.id) && filter(e)).map((e) => e.id);
+      if (ids.length === 0) return;
+      setBulkBusy(true);
+      try {
+        await Promise.all(ids.map((id) => fn(id)));
+        setSelectedIds(new Set());
+        load();
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [epics, selectedIds, load]
+  );
+
+  const bulkActions = useMemo(() => {
+    const selected = epics.filter((e) => selectedIds.has(e.id));
+    const hasActive = selected.some((e) => !e.archivedAt);
+    const hasArchived = selected.some((e) => e.archivedAt);
+    const actions: BulkAction[] = [];
+
+    if (canManage && hasActive) {
+      actions.push({
+        label: "Archive",
+        icon: <Archive className="h-3.5 w-3.5" />,
+        onClick: () =>
+          void runBulkOn(
+            (e) => !e.archivedAt,
+            (id) => archiveEpic(pid, id)
+          ),
+      });
     }
-  };
+    if (canManage && hasArchived) {
+      actions.push({
+        label: "Unarchive",
+        icon: <ArchiveRestore className="h-3.5 w-3.5" />,
+        onClick: () =>
+          void runBulkOn(
+            (e) => Boolean(e.archivedAt),
+            (id) => unarchiveEpic(pid, id)
+          ),
+      });
+    }
+    if (canDelete) {
+      actions.push({
+        label: "Delete",
+        icon: <Trash2 className="h-3.5 w-3.5" />,
+        variant: "danger",
+        onClick: () => setBulkDeleteConfirm(true),
+      });
+    }
+    return actions;
+  }, [canManage, canDelete, epics, selectedIds, pid, runBulkOn]);
 
   return (
     <div className="flex flex-col h-full bg-surface-sunken">
@@ -193,7 +234,10 @@ export default function EpicListPage() {
         variant="danger"
         onConfirm={() => {
           setBulkDeleteConfirm(false);
-          void runBulk((id) => deleteEpic(pid, id));
+          void runBulkOn(
+            () => true,
+            (id) => deleteEpic(pid, id)
+          );
         }}
       />
 
@@ -390,27 +434,7 @@ export default function EpicListPage() {
         count={selectedIds.size}
         onClear={clearSelection}
         busy={bulkBusy}
-        actions={[
-          {
-            label: "Archive",
-            icon: <Archive className="h-3.5 w-3.5" />,
-            onClick: () => void runBulk((id) => archiveEpic(pid, id)),
-            disabled: !canManage,
-          },
-          {
-            label: "Unarchive",
-            icon: <ArchiveRestore className="h-3.5 w-3.5" />,
-            onClick: () => void runBulk((id) => unarchiveEpic(pid, id)),
-            disabled: !canManage,
-          },
-          {
-            label: "Delete",
-            icon: <Trash2 className="h-3.5 w-3.5" />,
-            variant: "danger",
-            onClick: () => setBulkDeleteConfirm(true),
-            disabled: !canDelete,
-          },
-        ]}
+        actions={bulkActions}
       />
     </div>
   );
